@@ -14,7 +14,10 @@ from .shell import Shell
 def _noop_service(stop_event=None):
     # simple background task that can be stopped when given an event
     while not (stop_event and stop_event.is_set()):
-        time.sleep(1)
+        if stop_event:
+            stop_event.wait(0.1)
+        else:
+            time.sleep(0.1)
 
 
 class Kernel:
