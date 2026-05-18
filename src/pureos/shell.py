@@ -73,20 +73,24 @@ class Shell:
         if line.startswith("mkdir "):
             parts = line.split(maxsplit=1)
             path = parts[1]
-            # create a directory marker
             dirpath = path if path.endswith("/") else path + "/"
-            self.kernel.fs.write(dirpath, "")
-            print(f"Created directory {dirpath}")
+            try:
+                self.kernel.fs.mkdir(dirpath)
+                print(f"Created directory {dirpath}")
+            except ValueError as exc:
+                print(str(exc))
             return
 
         if line.startswith("touch "):
             parts = line.split(maxsplit=1)
             path = parts[1]
             if not self.kernel.fs.exists(path):
-                self.kernel.fs.write(path, "")
-                print(f"Created file {path}")
+                try:
+                    self.kernel.fs.write(path, "")
+                    print(f"Created file {path}")
+                except ValueError as exc:
+                    print(str(exc))
             else:
-                # update timestamp not tracked
                 print(f"Touched {path}")
             return
 
