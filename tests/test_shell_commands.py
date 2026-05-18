@@ -207,6 +207,8 @@ def test_shell_source_script(tmp_path):
     k.initialize()
     sh = k.shell
 
-    k.fs.write("/tmp/script", "# sample script\nmkdir /scriptdir\nwrite /scriptdir/foo bar\n")
+    k.fs.write(
+        "/tmp/script", "# sample script\nmkdir /scriptdir\nwrite /scriptdir/foo bar\n"
+    )
     sh.execute("source /tmp/script")
     assert k.fs.read("/scriptdir/foo") == "bar"
