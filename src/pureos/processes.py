@@ -3,11 +3,13 @@
 from dataclasses import dataclass
 import itertools
 
+
 @dataclass
 class Process:
     pid: int
     name: str
     status: str = "ready"
+
 
 class Scheduler:
     def __init__(self):

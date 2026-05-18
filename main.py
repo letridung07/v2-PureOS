@@ -15,6 +15,7 @@ import socket
 
 import sys
 import os
+
 # Ensure src/ is on sys.path for local development
 ROOT = os.path.dirname(__file__)
 SRC = os.path.join(ROOT, "src")
@@ -43,7 +44,11 @@ def system_info():
 
 def main():
     parser = argparse.ArgumentParser(description="v2-PureOS entrypoint")
-    parser.add_argument("--shell", action="store_true", help="Start interactive shell after initialization")
+    parser.add_argument(
+        "--shell",
+        action="store_true",
+        help="Start interactive shell after initialization",
+    )
     args = parser.parse_args()
 
     banner()

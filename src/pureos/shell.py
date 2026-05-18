@@ -1,5 +1,6 @@
 """Tiny interactive shell for v2-PureOS."""
 
+
 class Shell:
     def __init__(self, kernel):
         self.kernel = kernel

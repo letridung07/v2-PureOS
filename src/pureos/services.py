@@ -11,7 +11,9 @@ class ServiceManager:
         self._threads: Dict[str, threading.Thread] = {}
         self._stop_events: Dict[str, threading.Event] = {}
 
-    def register(self, name: str, func: Callable, daemon: bool = True, stoppable: bool = False):
+    def register(
+        self, name: str, func: Callable, daemon: bool = True, stoppable: bool = False
+    ):
         self._services[name] = {"func": func, "daemon": daemon, "stoppable": stoppable}
 
     def start(self, name: str):
@@ -25,7 +27,9 @@ class ServiceManager:
 
             def target():
                 return func(stop_event)
+
         else:
+
             def target():
                 return func()
 
