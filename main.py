@@ -5,60 +5,24 @@
 Initializes the package and optionally enters an interactive shell.
 """
 
-import argparse
 import importlib
-import json
 import os
-import platform
 import sys
-import time
-import getpass
-import socket
 
 # Try top-level import first; if it fails, add src/ to sys.path and import dynamically
 try:
-    from pureos import run as run_pureos
+    from pureos.cli import main as run_pureos_cli
 except Exception:
     ROOT = os.path.dirname(__file__)
     SRC = os.path.join(ROOT, "src")
     if SRC not in sys.path:
         sys.path.insert(0, SRC)
-    pureos = importlib.import_module("pureos")
-    run_pureos = pureos.run
-
-
-def banner():
-    print("v2-PureOS - minimal Python OS")
-    print("=" * 48)
-
-
-def system_info():
-    info = {
-        "python": sys.version.split()[0],
-        "platform": platform.platform(),
-        "cwd": os.getcwd(),
-        "user": getpass.getuser(),
-        "hostname": socket.gethostname(),
-        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
-    }
-    print("System info:")
-    print(json.dumps(info, indent=2))
+    cli = importlib.import_module("pureos.cli")
+    run_pureos_cli = cli.main
 
 
 def main():
-    parser = argparse.ArgumentParser(description="v2-PureOS entrypoint")
-    parser.add_argument(
-        "--shell",
-        action="store_true",
-        help="Start interactive shell after initialization",
-    )
-    args = parser.parse_args()
-
-    banner()
-    system_info()
-    run_pureos(shell=args.shell)
-    print("Initialization complete.")
-    print("Exiting.")
+    run_pureos_cli()
 
 
 if __name__ == "__main__":

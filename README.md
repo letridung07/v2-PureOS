@@ -17,7 +17,7 @@ Running tests
 **Getting started**
 - Clone the repository.
 - Run the project's entrypoint (example): `python3 main.py`
-	Replace `main.py` with the actual entrypoint if different.
+- Or run the package directly: `python3 -m pureos`
 
 **Shell commands**
 After initializing the kernel you can start the interactive shell (`--shell`) and run simple commands:
@@ -36,7 +36,7 @@ After initializing the kernel you can start the interactive shell (`--shell`) an
 
 Example:
 
-`python3 main.py --shell`
+`python3 -m pureos --shell`
 
 Then at the prompt:
 
