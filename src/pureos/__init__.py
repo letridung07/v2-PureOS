@@ -8,9 +8,9 @@ from .kernel import Kernel
 __version__ = "0.1.0"
 
 
-def run(shell: bool = False):
+def run(shell: bool = False, config: dict = None):
     """Initialize kernel components and optionally run the interactive shell."""
-    k = Kernel()
+    k = Kernel(config=config)
     k.initialize()
     if shell:
         k.shell.run()
