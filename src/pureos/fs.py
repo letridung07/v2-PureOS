@@ -217,7 +217,9 @@ class VirtualFS:
             return "/"
         return parent + "/"
 
-    def _normalize_path(self, path: str, is_dir: bool = False, allow_dir: bool = False) -> str:
+    def _normalize_path(
+        self, path: str, is_dir: bool = False, allow_dir: bool = False
+    ) -> str:
         if path is None:
             path = ""
         path = path.replace("\\", "/")
@@ -256,7 +258,9 @@ class VirtualFS:
                 data = json.load(f)
             self.files = {}
             self.dirs = {"/"}
-            if isinstance(data, dict) and all(isinstance(v, str) for v in data.values()):
+            if isinstance(data, dict) and all(
+                isinstance(v, str) for v in data.values()
+            ):
                 for path, content in data.items():
                     normalized = self._normalize_path(path, is_dir=path.endswith("/"))
                     if normalized.endswith("/"):
