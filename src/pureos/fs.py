@@ -1,5 +1,4 @@
-"""Simple virtual filesystem with optional on-disk backing.
-"""
+"""Simple virtual filesystem with optional on-disk backing."""
 
 import json
 import os

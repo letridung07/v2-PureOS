@@ -14,7 +14,9 @@ class Shell:
             return "exit"
         if line == "help":
             print("help, info, ls [prefix], ps, services, exit")
-            print("mkdir <path>, rm <path>, mv <src> <dst>, cp <src> <dst>, touch <path>")
+            print(
+                "mkdir <path>, rm <path>, mv <src> <dst>, cp <src> <dst>, touch <path>"
+            )
             print("write <path> <content>, echo <text> > <path>")
             print("head <path> [n], tail <path> [n]")
             print("service start|stop|status|restart <name>")

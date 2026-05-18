@@ -30,7 +30,7 @@ jobs:
       - name: Run linters (ruff, black)
         run: |
           ruff check .
-          black --check .
+          black --check --target-version py311 .
 
       - name: Run tests with coverage
         run: |

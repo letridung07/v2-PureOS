@@ -4,6 +4,7 @@
 
 Initializes the package and optionally enters an interactive shell.
 """
+
 import argparse
 import importlib
 import json

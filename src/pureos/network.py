@@ -5,7 +5,9 @@ import threading
 from typing import Tuple
 
 
-def start_echo_server(host: str = "127.0.0.1", port: int = 0) -> Tuple[int, threading.Thread, threading.Event]:
+def start_echo_server(
+    host: str = "127.0.0.1", port: int = 0
+) -> Tuple[int, threading.Thread, threading.Event]:
     """Start a simple TCP echo server in a background thread.
 
     Returns (port, thread, stop_event). If port is 0 an ephemeral port is selected.
