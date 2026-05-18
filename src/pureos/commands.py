@@ -57,8 +57,12 @@ class CommandRegistry:
         return self.kernel.shell.resolve_path(path, is_dir=is_dir, allow_dir=allow_dir)
 
     def _cmd_help(self, parts: List[str]) -> None:
-        print("help, info, ls [prefix], pwd, cd <path>, find [path], ps, services, exit")
-        print("mkdir <path>, rmdir <path>, rm <path>, mv <src> <dst>, cp <src> <dst>, touch <path>")
+        print(
+            "help, info, ls [prefix], pwd, cd <path>, find [path], ps, services, exit"
+        )
+        print(
+            "mkdir <path>, rmdir <path>, rm <path>, mv <src> <dst>, cp <src> <dst>, touch <path>"
+        )
         print("write <path> <content>, append <path> <content>, echo <text> > <path>")
         print("head <path> [n], tail <path> [n]")
         print("service start|stop|status|restart <name>")
