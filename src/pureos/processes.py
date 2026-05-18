@@ -83,6 +83,15 @@ class Scheduler:
             self.kill(pid)
 
     def wait_all(self, timeout: Optional[float] = None) -> bool:
+        if timeout is None:
+            for thread in self._threads.values():
+                thread.join()
+            return all(not thread.is_alive() for thread in self._threads.values())
+
+        deadline = time.time() + timeout
         for thread in self._threads.values():
-            thread.join(timeout)
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            thread.join(remaining)
         return all(not thread.is_alive() for thread in self._threads.values())

@@ -43,3 +43,15 @@ def test_scheduler_kill_sets_exit_status():
     assert s.status(p.pid).status == "killed"
     assert s.status(p.pid).exit_code == 1
     assert s.status(p.pid).exit_reason == "killed"
+
+
+def test_scheduler_wait_all_timeout_is_global():
+    s = Scheduler()
+    s.spawn("alpha", runtime=0.5)
+    s.spawn("beta", runtime=0.5)
+    start = time.time()
+    result = s.wait_all(timeout=0.05)
+    elapsed = time.time() - start
+    assert result is False
+    assert elapsed < 0.2
+    assert any(proc.status == "running" for proc in s.list())

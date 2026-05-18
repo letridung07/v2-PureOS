@@ -98,7 +98,11 @@ class ServiceManager:
         t = self._threads.get(name)
         if t and t.is_alive():
             t.join(timeout)
-        if svc["state"] != "failed":
+        if svc["state"] == "failed":
+            return
+        if t and t.is_alive():
+            svc["state"] = "stopping"
+        else:
             svc["state"] = "stopped"
 
     def restart(self, name: str, timeout: Optional[float] = 1.0):
