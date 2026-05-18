@@ -43,6 +43,15 @@ The shell accepts a single command line or a chained command sequence. Command c
 - `;` — run commands sequentially
 - `&&` — run the next command only if the previous succeeded
 - `||` — run the next command only if the previous failed
+- `|` — pipe command output into the next built-in command
+
+The shell also supports simple environment variables and aliases:
+
+- `export VAR=value` — set a shell variable
+- `$VAR` — substitute the variable value in the command line
+- `alias name command` — define a shorthand command
+- `unalias name` — remove an alias
+- `history` — display the session command history
 
 Quoted strings are preserved during parsing, allowing multi-word content for commands such as `write` and `append`.
 

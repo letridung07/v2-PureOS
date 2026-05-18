@@ -225,6 +225,59 @@ def test_shell_permissions_and_chaining(tmp_path, capsys):
     assert k.fs.read("/chain/a") == "data"
 
 
+def test_shell_export_and_variable_substitution(tmp_path, capsys):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing)})
+    k.initialize()
+    sh = k.shell
+
+    sh.execute("export GREETING=hello")
+    sh.execute("echo $GREETING > /tmp/greeting")
+    assert k.fs.read("/tmp/greeting") == "hello"
+
+    sh.execute("export FILE_NAME=world")
+    sh.execute("write /tmp/$FILE_NAME test")
+    assert k.fs.read("/tmp/world") == "test"
+
+
+def test_shell_alias_and_history(tmp_path, capsys):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing)})
+    k.initialize()
+    sh = k.shell
+
+    sh.execute("alias ll ls -l")
+    sh.execute("mkdir /tmp")
+    sh.execute("touch /tmp/file")
+    sh.execute("ll /tmp")
+    captured = capsys.readouterr()
+    assert "/tmp/file" in captured.out
+
+    sh.execute("history")
+    captured = capsys.readouterr()
+    assert "alias ll ls -l" in captured.out
+    assert "ll /tmp" in captured.out
+
+    sh.execute("unalias ll")
+    sh.execute("ll /tmp")
+    captured = capsys.readouterr()
+    assert "Unknown command" in captured.out
+
+
+def test_shell_pipes_and_grep(tmp_path, capsys):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing)})
+    k.initialize()
+    sh = k.shell
+
+    k.fs.write("/tmp/lines", "one\ntwo\nthree\n")
+    sh.execute("cat /tmp/lines | grep o")
+    captured = capsys.readouterr()
+    assert "one" in captured.out
+    assert "two" in captured.out
+    assert "three" not in captured.out
+
+
 def test_shell_source_script(tmp_path):
     backing = tmp_path / "store.json"
     k = Kernel(config={"fs_backing": str(backing)})

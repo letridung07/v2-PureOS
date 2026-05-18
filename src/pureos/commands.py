@@ -1,15 +1,20 @@
 """Shell command registry for v2-PureOS."""
 
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Union
 
 
 class CommandRegistry:
     def __init__(self, kernel):
         self.kernel = kernel
-        self.commands: Dict[str, Callable[[List[str]], Optional[str]]] = {}
+        self.commands: Dict[str, Callable[..., Optional[Union[str, bool]]]] = {}
         self._register_default_commands()
 
-    def execute(self, line: str) -> Optional[str]:
+    def execute(
+        self,
+        line: str,
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> Optional[Union[str, bool]]:
         line = line.strip()
         if not line:
             return None
@@ -21,14 +26,19 @@ class CommandRegistry:
         if not handler:
             print("Unknown command:", line)
             return False
-        return handler(parts)
+        return handler(parts, input_data=input_data, capture_output=capture_output)
 
-    def register(self, name: str, handler: Callable[[List[str]], Optional[str]]):
+    def register(self, name: str, handler: Callable[..., Optional[Union[str, bool]]]):
         self.commands[name] = handler
 
     def _register_default_commands(self):
         self.register("help", self._cmd_help)
         self.register("info", self._cmd_info)
+        self.register("export", self._cmd_export)
+        self.register("alias", self._cmd_alias)
+        self.register("unalias", self._cmd_unalias)
+        self.register("history", self._cmd_history)
+        self.register("grep", self._cmd_grep)
         self.register("cat", self._cmd_cat)
         self.register("write", self._cmd_write)
         self.register("append", self._cmd_append)
@@ -59,9 +69,14 @@ class CommandRegistry:
     ) -> str:
         return self.kernel.shell.resolve_path(path, is_dir=is_dir, allow_dir=allow_dir)
 
-    def _cmd_help(self, parts: List[str]) -> bool:
+    def _cmd_help(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         print(
-            "help, info, ls [-l] [prefix], pwd, cd <path>, find [path], ps, services, exit"
+            "help, info, export, alias, unalias, history, grep, ls [-l] [prefix], pwd, cd <path>, find [path], ps, services, exit"
         )
         print(
             "mkdir <path>, rmdir <path>, rm <path>, mv <src> <dst>, cp <src> <dst>, touch <path>"
@@ -70,36 +85,153 @@ class CommandRegistry:
             "write <path> <content>, append <path> <content>, echo <text> > <path>, source <path>"
         )
         print("chmod <mode> <path>, stat <path>")
-        print("head <path> [n], tail <path> [n]")
+        print("head <path> [n], tail <path> [n], grep <pattern> [path]")
         print("service start|stop|status|restart <name>")
         print("spawn <name>, kill <pid>")
         print("Command chaining: cmd1 ; cmd2 && cmd3 || cmd4")
         return True
 
-    def _cmd_info(self, parts: List[str]) -> bool:
+    def _cmd_info(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         print("Kernel info:")
         print(f"FS entries: {len(self.kernel.fs.files)}")
         print(f"Processes: {len(self.kernel.scheduler.processes)}")
         print(f"Services: {self.kernel.services.list()}")
         return True
 
-    def _cmd_cat(self, parts: List[str]) -> bool:
+    def _cmd_export(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
+        shell = self.kernel.shell
+        if len(parts) == 1:
+            for name, value in shell.env.items():
+                print(f"{name}={value}")
+            return True
+        for assignment in parts[1:]:
+            if "=" not in assignment:
+                print("Usage: export VAR=value")
+                return False
+            name, value = assignment.split("=", maxsplit=1)
+            shell.env[name] = value
+        return True
+
+    def _cmd_alias(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
+        shell = self.kernel.shell
+        if len(parts) == 1:
+            for name, value in shell.aliases.items():
+                print(f"alias {name}='{value}'")
+            return True
+        if len(parts) < 3:
+            print("Usage: alias name command")
+            return False
+        name = parts[1]
+        value = " ".join(parts[2:])
+        shell.aliases[name] = value
+        print(f"Alias {name}='{value}'")
+        return True
+
+    def _cmd_unalias(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
+        shell = self.kernel.shell
+        if len(parts) != 2:
+            print("Usage: unalias name")
+            return False
+        name = parts[1]
+        if name not in shell.aliases:
+            print(f"alias: {name}: not found")
+            return False
+        del shell.aliases[name]
+        return True
+
+    def _cmd_history(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
+        shell = self.kernel.shell
+        for index, entry in enumerate(shell.history, 1):
+            print(f"{index}  {entry}")
+        return True
+
+    def _cmd_grep(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> Optional[Union[str, bool]]:
         if len(parts) < 2:
-            print("Usage: cat <path>")
+            print("Usage: grep <pattern> [path]")
             return False
-        path = self._resolve_path(parts[1])
-        try:
-            content = self.kernel.fs.read(path)
-        except PermissionError as exc:
-            print(str(exc))
-            return False
-        if content is None:
-            print(f"{parts[1]}: not found")
-            return False
+        pattern = parts[1]
+        if len(parts) > 2:
+            path = self._resolve_path(parts[2])
+            try:
+                content = self.kernel.fs.read(path)
+            except PermissionError as exc:
+                print(str(exc))
+                return False
+            if content is None:
+                print(f"{parts[2]}: not found")
+                return False
+        else:
+            content = input_data or ""
+        matches = [line for line in content.splitlines() if pattern in line]
+        output = "\n".join(matches)
+        if capture_output:
+            return output
+        if output:
+            print(output)
+        return True
+
+    def _cmd_cat(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> Optional[Union[str, bool]]:
+        if len(parts) < 2:
+            if input_data is None:
+                print("Usage: cat <path>")
+                return False
+            content = input_data
+        else:
+            path = self._resolve_path(parts[1])
+            try:
+                content = self.kernel.fs.read(path)
+            except PermissionError as exc:
+                print(str(exc))
+                return False
+            if content is None:
+                print(f"{parts[1]}: not found")
+                return False
+        if capture_output:
+            return content
         print(content)
         return True
 
-    def _cmd_write(self, parts: List[str]) -> bool:
+    def _cmd_write(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 3:
             print("Usage: write <path> <content>")
             return False
@@ -113,7 +245,12 @@ class CommandRegistry:
             print(str(exc))
             return False
 
-    def _cmd_append(self, parts: List[str]) -> bool:
+    def _cmd_append(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 3:
             print("Usage: append <path> <content>")
             return False
@@ -127,8 +264,18 @@ class CommandRegistry:
             print(str(exc))
             return False
 
-    def _cmd_echo(self, parts: List[str]) -> bool:
+    def _cmd_echo(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> Optional[Union[str, bool]]:
         if len(parts) < 2:
+            if input_data is not None:
+                if capture_output:
+                    return input_data
+                print(input_data)
+                return True
             print()
             return True
         line = " ".join(parts[1:])
@@ -143,10 +290,17 @@ class CommandRegistry:
             except ValueError as exc:
                 print(str(exc))
                 return False
+        if capture_output:
+            return line
         print(line)
         return True
 
-    def _cmd_ls(self, parts: List[str]) -> bool:
+    def _cmd_ls(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         long_listing = False
         path_arg = None
         for arg in parts[1:]:
@@ -179,11 +333,21 @@ class CommandRegistry:
                 print(p)
         return True
 
-    def _cmd_pwd(self, parts: List[str]) -> bool:
+    def _cmd_pwd(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         print(self.kernel.shell.cwd)
         return True
 
-    def _cmd_cd(self, parts: List[str]) -> bool:
+    def _cmd_cd(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 2:
             print("Usage: cd <path>")
             return False
@@ -194,7 +358,12 @@ class CommandRegistry:
         self.kernel.shell.cwd = path
         return True
 
-    def _cmd_find(self, parts: List[str]) -> bool:
+    def _cmd_find(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) > 1:
             path = self._resolve_path(parts[1], allow_dir=True)
         else:
@@ -214,7 +383,12 @@ class CommandRegistry:
             print(path)
         return True
 
-    def _cmd_mkdir(self, parts: List[str]) -> bool:
+    def _cmd_mkdir(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 2:
             print("Usage: mkdir <path>")
             return False
@@ -227,7 +401,12 @@ class CommandRegistry:
             print(str(exc))
             return False
 
-    def _cmd_touch(self, parts: List[str]) -> bool:
+    def _cmd_touch(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 2:
             print("Usage: touch <path>")
             return False
@@ -243,7 +422,12 @@ class CommandRegistry:
         print(f"Touched {parts[1]}")
         return True
 
-    def _cmd_rm(self, parts: List[str]) -> bool:
+    def _cmd_rm(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 2:
             print("Usage: rm <path>")
             return False
@@ -259,7 +443,12 @@ class CommandRegistry:
         print(f"{parts[1]}: not found")
         return False
 
-    def _cmd_rmdir(self, parts: List[str]) -> bool:
+    def _cmd_rmdir(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 2:
             print("Usage: rmdir <path>")
             return False
@@ -281,7 +470,12 @@ class CommandRegistry:
             print(str(exc))
             return False
 
-    def _cmd_mv(self, parts: List[str]) -> bool:
+    def _cmd_mv(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 3:
             print("Usage: mv <src> <dst>")
             return False
@@ -298,7 +492,12 @@ class CommandRegistry:
             print(str(exc))
             return False
 
-    def _cmd_cp(self, parts: List[str]) -> bool:
+    def _cmd_cp(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 3:
             print("Usage: cp <src> <dst>")
             return False
@@ -315,7 +514,12 @@ class CommandRegistry:
             print(str(exc))
             return False
 
-    def _cmd_chmod(self, parts: List[str]) -> bool:
+    def _cmd_chmod(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 3:
             print("Usage: chmod <mode> <path>")
             return False
@@ -333,7 +537,12 @@ class CommandRegistry:
             print(f"{parts[2]}: not found")
             return False
 
-    def _cmd_stat(self, parts: List[str]) -> bool:
+    def _cmd_stat(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 2:
             print("Usage: stat <path>")
             return False
@@ -349,7 +558,12 @@ class CommandRegistry:
         print(f"size: {info['size']}")
         return True
 
-    def _cmd_source(self, parts: List[str]) -> Optional[str]:
+    def _cmd_source(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> Optional[Union[str, bool]]:
         if len(parts) < 2:
             print("Usage: source <path>")
             return False
@@ -371,36 +585,64 @@ class CommandRegistry:
                 return "exit"
         return True
 
-    def _cmd_head_tail(self, parts: List[str]) -> bool:
+    def _cmd_head_tail(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> Optional[Union[str, bool]]:
         if len(parts) < 2:
-            print("Usage: head|tail <path> [n]")
-            return False
-        cmd = parts[0]
-        path = self._resolve_path(parts[1])
-        n = int(parts[2]) if len(parts) > 2 else 10
-        try:
-            lines = self.kernel.fs.read_lines(path)
-        except PermissionError as exc:
-            print(str(exc))
-            return False
-        if lines is None:
-            print(f"{parts[1]}: not found")
-            return False
+            if input_data is None:
+                print("Usage: head|tail <path> [n]")
+                return False
+            cmd = parts[0]
+            lines = input_data.splitlines()
+            n = 10
+        else:
+            cmd = parts[0]
+            path = self._resolve_path(parts[1])
+            try:
+                lines = self.kernel.fs.read_lines(path)
+            except PermissionError as exc:
+                print(str(exc))
+                return False
+            if lines is None:
+                print(f"{parts[1]}: not found")
+                return False
+            n = int(parts[2]) if len(parts) > 2 else 10
         sel = lines[:n] if cmd == "head" else lines[-n:]
-        for line in sel:
-            print(line)
+        output = "\n".join(sel)
+        if capture_output:
+            return output
+        if output:
+            print(output)
         return True
 
-    def _cmd_ps(self, parts: List[str]) -> bool:
+    def _cmd_ps(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         for p in self.kernel.scheduler.list():
             print(f"{p.pid}\t{p.name}\t{p.status}")
         return True
 
-    def _cmd_services(self, parts: List[str]) -> bool:
+    def _cmd_services(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         print(", ".join(self.kernel.services.list()))
         return True
 
-    def _cmd_service(self, parts: List[str]) -> bool:
+    def _cmd_service(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 3:
             print("Usage: service start|stop|status|restart <name>")
             return False
@@ -432,7 +674,12 @@ class CommandRegistry:
         print("Unknown service action")
         return False
 
-    def _cmd_spawn(self, parts: List[str]) -> bool:
+    def _cmd_spawn(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 2:
             print("Usage: spawn <name>")
             return False
@@ -441,7 +688,12 @@ class CommandRegistry:
         print(f"Spawned process {p.pid} ({p.name})")
         return True
 
-    def _cmd_kill(self, parts: List[str]) -> bool:
+    def _cmd_kill(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
         if len(parts) < 2:
             print("Usage: kill <pid>")
             return False
