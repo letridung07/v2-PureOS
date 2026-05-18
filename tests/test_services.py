@@ -28,3 +28,41 @@ def test_service_start_and_stop(tmp_path):
     sm.stop("svc", timeout=1.0)
     t.join(timeout=1.0)
     assert not t.is_alive()
+
+
+def test_service_status_and_restart(tmp_path):
+    start_file = tmp_path / "started"
+
+    def svc(stop_event=None):
+        start_file.write_text("started")
+        if stop_event:
+            stop_event.wait(2)
+
+    sm = ServiceManager()
+    sm.register(
+        "svc",
+        svc,
+        daemon=False,
+        stoppable=True,
+        description="test service",
+        auto_start=False,
+    )
+
+    status = sm.status("svc")
+    assert status["state"] == "stopped"
+    assert status["description"] == "test service"
+    assert status["auto_start"] is False
+
+    t = sm.start("svc")
+    time.sleep(0.05)
+    assert sm.status("svc")["state"] == "running"
+    sm.stop("svc", timeout=1.0)
+    assert sm.status("svc")["state"] == "stopped"
+    assert not sm.status("svc")["alive"]
+
+    t2 = sm.restart("svc", timeout=1.0)
+    time.sleep(0.05)
+    assert sm.status("svc")["state"] == "running"
+    sm.stop("svc", timeout=1.0)
+    t2.join(timeout=1.0)
+    assert not t2.is_alive()

@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Optional
+from typing import Callable, List, Optional
 
 from .config import DEFAULT_CONFIG
 from .fs import VirtualFS
@@ -30,7 +30,36 @@ class Kernel:
         self.shell = Shell(self)
 
         # register a tiny noop service so there's at least one background thread
-        self.services.register("noop", _noop_service, daemon=True, stoppable=True)
+        self.services.register(
+            "noop",
+            _noop_service,
+            daemon=True,
+            stoppable=True,
+            description="No-op background service",
+            auto_start=True,
+        )
+
+    def register_service(
+        self,
+        name: str,
+        func: Callable,
+        daemon: bool = True,
+        stoppable: bool = False,
+        description: str = "",
+        auto_start: bool = False,
+    ):
+        self.services.register(
+            name,
+            func,
+            daemon=daemon,
+            stoppable=stoppable,
+            description=description,
+            auto_start=auto_start,
+        )
+
+    def register_services(self, services: List[dict]):
+        for svc in services:
+            self.register_service(**svc)
 
     def initialize(self):
         self.logger.info("Kernel: initializing")
@@ -41,7 +70,17 @@ class Kernel:
             self.fs.mkdir("/etc/")
             self.fs.write("/etc/motd", "Welcome to v2-PureOS")
         print("Kernel: starting core services...")
-        self.services.start_all()
+        auto_start = self.config.get("auto_start_services")
+        if isinstance(auto_start, list):
+            for name in auto_start:
+                try:
+                    self.services.start(name)
+                except KeyError:
+                    self.logger.warning("Auto-start service %s is not registered", name)
+        elif auto_start:
+            self.services.start_all(auto_start_only=True)
+        else:
+            self.services.start_all()
         print("Kernel: initialization complete")
 
     def start_service(self, name: str):
@@ -54,6 +93,7 @@ class Kernel:
         print("Kernel: shutting down services...")
         self.services.stop_all()
         print("Kernel: shutting down processes...")
-        if hasattr(self.scheduler, "kill_all"):
-            self.scheduler.kill_all()
+        self.scheduler.kill_all()
+        if hasattr(self.scheduler, "wait_all"):
+            self.scheduler.wait_all()
         print("Kernel: shutdown complete")

@@ -39,3 +39,40 @@ def test_kernel_persistent_filesystem(tmp_path):
     k2.initialize()
     assert k2.fs.read("/var/data") == "hello"
     assert k2.fs.read("/etc/motd") == "Welcome to v2-PureOS"
+
+
+def test_kernel_auto_start_config(tmp_path):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing), "auto_start_services": ["noop"]})
+    k.initialize()
+    status = k.services.status("noop")
+    assert status["state"] == "running"
+    assert status["alive"]
+    k.shutdown()
+    assert not k.services.status("noop")["alive"]
+
+
+def test_kernel_register_service_and_auto_start(tmp_path):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing), "auto_start_services": ["testsvc"]})
+    start_file = tmp_path / "started"
+
+    def svc(ev=None):
+        start_file.write_text("started")
+        if ev:
+            ev.wait(2)
+
+    k.register_service(
+        "testsvc",
+        svc,
+        daemon=False,
+        stoppable=True,
+        description="test service",
+        auto_start=True,
+    )
+    k.initialize()
+    time.sleep(0.05)
+    assert start_file.exists()
+    assert k.services.status("testsvc")["state"] == "running"
+    k.shutdown()
+    assert not k.services.status("testsvc")["alive"]
