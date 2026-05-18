@@ -30,14 +30,18 @@ def test_shell_fs_and_processes_and_services(tmp_path, capsys):
     sh.execute("write /tmp/a hello")
     assert k.fs.read("/tmp/a") == "hello"
 
+    # append
+    sh.execute("append /tmp/a world")
+    assert k.fs.read("/tmp/a") == "helloworld"
+
     # mv
     sh.execute("mv /tmp/a /tmp/b")
-    assert k.fs.read("/tmp/b") == "hello"
+    assert k.fs.read("/tmp/b") == "helloworld"
     assert k.fs.read("/tmp/a") is None
 
     # cp
     sh.execute("cp /tmp/b /tmp/c")
-    assert k.fs.read("/tmp/c") == "hello"
+    assert k.fs.read("/tmp/c") == "helloworld"
 
     # rm
     sh.execute("rm /tmp/b")

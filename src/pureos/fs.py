@@ -17,6 +17,9 @@ class VirtualFS:
                 self.files = {}
                 self.dirs = {"/"}
 
+    def has_content(self) -> bool:
+        return bool(self.files or len(self.dirs) > 1)
+
     def format(self):
         """Reset filesystem to initial state."""
         self.files.clear()

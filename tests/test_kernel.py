@@ -26,3 +26,16 @@ def test_kernel_initialize_and_shutdown(tmp_path):
     time.sleep(0.05)
     k.shutdown()
     assert all(not t.is_alive() for t in k.services._threads.values())
+
+
+def test_kernel_persistent_filesystem(tmp_path):
+    backing = tmp_path / "store.json"
+    k1 = Kernel(config={"fs_backing": str(backing)})
+    k1.initialize()
+    k1.fs.write("/var/data", "hello")
+    k1.shutdown()
+
+    k2 = Kernel(config={"fs_backing": str(backing)})
+    k2.initialize()
+    assert k2.fs.read("/var/data") == "hello"
+    assert k2.fs.read("/etc/motd") == "Welcome to v2-PureOS"
