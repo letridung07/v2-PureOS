@@ -1,10 +1,15 @@
+import importlib
 import os
 import sys
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+try:
+    kernel_mod = importlib.import_module("pureos.kernel")
+except Exception:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+    kernel_mod = importlib.import_module("pureos.kernel")
 
-from pureos.kernel import Kernel
+Kernel = kernel_mod.Kernel
 
 
 def test_kernel_initialize_and_shutdown(tmp_path):

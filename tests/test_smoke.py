@@ -1,8 +1,12 @@
+import importlib
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-import pureos
+try:
+    pureos = importlib.import_module("pureos")
+except Exception:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+    pureos = importlib.import_module("pureos")
 
 
 def test_smoke():

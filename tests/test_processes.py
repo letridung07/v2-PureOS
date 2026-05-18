@@ -1,10 +1,14 @@
+import importlib
 import os
 import sys
-import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+try:
+    processes = importlib.import_module("pureos.processes")
+except Exception:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+    processes = importlib.import_module("pureos.processes")
 
-from pureos.processes import Scheduler
+Scheduler = processes.Scheduler
 
 
 def test_scheduler_spawn_and_list():

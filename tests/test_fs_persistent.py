@@ -1,9 +1,14 @@
+import importlib
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+try:
+    fs_mod = importlib.import_module("pureos.fs")
+except Exception:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+    fs_mod = importlib.import_module("pureos.fs")
 
-from pureos.fs import VirtualFS
+VirtualFS = fs_mod.VirtualFS
 
 
 def test_persistent_fs(tmp_path):

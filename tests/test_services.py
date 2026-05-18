@@ -1,10 +1,15 @@
+import importlib
 import os
 import sys
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+try:
+    services_mod = importlib.import_module("pureos.services")
+except Exception:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+    services_mod = importlib.import_module("pureos.services")
 
-from pureos.services import ServiceManager
+ServiceManager = services_mod.ServiceManager
 
 
 def test_service_start_and_stop(tmp_path):

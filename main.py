@@ -5,6 +5,7 @@
 Initializes the package and optionally enters an interactive shell.
 """
 import argparse
+import importlib
 import json
 import os
 import platform
@@ -13,15 +14,16 @@ import time
 import getpass
 import socket
 
-import sys
-import os
-
-# Ensure src/ is on sys.path for local development
-ROOT = os.path.dirname(__file__)
-SRC = os.path.join(ROOT, "src")
-if SRC not in sys.path:
-    sys.path.insert(0, SRC)
-from pureos import run as run_pureos
+# Try top-level import first; if it fails, add src/ to sys.path and import dynamically
+try:
+    from pureos import run as run_pureos
+except Exception:
+    ROOT = os.path.dirname(__file__)
+    SRC = os.path.join(ROOT, "src")
+    if SRC not in sys.path:
+        sys.path.insert(0, SRC)
+    pureos = importlib.import_module("pureos")
+    run_pureos = pureos.run
 
 
 def banner():
