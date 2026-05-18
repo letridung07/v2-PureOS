@@ -1,6 +1,6 @@
 # v2-PureOS
 
-![CI](https://github.com/letridung07/v2-PureOS/actions/workflows/ci.yml/badge.svg) [![Codecov](https://codecov.io/gh/letridung07/v2-PureOS/branch/main/graph/badge.svg)](https://codecov.io/gh/letridung07/v2-PureOS)
+![CI](https://github.com/letridung07/v2-PureOS/actions/workflows/ci.yml/badge.svg)
 
 v2-PureOS is a minimal, OS-like project implemented entirely using Python's standard library. No third-party packages are required — there is no `pip install` step.
 
