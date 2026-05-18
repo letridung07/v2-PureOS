@@ -27,6 +27,25 @@ class Shell:
                 print(f"Processes: {len(self.kernel.scheduler.processes)}")
                 print(f"Services: {self.kernel.services.list()}")
                 continue
+            if line.startswith("cat "):
+                parts = line.split(maxsplit=1)
+                path = parts[1]
+                content = self.kernel.fs.read(path)
+                if content is None:
+                    print(f"{path}: not found")
+                else:
+                    print(content)
+                continue
+            if line.startswith("write "):
+                parts = line.split(maxsplit=2)
+                if len(parts) < 3:
+                    print("Usage: write <path> <content>")
+                    continue
+                path = parts[1]
+                content = parts[2]
+                self.kernel.fs.write(path, content)
+                print(f"Wrote {len(content)} bytes to {path}")
+                continue
             if line.startswith("ls"):
                 parts = line.split(maxsplit=1)
                 prefix = parts[1] if len(parts) > 1 else "/"
