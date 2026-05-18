@@ -22,6 +22,40 @@ class VirtualFS:
     def has_content(self) -> bool:
         return bool(self.files or len(self.dirs) > 1)
 
+    def _has_permission(self, path: str, permission: int, allow_dir: bool = False) -> bool:
+        normalized = self._normalize_path(path, allow_dir=allow_dir)
+        if normalized in self.files:
+            mode = self.modes.get(normalized, 0o644)
+            return bool(mode & permission)
+        dir_path = normalized if normalized.endswith("/") else normalized + "/"
+        if dir_path in self.dirs:
+            mode = self.modes.get(dir_path, 0o755)
+            return bool(mode & permission)
+        return False
+
+    def _ensure_parent_writable(self, path: str):
+        parent = self._parent_dir(path)
+        while parent not in self.dirs and parent != "/":
+            parent = self._parent_dir(parent)
+        if not self._has_permission(parent, 0o200, allow_dir=True) or not self._has_permission(
+            parent, 0o100, allow_dir=True
+        ):
+            raise PermissionError(f"Permission denied: {path}")
+
+    def _ensure_writable_file(self, path: str):
+        if path in self.files and not self._has_permission(path, 0o200):
+            raise PermissionError(f"Permission denied: {path}")
+
+    def _ensure_readable_file(self, path: str):
+        if path in self.files and not self._has_permission(path, 0o400):
+            raise PermissionError(f"Permission denied: {path}")
+
+    def _ensure_readable_dir(self, path: str):
+        if not self._has_permission(path, 0o400, allow_dir=True) or not self._has_permission(
+            path, 0o100, allow_dir=True
+        ):
+            raise PermissionError(f"Permission denied: {path}")
+
     def format(self):
         """Reset filesystem to initial state."""
         self.files.clear()
@@ -34,6 +68,7 @@ class VirtualFS:
         path = self._normalize_path(path, is_dir=True)
         if path in self.files:
             raise ValueError(f"Cannot create directory, a file exists at {path}")
+        self._ensure_parent_writable(path)
         if parents:
             self._ensure_dir_parents(path)
         self.dirs.add(path)
@@ -48,6 +83,10 @@ class VirtualFS:
             or normalized + "/" in self.dirs
         ):
             raise ValueError("Cannot write to a directory path")
+        if normalized in self.files:
+            self._ensure_writable_file(normalized)
+        else:
+            self._ensure_parent_writable(normalized)
         self._ensure_dir_parents(normalized)
         self.files[normalized] = content
         self.modes.setdefault(normalized, 0o644)
@@ -61,6 +100,10 @@ class VirtualFS:
             or normalized + "/" in self.dirs
         ):
             raise ValueError("Cannot append to a directory path")
+        if normalized in self.files:
+            self._ensure_writable_file(normalized)
+        else:
+            self._ensure_parent_writable(normalized)
         self._ensure_dir_parents(normalized)
         self.files[normalized] = self.files.get(normalized, "") + content
         self.modes.setdefault(normalized, 0o644)
@@ -70,6 +113,7 @@ class VirtualFS:
         normalized = self._normalize_path(path, allow_dir=True)
         if normalized.endswith("/") or normalized + "/" in self.dirs:
             return None
+        self._ensure_readable_file(normalized)
         return self.files.get(normalized)
 
     def read_lines(self, path: str) -> Optional[List[str]]:
@@ -78,20 +122,45 @@ class VirtualFS:
             return None
         return content.splitlines()
 
-    def list(self, prefix: str = "/") -> List[str]:
+    def list(self, prefix: str = "/", recursive: bool = False) -> List[str]:
+        if recursive:
+            return self.find(prefix)
         normalized = self._normalize_path(prefix, allow_dir=True)
+        if normalized in self.files:
+            return [normalized]
         if normalized != "/" and not normalized.endswith("/"):
-            if normalized in self.files:
-                return [normalized]
             normalized = normalized + "/"
+        self._ensure_readable_dir(normalized)
         result = []
         for d in self.dirs:
-            if d.startswith(normalized) and d != normalized:
-                result.append(d)
+            if d == normalized:
+                continue
+            if d.startswith(normalized):
+                remainder = d[len(normalized) :]
+                if remainder and "/" not in remainder.rstrip("/"):
+                    result.append(d)
         for f in self.files:
             if f.startswith(normalized):
-                result.append(f)
+                remainder = f[len(normalized) :]
+                if remainder and "/" not in remainder:
+                    result.append(f)
         return sorted(result)
+
+    def find(self, prefix: str = "/") -> List[str]:
+        normalized = self._normalize_path(prefix, allow_dir=True)
+        if normalized in self.files:
+            return [normalized]
+        if normalized != "/" and not normalized.endswith("/"):
+            normalized = normalized + "/"
+        self._ensure_readable_dir(normalized)
+        result = []
+        for d in sorted(self.dirs):
+            if d.startswith(normalized) and d != normalized:
+                result.append(d)
+        for f in sorted(self.files):
+            if f.startswith(normalized):
+                result.append(f)
+        return result
 
     def exists(self, path: str) -> bool:
         normalized = self._normalize_path(path, allow_dir=True)
@@ -147,6 +216,7 @@ class VirtualFS:
 
     def delete(self, path: str):
         normalized = self._normalize_path(path, allow_dir=True)
+        self._ensure_parent_writable(normalized)
         if normalized in self.files:
             del self.files[normalized]
             self.modes.pop(normalized, None)
@@ -171,15 +241,21 @@ class VirtualFS:
     def rename(self, src: str, dst: str):
         src = self._normalize_path(src, allow_dir=True)
         if src in self.files:
+            self._ensure_readable_file(src)
+            self._ensure_parent_writable(dst)
             self._rename_file(src, dst)
         elif src in self.dirs or src + "/" in self.dirs:
+            self._ensure_parent_writable(dst)
             self._rename_dir(src, dst)
 
     def copy(self, src: str, dst: str):
         src = self._normalize_path(src, allow_dir=True)
         if src in self.files:
+            self._ensure_readable_file(src)
+            self._ensure_parent_writable(dst)
             self._copy_file(src, dst)
         elif src in self.dirs or src + "/" in self.dirs:
+            self._ensure_parent_writable(dst)
             self._copy_dir(src, dst)
 
     def _rename_file(self, src: str, dst: str):

@@ -93,6 +93,30 @@ def test_shell_fs_and_processes_and_services(tmp_path, capsys):
     assert k.scheduler.processes[pid].status == "killed"
 
 
+def test_shell_ls_vs_find_direct_children(tmp_path, capsys):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing)})
+    k.initialize()
+    sh = k.shell
+
+    sh.execute("mkdir /tmp")
+    sh.execute("mkdir /tmp/dir")
+    sh.execute("mkdir /tmp/dir/sub")
+    sh.execute("write /tmp/dir/file.txt hello")
+    sh.execute("write /tmp/dir/sub/file2.txt world")
+    capsys.readouterr()
+
+    sh.execute("ls /tmp/dir")
+    captured = capsys.readouterr()
+    assert "/tmp/dir/file.txt" in captured.out
+    assert "/tmp/dir/sub/" in captured.out
+    assert "/tmp/dir/sub/file2.txt" not in captured.out
+
+    sh.execute("find /tmp/dir")
+    captured = capsys.readouterr()
+    assert "/tmp/dir/sub/file2.txt" in captured.out
+
+
 def test_shell_relative_paths_with_cd_and_rmdir(tmp_path, capsys):
     backing = tmp_path / "store.json"
     k = Kernel(config={"fs_backing": str(backing)})

@@ -2,6 +2,8 @@ import importlib
 import os
 import sys
 
+import pytest
+
 try:
     fs_mod = importlib.import_module("pureos.fs")
 except Exception:
@@ -27,7 +29,7 @@ def test_virtualfs_persistence(tmp_path):
 
     # ensure backing file exists and reload
     v2 = VirtualFS(backing_path=str(backing))
-    assert "/etc/motd" in v2.list()
+    assert "/etc/" in v2.list()
 
 
 def test_virtualfs_directories_and_normalization(tmp_path):
@@ -43,10 +45,10 @@ def test_virtualfs_directories_and_normalization(tmp_path):
     assert v.read("/tmp/dir/file.txt") == "hello"
     assert v.is_file("/tmp/dir/file.txt")
 
-    # list should include nested directory and file paths
+    # list should include the direct directory child, not nested descendants
     listed = v.list("/tmp")
     assert "/tmp/dir/" in listed
-    assert "/tmp/dir/file.txt" in listed
+    assert "/tmp/dir/file.txt" not in listed
 
     v.copy("/tmp/dir", "/backup/dir")
     assert v.read("/backup/dir/file.txt") == "hello"
@@ -60,4 +62,34 @@ def test_virtualfs_directories_and_normalization(tmp_path):
 
     v2 = VirtualFS(backing_path=str(backing))
     assert v2.exists("/tmp/dir/")
-    assert "/etc/motd" in v2.list("/")
+    assert "/etc/" in v2.list("/")
+
+
+def test_virtualfs_permissions_and_listing(tmp_path):
+    backing = tmp_path / "store.json"
+    v = VirtualFS(backing_path=str(backing))
+    v.format()
+    v.mkdir("/tmp")
+    v.write("/tmp/a", "hello")
+    v.chmod("/tmp/a", 0o000)
+
+    with pytest.raises(PermissionError):
+        v.read("/tmp/a")
+    with pytest.raises(PermissionError):
+        v.write("/tmp/a", "x")
+
+    v.chmod("/tmp/", 0o500)
+    with pytest.raises(PermissionError):
+        v.write("/tmp/new", "x")
+
+    v.chmod("/tmp/", 0o700)
+    v.write("/tmp/new", "x")
+    assert v.read("/tmp/new") == "x"
+
+    v.mkdir("/tmp/dir")
+    v.mkdir("/tmp/dir/sub")
+    v.write("/tmp/dir/file.txt", "hello")
+    v.write("/tmp/dir/sub/file2.txt", "world")
+
+    assert sorted(v.list("/tmp/dir/")) == ["/tmp/dir/file.txt", "/tmp/dir/sub/"]
+    assert "/tmp/dir/sub/file2.txt" in v.find("/tmp/dir/")

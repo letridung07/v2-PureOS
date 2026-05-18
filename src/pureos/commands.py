@@ -88,7 +88,11 @@ class CommandRegistry:
             print("Usage: cat <path>")
             return False
         path = self._resolve_path(parts[1])
-        content = self.kernel.fs.read(path)
+        try:
+            content = self.kernel.fs.read(path)
+        except PermissionError as exc:
+            print(str(exc))
+            return False
         if content is None:
             print(f"{parts[1]}: not found")
             return False
@@ -105,7 +109,7 @@ class CommandRegistry:
             self.kernel.fs.write(path, content)
             print(f"Wrote {len(content)} bytes to {parts[1]}")
             return True
-        except ValueError as exc:
+        except (ValueError, PermissionError) as exc:
             print(str(exc))
             return False
 
@@ -119,7 +123,7 @@ class CommandRegistry:
             self.kernel.fs.append(path, content)
             print(f"Appended {len(content)} bytes to {parts[1]}")
             return True
-        except ValueError as exc:
+        except (ValueError, PermissionError) as exc:
             print(str(exc))
             return False
 
@@ -157,7 +161,11 @@ class CommandRegistry:
         if not self.kernel.fs.exists(prefix):
             print(f"{path_arg}: not found")
             return False
-        entries = self.kernel.fs.list(prefix)
+        try:
+            entries = self.kernel.fs.list(prefix)
+        except PermissionError as exc:
+            print(str(exc))
+            return False
         if long_listing:
             if self.kernel.fs.is_file(prefix):
                 entries = [prefix]
@@ -195,9 +203,13 @@ class CommandRegistry:
             print(f"{parts[1] if len(parts) > 1 else path}: not found")
             return False
         if self.kernel.fs.is_dir(path):
-            print(path)
-            for p in self.kernel.fs.list(path):
-                print(p)
+            try:
+                print(path)
+                for p in self.kernel.fs.find(path):
+                    print(p)
+            except PermissionError as exc:
+                print(str(exc))
+                return False
         else:
             print(path)
         return True
@@ -211,7 +223,7 @@ class CommandRegistry:
             self.kernel.fs.mkdir(dirpath)
             print(f"Created directory {parts[1]}")
             return True
-        except ValueError as exc:
+        except (ValueError, PermissionError) as exc:
             print(str(exc))
             return False
 
@@ -225,7 +237,7 @@ class CommandRegistry:
                 self.kernel.fs.write(path, "")
                 print(f"Created file {parts[1]}")
                 return True
-            except ValueError as exc:
+            except (ValueError, PermissionError) as exc:
                 print(str(exc))
                 return False
         print(f"Touched {parts[1]}")
@@ -237,9 +249,13 @@ class CommandRegistry:
             return False
         path = self._resolve_path(parts[1], allow_dir=True)
         if self.kernel.fs.exists(path):
-            self.kernel.fs.delete(path)
-            print(f"Removed {parts[1]}")
-            return True
+            try:
+                self.kernel.fs.delete(path)
+                print(f"Removed {parts[1]}")
+                return True
+            except PermissionError as exc:
+                print(str(exc))
+                return False
         print(f"{parts[1]}: not found")
         return False
 
@@ -257,9 +273,13 @@ class CommandRegistry:
         if self.kernel.fs.list(path):
             print("Directory not empty")
             return False
-        self.kernel.fs.delete(path)
-        print(f"Removed directory {parts[1]}")
-        return True
+        try:
+            self.kernel.fs.delete(path)
+            print(f"Removed directory {parts[1]}")
+            return True
+        except PermissionError as exc:
+            print(str(exc))
+            return False
 
     def _cmd_mv(self, parts: List[str]) -> bool:
         if len(parts) < 3:
@@ -270,9 +290,13 @@ class CommandRegistry:
         if not self.kernel.fs.exists(src):
             print(f"{parts[1]}: not found")
             return False
-        self.kernel.fs.rename(src, dst)
-        print(f"Moved {parts[1]} -> {parts[2]}")
-        return True
+        try:
+            self.kernel.fs.rename(src, dst)
+            print(f"Moved {parts[1]} -> {parts[2]}")
+            return True
+        except PermissionError as exc:
+            print(str(exc))
+            return False
 
     def _cmd_cp(self, parts: List[str]) -> bool:
         if len(parts) < 3:
@@ -283,9 +307,13 @@ class CommandRegistry:
         if not self.kernel.fs.exists(src):
             print(f"{parts[1]}: not found")
             return False
-        self.kernel.fs.copy(src, dst)
-        print(f"Copied {parts[1]} -> {parts[2]}")
-        return True
+        try:
+            self.kernel.fs.copy(src, dst)
+            print(f"Copied {parts[1]} -> {parts[2]}")
+            return True
+        except PermissionError as exc:
+            print(str(exc))
+            return False
 
     def _cmd_chmod(self, parts: List[str]) -> bool:
         if len(parts) < 3:
@@ -326,7 +354,11 @@ class CommandRegistry:
             print("Usage: source <path>")
             return False
         path = self._resolve_path(parts[1])
-        content = self.kernel.fs.read(path)
+        try:
+            content = self.kernel.fs.read(path)
+        except PermissionError as exc:
+            print(str(exc))
+            return False
         if content is None:
             print(f"{parts[1]}: not found")
             return False
@@ -346,7 +378,11 @@ class CommandRegistry:
         cmd = parts[0]
         path = self._resolve_path(parts[1])
         n = int(parts[2]) if len(parts) > 2 else 10
-        lines = self.kernel.fs.read_lines(path)
+        try:
+            lines = self.kernel.fs.read_lines(path)
+        except PermissionError as exc:
+            print(str(exc))
+            return False
         if lines is None:
             print(f"{parts[1]}: not found")
             return False

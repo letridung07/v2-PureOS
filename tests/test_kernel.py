@@ -16,7 +16,7 @@ def test_kernel_initialize_and_shutdown(tmp_path):
     backing = tmp_path / "store.json"
     k = Kernel(config={"fs_backing": str(backing)})
     k.initialize()
-    assert "/etc/motd" in k.fs.list()
+    assert "/etc/" in k.fs.list()
 
     def svc(ev):
         ev.wait(2)
