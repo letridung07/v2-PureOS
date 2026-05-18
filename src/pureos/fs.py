@@ -35,8 +35,12 @@ class VirtualFS:
 
     def _ensure_parent_writable(self, path: str):
         parent = self._parent_dir(path)
+        if parent.rstrip("/") in self.files:
+            raise PermissionError(f"Permission denied: {path}")
         while parent not in self.dirs and parent != "/":
             parent = self._parent_dir(parent)
+            if parent.rstrip("/") in self.files:
+                raise PermissionError(f"Permission denied: {path}")
         if not self._has_permission(parent, 0o200, allow_dir=True) or not self._has_permission(
             parent, 0o100, allow_dir=True
         ):
@@ -332,7 +336,11 @@ class VirtualFS:
         normalized = self._normalize_path(path, allow_dir=True)
         if not normalized.endswith("/"):
             normalized = self._parent_dir(normalized)
+        if normalized.rstrip("/") in self.files:
+            raise ValueError(f"Cannot create directory under file path {normalized.rstrip('/')}")
         while normalized not in self.dirs:
+            if normalized.rstrip("/") in self.files:
+                raise ValueError(f"Cannot create directory under file path {normalized.rstrip('/')}")
             self.dirs.add(normalized)
             self.modes.setdefault(normalized, 0o755)
             if normalized == "/":
