@@ -91,3 +91,84 @@ def test_shell_fs_and_processes_and_services(tmp_path, capsys):
     pid = k.scheduler.list()[0].pid
     sh.execute(f"kill {pid}")
     assert k.scheduler.processes[pid].status == "killed"
+
+
+def test_shell_relative_paths_with_cd_and_rmdir(tmp_path, capsys):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing)})
+    k.initialize()
+    sh = k.shell
+    capsys.readouterr()
+
+    sh.execute("pwd")
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "/"
+
+    sh.execute("mkdir tmp")
+    assert k.fs.exists("/tmp/")
+
+    sh.execute("cd tmp")
+    assert k.shell.cwd == "/tmp/"
+    capsys.readouterr()
+
+    sh.execute("pwd")
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "/tmp/"
+
+    sh.execute("write foo hello")
+    assert k.fs.read("/tmp/foo") == "hello"
+
+    sh.execute("find")
+    captured = capsys.readouterr()
+    assert "/tmp/foo" in captured.out
+
+    sh.execute("cd /")
+    sh.execute("mkdir /tmp/emptydir")
+    sh.execute("rmdir /tmp/emptydir")
+    assert not k.fs.exists("/tmp/emptydir/")
+
+    sh.execute("mkdir /tmp/nonempty")
+    sh.execute("write /tmp/nonempty/file data")
+    sh.execute("rmdir /tmp/nonempty")
+    captured = capsys.readouterr()
+    assert "Directory not empty" in captured.out
+    assert k.fs.exists("/tmp/nonempty/")
+
+
+def test_shell_cwd_edge_cases(tmp_path, capsys):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing)})
+    k.initialize()
+    sh = k.shell
+    capsys.readouterr()
+
+    sh.execute("mkdir /tmp")
+    sh.execute("mkdir /tmp/inner")
+    sh.execute("cd /tmp/inner")
+    assert sh.cwd == "/tmp/inner/"
+
+    sh.execute("cd ..")
+    assert sh.cwd == "/tmp/"
+
+    sh.execute("cd .")
+    assert sh.cwd == "/tmp/"
+
+    sh.execute("touch ./file")
+    assert k.fs.exists("/tmp/file")
+
+    sh.execute("write ../rootfile hello")
+    assert k.fs.read("/rootfile") == "hello"
+
+    sh.execute("cd /")
+    sh.execute("find .")
+    captured = capsys.readouterr()
+    assert "/tmp/" in captured.out
+    assert "/rootfile" in captured.out
+
+    sh.execute("rmdir /doesnotexist")
+    captured = capsys.readouterr()
+    assert "not found" in captured.out
+
+    sh.execute("rmdir /")
+    captured = capsys.readouterr()
+    assert "Cannot remove root directory" in captured.out
