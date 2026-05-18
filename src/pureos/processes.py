@@ -24,3 +24,10 @@ class Scheduler:
 
     def list(self):
         return list(self.processes.values())
+
+    def kill(self, pid: int) -> bool:
+        p = self.processes.get(pid)
+        if not p:
+            return False
+        p.status = "killed"
+        return True

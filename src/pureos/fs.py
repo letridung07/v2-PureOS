@@ -3,7 +3,7 @@
 
 import json
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 
 class VirtualFS:
@@ -27,11 +27,36 @@ class VirtualFS:
         self.files[path] = content
         self._save_if_needed()
 
-    def read(self, path: str):
+    def append(self, path: str, content: str):
+        self.files[path] = self.files.get(path, "") + content
+        self._save_if_needed()
+
+    def read(self, path: str) -> Optional[str]:
         return self.files.get(path)
 
-    def list(self, prefix: str = "/"):
+    def read_lines(self, path: str) -> List[str]:
+        return self.files.get(path, "").splitlines()
+
+    def list(self, prefix: str = "/") -> List[str]:
         return sorted(k for k in self.files.keys() if k.startswith(prefix))
+
+    def exists(self, path: str) -> bool:
+        return path in self.files
+
+    def delete(self, path: str):
+        if path in self.files:
+            del self.files[path]
+            self._save_if_needed()
+
+    def rename(self, src: str, dst: str):
+        if src in self.files:
+            self.files[dst] = self.files.pop(src)
+            self._save_if_needed()
+
+    def copy(self, src: str, dst: str):
+        if src in self.files:
+            self.files[dst] = self.files[src]
+            self._save_if_needed()
 
     def _save_if_needed(self):
         if self.backing_path:

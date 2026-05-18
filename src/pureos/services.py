@@ -1,4 +1,5 @@
-"""Lightweight service manager with optional stoppable services."""
+"""Lightweight service manager with optional stoppable services.
+"""
 
 import threading
 from typing import Callable, Dict, Optional
@@ -11,12 +12,15 @@ class ServiceManager:
         self._threads: Dict[str, threading.Thread] = {}
         self._stop_events: Dict[str, threading.Event] = {}
 
-    def register(
-        self, name: str, func: Callable, daemon: bool = True, stoppable: bool = False
-    ):
+    def register(self, name: str, func: Callable, daemon: bool = True, stoppable: bool = False):
         self._services[name] = {"func": func, "daemon": daemon, "stoppable": stoppable}
 
     def start(self, name: str):
+        if name not in self._services:
+            raise KeyError(f"Service {name} not registered")
+        existing = self._threads.get(name)
+        if existing and existing.is_alive():
+            return existing
         svc = self._services[name]
         func = svc["func"]
         daemon = svc["daemon"]
@@ -55,6 +59,19 @@ class ServiceManager:
         else:
             # cannot stop non-stoppable service
             return
+
+    def restart(self, name: str, timeout: Optional[float] = 1.0):
+        if name not in self._services:
+            return
+        self.stop(name, timeout=timeout)
+        return self.start(name)
+
+    def status(self, name: str):
+        if name not in self._services:
+            return None
+        t = self._threads.get(name)
+        alive = t.is_alive() if t else False
+        return {"alive": alive, "stoppable": self._services[name]["stoppable"]}
 
     def stop_all(self, timeout: Optional[float] = 1.0):
         for name in list(self._services.keys()):
