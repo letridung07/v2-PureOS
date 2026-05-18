@@ -1,13 +1,18 @@
 # v2-PureOS
 
-v2-PureOS is a minimal, OS-like project implemented entirely using Python's standard library. No third-party
-packages are required — there is no `pip install` step.
+![CI](https://github.com/letridung07/v2-PureOS/actions/workflows/ci.yml/badge.svg)
+
+v2-PureOS is a minimal, OS-like project implemented entirely using Python's standard library. No third-party packages are required — there is no `pip install` step.
 
 **Key points**
-- Implemented with native Python modules such as `os`, `sys`, `math`, `pathlib`, `json`, `socket`, and
-	`threading`.
+- Implemented with native Python modules such as `os`, `sys`, `math`, `pathlib`, `json`, `socket`, and `threading`.
 - No external dependencies or packages from PyPI.
 - Runs on any system with Python 3.8 or newer.
+
+Running tests
+
+- Locally: python -m pip install -U pip && python -m pip install -q pytest pytest-cov && pytest
+- CI: GitHub Actions workflow located at `.github/workflows/ci.yml` runs pytest, coverage, ruff and black.
 
 **Getting started**
 - Clone the repository.
