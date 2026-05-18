@@ -22,7 +22,9 @@ class VirtualFS:
     def has_content(self) -> bool:
         return bool(self.files or len(self.dirs) > 1)
 
-    def _has_permission(self, path: str, permission: int, allow_dir: bool = False) -> bool:
+    def _has_permission(
+        self, path: str, permission: int, allow_dir: bool = False
+    ) -> bool:
         normalized = self._normalize_path(path, allow_dir=allow_dir)
         if normalized in self.files:
             mode = self.modes.get(normalized, 0o644)
@@ -41,9 +43,9 @@ class VirtualFS:
             parent = self._parent_dir(parent)
             if parent.rstrip("/") in self.files:
                 raise PermissionError(f"Permission denied: {path}")
-        if not self._has_permission(parent, 0o200, allow_dir=True) or not self._has_permission(
-            parent, 0o100, allow_dir=True
-        ):
+        if not self._has_permission(
+            parent, 0o200, allow_dir=True
+        ) or not self._has_permission(parent, 0o100, allow_dir=True):
             raise PermissionError(f"Permission denied: {path}")
 
     def _ensure_writable_file(self, path: str):
@@ -55,9 +57,9 @@ class VirtualFS:
             raise PermissionError(f"Permission denied: {path}")
 
     def _ensure_readable_dir(self, path: str):
-        if not self._has_permission(path, 0o400, allow_dir=True) or not self._has_permission(
-            path, 0o100, allow_dir=True
-        ):
+        if not self._has_permission(
+            path, 0o400, allow_dir=True
+        ) or not self._has_permission(path, 0o100, allow_dir=True):
             raise PermissionError(f"Permission denied: {path}")
 
     def format(self):
@@ -337,10 +339,14 @@ class VirtualFS:
         if not normalized.endswith("/"):
             normalized = self._parent_dir(normalized)
         if normalized.rstrip("/") in self.files:
-            raise ValueError(f"Cannot create directory under file path {normalized.rstrip('/')}")
+            raise ValueError(
+                f"Cannot create directory under file path {normalized.rstrip('/')}"
+            )
         while normalized not in self.dirs:
             if normalized.rstrip("/") in self.files:
-                raise ValueError(f"Cannot create directory under file path {normalized.rstrip('/')}")
+                raise ValueError(
+                    f"Cannot create directory under file path {normalized.rstrip('/')}"
+                )
             self.dirs.add(normalized)
             self.modes.setdefault(normalized, 0o755)
             if normalized == "/":

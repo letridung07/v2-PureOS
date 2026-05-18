@@ -94,8 +94,8 @@ def test_virtualfs_permissions_and_listing(tmp_path):
     assert sorted(v.list("/tmp/dir/")) == ["/tmp/dir/file.txt", "/tmp/dir/sub/"]
     assert "/tmp/dir/sub/file2.txt" in v.find("/tmp/dir/")
 
-    v.write('/foo', 'bar')
+    v.write("/foo", "bar")
     with pytest.raises(PermissionError):
-        v.write('/foo/bar', 'baz')
+        v.write("/foo/bar", "baz")
     with pytest.raises(PermissionError):
-        v.mkdir('/foo/sub')
+        v.mkdir("/foo/sub")
