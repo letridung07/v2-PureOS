@@ -172,3 +172,41 @@ def test_shell_cwd_edge_cases(tmp_path, capsys):
     sh.execute("rmdir /")
     captured = capsys.readouterr()
     assert "Cannot remove root directory" in captured.out
+
+
+def test_shell_permissions_and_chaining(tmp_path, capsys):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing)})
+    k.initialize()
+    sh = k.shell
+
+    sh.execute("mkdir /tmp")
+    sh.execute("write /tmp/a hello")
+    sh.execute("chmod 600 /tmp/a")
+    sh.execute("stat /tmp/a")
+    captured = capsys.readouterr()
+    assert "type: file" in captured.out
+    assert "mode: 0o600" in captured.out
+    assert "mode_str: -rw-------" in captured.out
+
+    sh.execute("ls -l /tmp")
+    captured = capsys.readouterr()
+    assert "-rw-------" in captured.out
+    assert "/tmp/a" in captured.out
+
+    sh.execute("unknowncmd || echo ok > /tmp/ok")
+    assert k.fs.read("/tmp/ok") == "ok"
+
+    sh.execute("mkdir /chain ; touch /chain/a && write /chain/a data || echo fail")
+    assert k.fs.read("/chain/a") == "data"
+
+
+def test_shell_source_script(tmp_path):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing)})
+    k.initialize()
+    sh = k.shell
+
+    k.fs.write("/tmp/script", "# sample script\nmkdir /scriptdir\nwrite /scriptdir/foo bar\n")
+    sh.execute("source /tmp/script")
+    assert k.fs.read("/scriptdir/foo") == "bar"

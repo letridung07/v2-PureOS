@@ -20,7 +20,7 @@ class CommandRegistry:
         handler = self.commands.get(cmd)
         if not handler:
             print("Unknown command:", line)
-            return None
+            return False
         return handler(parts)
 
     def register(self, name: str, handler: Callable[[List[str]], Optional[str]]):
@@ -43,6 +43,9 @@ class CommandRegistry:
         self.register("rmdir", self._cmd_rmdir)
         self.register("mv", self._cmd_mv)
         self.register("cp", self._cmd_cp)
+        self.register("chmod", self._cmd_chmod)
+        self.register("stat", self._cmd_stat)
+        self.register("source", self._cmd_source)
         self.register("head", self._cmd_head_tail)
         self.register("tail", self._cmd_head_tail)
         self.register("ps", self._cmd_ps)
@@ -56,63 +59,74 @@ class CommandRegistry:
     ) -> str:
         return self.kernel.shell.resolve_path(path, is_dir=is_dir, allow_dir=allow_dir)
 
-    def _cmd_help(self, parts: List[str]) -> None:
+    def _cmd_help(self, parts: List[str]) -> bool:
         print(
-            "help, info, ls [prefix], pwd, cd <path>, find [path], ps, services, exit"
+            "help, info, ls [-l] [prefix], pwd, cd <path>, find [path], ps, services, exit"
         )
         print(
             "mkdir <path>, rmdir <path>, rm <path>, mv <src> <dst>, cp <src> <dst>, touch <path>"
         )
-        print("write <path> <content>, append <path> <content>, echo <text> > <path>")
+        print(
+            "write <path> <content>, append <path> <content>, echo <text> > <path>, source <path>"
+        )
+        print("chmod <mode> <path>, stat <path>")
         print("head <path> [n], tail <path> [n]")
         print("service start|stop|status|restart <name>")
         print("spawn <name>, kill <pid>")
+        print("Command chaining: cmd1 ; cmd2 && cmd3 || cmd4")
+        return True
 
-    def _cmd_info(self, parts: List[str]) -> None:
+    def _cmd_info(self, parts: List[str]) -> bool:
         print("Kernel info:")
         print(f"FS entries: {len(self.kernel.fs.files)}")
         print(f"Processes: {len(self.kernel.scheduler.processes)}")
         print(f"Services: {self.kernel.services.list()}")
+        return True
 
-    def _cmd_cat(self, parts: List[str]) -> None:
+    def _cmd_cat(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             print("Usage: cat <path>")
-            return
+            return False
         path = self._resolve_path(parts[1])
         content = self.kernel.fs.read(path)
         if content is None:
             print(f"{parts[1]}: not found")
-        else:
-            print(content)
+            return False
+        print(content)
+        return True
 
-    def _cmd_write(self, parts: List[str]) -> None:
+    def _cmd_write(self, parts: List[str]) -> bool:
         if len(parts) < 3:
             print("Usage: write <path> <content>")
-            return
+            return False
         path = self._resolve_path(parts[1])
         content = " ".join(parts[2:])
         try:
             self.kernel.fs.write(path, content)
             print(f"Wrote {len(content)} bytes to {parts[1]}")
+            return True
         except ValueError as exc:
             print(str(exc))
+            return False
 
-    def _cmd_append(self, parts: List[str]) -> None:
+    def _cmd_append(self, parts: List[str]) -> bool:
         if len(parts) < 3:
             print("Usage: append <path> <content>")
-            return
+            return False
         path = self._resolve_path(parts[1])
         content = " ".join(parts[2:])
         try:
             self.kernel.fs.append(path, content)
             print(f"Appended {len(content)} bytes to {parts[1]}")
+            return True
         except ValueError as exc:
             print(str(exc))
+            return False
 
-    def _cmd_echo(self, parts: List[str]) -> None:
+    def _cmd_echo(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             print()
-            return
+            return True
         line = " ".join(parts[1:])
         if ">" in line:
             content, path = line.split(">", maxsplit=1)
@@ -121,192 +135,288 @@ class CommandRegistry:
             try:
                 self.kernel.fs.write(self._resolve_path(path), content)
                 print(f"Wrote {len(content)} bytes to {path}")
+                return True
             except ValueError as exc:
                 print(str(exc))
-        else:
-            print(line)
+                return False
+        print(line)
+        return True
 
-    def _cmd_ls(self, parts: List[str]) -> None:
-        if len(parts) > 1:
-            prefix = self._resolve_path(parts[1], allow_dir=True)
+    def _cmd_ls(self, parts: List[str]) -> bool:
+        long_listing = False
+        path_arg = None
+        for arg in parts[1:]:
+            if arg == "-l":
+                long_listing = True
+            elif path_arg is None:
+                path_arg = arg
+        if path_arg:
+            prefix = self._resolve_path(path_arg, allow_dir=True)
         else:
             prefix = self.kernel.shell.cwd
-        for p in self.kernel.fs.list(prefix):
-            print(p)
+        if not self.kernel.fs.exists(prefix):
+            print(f"{path_arg}: not found")
+            return False
+        entries = self.kernel.fs.list(prefix)
+        if long_listing:
+            if self.kernel.fs.is_file(prefix):
+                entries = [prefix]
+            for p in entries:
+                info = self.kernel.fs.stat(p)
+                if info is None:
+                    continue
+                print(f"{info['mode_str']} {info['size']:>5} {info['path']}")
+        else:
+            for p in entries:
+                print(p)
+        return True
 
-    def _cmd_pwd(self, parts: List[str]) -> None:
+    def _cmd_pwd(self, parts: List[str]) -> bool:
         print(self.kernel.shell.cwd)
+        return True
 
-    def _cmd_cd(self, parts: List[str]) -> None:
+    def _cmd_cd(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             print("Usage: cd <path>")
-            return
+            return False
         path = self._resolve_path(parts[1], is_dir=True)
         if not self.kernel.fs.exists(path) or not self.kernel.fs.is_dir(path):
             print(f"{parts[1]}: not found")
-            return
+            return False
         self.kernel.shell.cwd = path
+        return True
 
-    def _cmd_find(self, parts: List[str]) -> None:
+    def _cmd_find(self, parts: List[str]) -> bool:
         if len(parts) > 1:
             path = self._resolve_path(parts[1], allow_dir=True)
         else:
             path = self.kernel.shell.cwd
         if not self.kernel.fs.exists(path):
             print(f"{parts[1] if len(parts) > 1 else path}: not found")
-            return
+            return False
         if self.kernel.fs.is_dir(path):
             print(path)
             for p in self.kernel.fs.list(path):
                 print(p)
         else:
             print(path)
+        return True
 
-    def _cmd_mkdir(self, parts: List[str]) -> None:
+    def _cmd_mkdir(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             print("Usage: mkdir <path>")
-            return
+            return False
         dirpath = self._resolve_path(parts[1], is_dir=True)
         try:
             self.kernel.fs.mkdir(dirpath)
             print(f"Created directory {parts[1]}")
+            return True
         except ValueError as exc:
             print(str(exc))
+            return False
 
-    def _cmd_touch(self, parts: List[str]) -> None:
+    def _cmd_touch(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             print("Usage: touch <path>")
-            return
+            return False
         path = self._resolve_path(parts[1])
         if not self.kernel.fs.exists(path):
             try:
                 self.kernel.fs.write(path, "")
                 print(f"Created file {parts[1]}")
+                return True
             except ValueError as exc:
                 print(str(exc))
-        else:
-            print(f"Touched {parts[1]}")
+                return False
+        print(f"Touched {parts[1]}")
+        return True
 
-    def _cmd_rm(self, parts: List[str]) -> None:
+    def _cmd_rm(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             print("Usage: rm <path>")
-            return
+            return False
         path = self._resolve_path(parts[1], allow_dir=True)
         if self.kernel.fs.exists(path):
             self.kernel.fs.delete(path)
             print(f"Removed {parts[1]}")
-        else:
-            print(f"{parts[1]}: not found")
+            return True
+        print(f"{parts[1]}: not found")
+        return False
 
-    def _cmd_rmdir(self, parts: List[str]) -> None:
+    def _cmd_rmdir(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             print("Usage: rmdir <path>")
-            return
+            return False
         path = self._resolve_path(parts[1], is_dir=True)
         if path == "/":
             print("Cannot remove root directory")
-            return
+            return False
         if not self.kernel.fs.exists(path) or not self.kernel.fs.is_dir(path):
             print(f"{parts[1]}: not found")
-            return
+            return False
         if self.kernel.fs.list(path):
             print("Directory not empty")
-            return
+            return False
         self.kernel.fs.delete(path)
         print(f"Removed directory {parts[1]}")
+        return True
 
-    def _cmd_mv(self, parts: List[str]) -> None:
+    def _cmd_mv(self, parts: List[str]) -> bool:
         if len(parts) < 3:
             print("Usage: mv <src> <dst>")
-            return
+            return False
         src = self._resolve_path(parts[1], allow_dir=True)
         dst = self._resolve_path(parts[2], allow_dir=True)
         if not self.kernel.fs.exists(src):
             print(f"{parts[1]}: not found")
-            return
+            return False
         self.kernel.fs.rename(src, dst)
         print(f"Moved {parts[1]} -> {parts[2]}")
+        return True
 
-    def _cmd_cp(self, parts: List[str]) -> None:
+    def _cmd_cp(self, parts: List[str]) -> bool:
         if len(parts) < 3:
             print("Usage: cp <src> <dst>")
-            return
+            return False
         src = self._resolve_path(parts[1], allow_dir=True)
         dst = self._resolve_path(parts[2], allow_dir=True)
         if not self.kernel.fs.exists(src):
             print(f"{parts[1]}: not found")
-            return
+            return False
         self.kernel.fs.copy(src, dst)
         print(f"Copied {parts[1]} -> {parts[2]}")
+        return True
 
-    def _cmd_head_tail(self, parts: List[str]) -> None:
+    def _cmd_chmod(self, parts: List[str]) -> bool:
+        if len(parts) < 3:
+            print("Usage: chmod <mode> <path>")
+            return False
+        try:
+            mode = int(parts[1], 8)
+        except ValueError:
+            print("Usage: chmod <mode> <path>")
+            return False
+        path = self._resolve_path(parts[2], allow_dir=True)
+        try:
+            self.kernel.fs.chmod(path, mode)
+            print(f"Mode set to {oct(mode)} for {parts[2]}")
+            return True
+        except FileNotFoundError:
+            print(f"{parts[2]}: not found")
+            return False
+
+    def _cmd_stat(self, parts: List[str]) -> bool:
+        if len(parts) < 2:
+            print("Usage: stat <path>")
+            return False
+        path = self._resolve_path(parts[1], allow_dir=True)
+        info = self.kernel.fs.stat(path)
+        if info is None:
+            print(f"{parts[1]}: not found")
+            return False
+        print(f"path: {info['path']}")
+        print(f"type: {info['type']}")
+        print(f"mode: {oct(info['mode'])}")
+        print(f"mode_str: {info['mode_str']}")
+        print(f"size: {info['size']}")
+        return True
+
+    def _cmd_source(self, parts: List[str]) -> Optional[str]:
+        if len(parts) < 2:
+            print("Usage: source <path>")
+            return False
+        path = self._resolve_path(parts[1])
+        content = self.kernel.fs.read(path)
+        if content is None:
+            print(f"{parts[1]}: not found")
+            return False
+        for line in content.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            result = self.kernel.shell.execute(line)
+            if result == "exit":
+                return "exit"
+        return True
+
+    def _cmd_head_tail(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             print("Usage: head|tail <path> [n]")
-            return
+            return False
         cmd = parts[0]
         path = self._resolve_path(parts[1])
         n = int(parts[2]) if len(parts) > 2 else 10
         lines = self.kernel.fs.read_lines(path)
         if lines is None:
             print(f"{parts[1]}: not found")
-            return
+            return False
         sel = lines[:n] if cmd == "head" else lines[-n:]
         for line in sel:
             print(line)
+        return True
 
-    def _cmd_ps(self, parts: List[str]) -> None:
+    def _cmd_ps(self, parts: List[str]) -> bool:
         for p in self.kernel.scheduler.list():
             print(f"{p.pid}\t{p.name}\t{p.status}")
+        return True
 
-    def _cmd_services(self, parts: List[str]) -> None:
+    def _cmd_services(self, parts: List[str]) -> bool:
         print(", ".join(self.kernel.services.list()))
+        return True
 
-    def _cmd_service(self, parts: List[str]) -> None:
+    def _cmd_service(self, parts: List[str]) -> bool:
         if len(parts) < 3:
             print("Usage: service start|stop|status|restart <name>")
-            return
+            return False
         action = parts[1]
         name = parts[2]
         if action == "start":
             try:
                 self.kernel.services.start(name)
                 print(f"Started service {name}")
+                return True
             except KeyError:
                 print(f"{name}: not registered")
+                return False
         elif action == "stop":
             self.kernel.services.stop(name)
             print(f"Stopped service {name}")
+            return True
         elif action == "status":
             st = self.kernel.services.status(name)
             if st is None:
                 print(f"{name}: not registered")
-            else:
-                print(f"running={st['alive']}, stoppable={st['stoppable']}")
+                return False
+            print(f"running={st['alive']}, stoppable={st['stoppable']}")
+            return True
         elif action == "restart":
             self.kernel.services.restart(name)
             print(f"Restarted service {name}")
-        else:
-            print("Unknown service action")
+            return True
+        print("Unknown service action")
+        return False
 
-    def _cmd_spawn(self, parts: List[str]) -> None:
+    def _cmd_spawn(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             print("Usage: spawn <name>")
-            return
+            return False
         name = parts[1]
         p = self.kernel.scheduler.spawn(name)
         print(f"Spawned process {p.pid} ({p.name})")
+        return True
 
-    def _cmd_kill(self, parts: List[str]) -> None:
+    def _cmd_kill(self, parts: List[str]) -> bool:
         if len(parts) < 2:
             print("Usage: kill <pid>")
-            return
+            return False
         try:
             pid = int(parts[1])
         except ValueError:
             print("Usage: kill <pid>")
-            return
+            return False
         ok = self.kernel.scheduler.kill(pid)
         if ok:
             print(f"Killed process {pid}")
-        else:
-            print(f"No such process: {pid}")
+            return True
+        print(f"No such process: {pid}")
+        return False

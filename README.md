@@ -27,14 +27,16 @@ After initializing the kernel you can start the interactive shell (`--shell`) an
 - `pwd`: show current shell working directory
 - `cd <path>`: change current shell directory
 - `find [path]`: recursively list entries under a path
-- `ls [prefix]`: list files in the virtual filesystem (default `/`)
+- `ls [-l] [prefix]`: list files in the virtual filesystem (default `/`)
 - `cat <path>`: print the contents of a file in the virtual filesystem
 - `write <path> <content>`: write `content` to `path` in the virtual filesystem
 - `mkdir <path>`, `rmdir <path>`, `rm <path>`, `mv <src> <dst>`, `cp <src> <dst>`, `touch <path>`
+- `chmod <mode> <path>`, `stat <path>`, `source <path>`
 - `echo <text> > <path>` (or print to stdout)
 - `head <path> [n]`, `tail <path> [n]`
 - `ps`, `spawn <name>`, `kill <pid>`
 - `services` and `service start|stop|status|restart <name>`
+- `Command chaining`: `cmd1 ; cmd2 && cmd3 || cmd4`
 - `exit` / `quit`: leave the shell
 
 Example:

@@ -10,12 +10,14 @@ class VirtualFS:
         self.backing_path = backing_path
         self.files: Dict[str, str] = {}
         self.dirs: Set[str] = {"/"}
+        self.modes: Dict[str, int] = {"/": 0o755}
         if backing_path:
             try:
                 self._load()
             except Exception:
                 self.files = {}
                 self.dirs = {"/"}
+                self.modes = {"/": 0o755}
 
     def has_content(self) -> bool:
         return bool(self.files or len(self.dirs) > 1)
@@ -24,6 +26,7 @@ class VirtualFS:
         """Reset filesystem to initial state."""
         self.files.clear()
         self.dirs = {"/", "/etc/"}
+        self.modes = {"/": 0o755, "/etc/": 0o755, "/etc/motd": 0o644}
         self.files["/etc/motd"] = "Welcome to v2-PureOS"
         self._save_if_needed()
 
@@ -34,6 +37,7 @@ class VirtualFS:
         if parents:
             self._ensure_dir_parents(path)
         self.dirs.add(path)
+        self.modes.setdefault(path, 0o755)
         self._save_if_needed()
 
     def write(self, path: str, content: str):
@@ -46,6 +50,7 @@ class VirtualFS:
             raise ValueError("Cannot write to a directory path")
         self._ensure_dir_parents(normalized)
         self.files[normalized] = content
+        self.modes.setdefault(normalized, 0o644)
         self._save_if_needed()
 
     def append(self, path: str, content: str):
@@ -58,6 +63,7 @@ class VirtualFS:
             raise ValueError("Cannot append to a directory path")
         self._ensure_dir_parents(normalized)
         self.files[normalized] = self.files.get(normalized, "") + content
+        self.modes.setdefault(normalized, 0o644)
         self._save_if_needed()
 
     def read(self, path: str) -> Optional[str]:
@@ -103,10 +109,47 @@ class VirtualFS:
         normalized = self._normalize_path(path, allow_dir=True)
         return normalized in self.files
 
+    def stat(self, path: str) -> Optional[Dict[str, object]]:
+        normalized = self._normalize_path(path, allow_dir=True)
+        if normalized in self.files:
+            mode = self.modes.get(normalized, 0o644)
+            return {
+                "path": normalized,
+                "type": "file",
+                "mode": mode,
+                "mode_str": self._format_mode(mode, False),
+                "size": len(self.files[normalized]),
+            }
+        dir_path = normalized if normalized.endswith("/") else normalized + "/"
+        if dir_path in self.dirs:
+            mode = self.modes.get(dir_path, 0o755)
+            return {
+                "path": dir_path,
+                "type": "dir",
+                "mode": mode,
+                "mode_str": self._format_mode(mode, True),
+                "size": 0,
+            }
+        return None
+
+    def chmod(self, path: str, mode: int):
+        normalized = self._normalize_path(path, allow_dir=True)
+        if normalized in self.files:
+            self.modes[normalized] = mode
+            self._save_if_needed()
+            return
+        dir_path = normalized if normalized.endswith("/") else normalized + "/"
+        if dir_path in self.dirs:
+            self.modes[dir_path] = mode
+            self._save_if_needed()
+            return
+        raise FileNotFoundError(path)
+
     def delete(self, path: str):
         normalized = self._normalize_path(path, allow_dir=True)
         if normalized in self.files:
             del self.files[normalized]
+            self.modes.pop(normalized, None)
             self._save_if_needed()
             return
         if normalized not in self.dirs and normalized + "/" not in self.dirs:
@@ -116,10 +159,13 @@ class VirtualFS:
         for file_path in list(self.files):
             if file_path.startswith(normalized):
                 del self.files[file_path]
+                self.modes.pop(file_path, None)
         for dir_path in list(self.dirs):
             if dir_path.startswith(normalized):
                 self.dirs.discard(dir_path)
+                self.modes.pop(dir_path, None)
         self.dirs.discard(normalized)
+        self.modes.pop(normalized, None)
         self._save_if_needed()
 
     def rename(self, src: str, dst: str):
@@ -149,6 +195,7 @@ class VirtualFS:
             normalized_dst = dir_path + os.path.basename(src.rstrip("/"))
         self._ensure_dir_parents(normalized_dst)
         self.files[normalized_dst] = self.files.pop(src)
+        self.modes[normalized_dst] = self.modes.pop(src, 0o644)
         self._save_if_needed()
 
     def _copy_file(self, src: str, dst: str):
@@ -164,6 +211,7 @@ class VirtualFS:
             normalized_dst = dir_path + os.path.basename(src.rstrip("/"))
         self._ensure_dir_parents(normalized_dst)
         self.files[normalized_dst] = self.files[src]
+        self.modes[normalized_dst] = self.modes.get(src, 0o644)
         self._save_if_needed()
 
     def _rename_dir(self, src: str, dst: str):
@@ -176,11 +224,13 @@ class VirtualFS:
             if directory.startswith(src_dir):
                 relative = directory[len(src_dir) :]
                 self.dirs.add(dst_dir + relative)
+                self.modes[dst_dir + relative] = self.modes.pop(directory, 0o755)
                 self.dirs.discard(directory)
         for file_path in list(self.files):
             if file_path.startswith(src_dir):
                 relative = file_path[len(src_dir) :]
                 self.files[dst_dir + relative] = self.files.pop(file_path)
+                self.modes[dst_dir + relative] = self.modes.pop(file_path, 0o644)
         self.delete(src_dir)
         self._save_if_needed()
 
@@ -194,10 +244,12 @@ class VirtualFS:
             if directory.startswith(src_dir):
                 relative = directory[len(src_dir) :]
                 self.dirs.add(dst_dir + relative)
+                self.modes[dst_dir + relative] = self.modes.get(directory, 0o755)
         for file_path, content in list(self.files.items()):
             if file_path.startswith(src_dir):
                 relative = file_path[len(src_dir) :]
                 self.files[dst_dir + relative] = content
+                self.modes[dst_dir + relative] = self.modes.get(file_path, 0o644)
         self._save_if_needed()
 
     def _ensure_dir_parents(self, path: str):
@@ -206,6 +258,7 @@ class VirtualFS:
             normalized = self._parent_dir(normalized)
         while normalized not in self.dirs:
             self.dirs.add(normalized)
+            self.modes.setdefault(normalized, 0o755)
             if normalized == "/":
                 break
             normalized = self._parent_dir(normalized)
@@ -219,6 +272,23 @@ class VirtualFS:
         if not parent:
             return "/"
         return parent + "/"
+
+    def _format_mode(self, mode: int, is_dir: bool) -> str:
+        type_char = "d" if is_dir else "-"
+        perms = []
+        for bit, char in [
+            (0o400, "r"),
+            (0o200, "w"),
+            (0o100, "x"),
+            (0o040, "r"),
+            (0o020, "w"),
+            (0o010, "x"),
+            (0o004, "r"),
+            (0o002, "w"),
+            (0o001, "x"),
+        ]:
+            perms.append(char if mode & bit else "-")
+        return type_char + "".join(perms)
 
     def _normalize_path(
         self, path: str, is_dir: bool = False, allow_dir: bool = False
@@ -253,7 +323,15 @@ class VirtualFS:
         if dirpath and not os.path.exists(dirpath):
             os.makedirs(dirpath, exist_ok=True)
         with open(self.backing_path, "w", encoding="utf-8") as f:
-            json.dump({"files": self.files, "dirs": sorted(self.dirs)}, f, indent=2)
+            json.dump(
+                {
+                    "files": self.files,
+                    "dirs": sorted(self.dirs),
+                    "modes": {path: mode for path, mode in self.modes.items()},
+                },
+                f,
+                indent=2,
+            )
 
     def _load(self):
         if os.path.exists(self.backing_path):
@@ -261,6 +339,7 @@ class VirtualFS:
                 data = json.load(f)
             self.files = {}
             self.dirs = {"/"}
+            self.modes = {"/": 0o755}
             if isinstance(data, dict) and all(
                 isinstance(v, str) for v in data.values()
             ):
@@ -268,8 +347,10 @@ class VirtualFS:
                     normalized = self._normalize_path(path, is_dir=path.endswith("/"))
                     if normalized.endswith("/"):
                         self.dirs.add(normalized)
+                        self.modes.setdefault(normalized, 0o755)
                     else:
                         self.files[normalized] = content
+                        self.modes.setdefault(normalized, 0o644)
                     self._ensure_dir_parents(normalized)
             else:
                 self.files = {
@@ -281,8 +362,17 @@ class VirtualFS:
                     for path in data.get("dirs", [])
                 }
                 self.dirs.add("/")
+                self.modes = {
+                    self._normalize_path(path, allow_dir=True): mode
+                    for path, mode in data.get("modes", {}).items()
+                }
+                self.modes.setdefault("/", 0o755)
                 for path in self.files:
                     self._ensure_dir_parents(path)
+                    self.modes.setdefault(path, 0o644)
+                for path in self.dirs:
+                    self.modes.setdefault(path, 0o755)
         else:
             self.files = {}
             self.dirs = {"/"}
+            self.modes = {"/": 0o755}
