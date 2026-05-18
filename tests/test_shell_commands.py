@@ -278,6 +278,19 @@ def test_shell_pipes_and_grep(tmp_path, capsys):
     assert "three" not in captured.out
 
 
+def test_shell_head_tail_with_n(tmp_path, capsys):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing)})
+    k.initialize()
+    sh = k.shell
+
+    k.fs.write("/tmp/lines", "one\ntwo\nthree\n")
+    capsys.readouterr()
+    sh.execute("cat /tmp/lines | grep t | head -n 1")
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "two"
+
+
 def test_shell_source_script(tmp_path):
     backing = tmp_path / "store.json"
     k = Kernel(config={"fs_backing": str(backing)})

@@ -591,16 +591,38 @@ class CommandRegistry:
         input_data: Optional[str] = None,
         capture_output: bool = False,
     ) -> Optional[Union[str, bool]]:
-        if len(parts) < 2:
+        cmd = parts[0]
+        n = 10
+        if len(parts) > 1 and parts[1] == "-n":
+            if len(parts) < 3:
+                print("Usage: head|tail [-n N] [path]")
+                return False
+            try:
+                n = int(parts[2])
+            except ValueError:
+                print("Usage: head|tail [-n N] [path]")
+                return False
+            if len(parts) > 3:
+                path = self._resolve_path(parts[3])
+            else:
+                path = None
+        elif len(parts) > 1:
+            path = self._resolve_path(parts[1])
+            if len(parts) > 2:
+                try:
+                    n = int(parts[2])
+                except ValueError:
+                    print("Usage: head|tail <path> [n]")
+                    return False
+        else:
+            path = None
+
+        if path is None:
             if input_data is None:
                 print("Usage: head|tail <path> [n]")
                 return False
-            cmd = parts[0]
             lines = input_data.splitlines()
-            n = 10
         else:
-            cmd = parts[0]
-            path = self._resolve_path(parts[1])
             try:
                 lines = self.kernel.fs.read_lines(path)
             except PermissionError as exc:
@@ -609,7 +631,6 @@ class CommandRegistry:
             if lines is None:
                 print(f"{parts[1]}: not found")
                 return False
-            n = int(parts[2]) if len(parts) > 2 else 10
         sel = lines[:n] if cmd == "head" else lines[-n:]
         output = "\n".join(sel)
         if capture_output:
