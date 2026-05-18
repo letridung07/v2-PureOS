@@ -13,6 +13,13 @@ import time
 import getpass
 import socket
 
+import sys
+import os
+# Ensure src/ is on sys.path for local development
+ROOT = os.path.dirname(__file__)
+SRC = os.path.join(ROOT, "src")
+if SRC not in sys.path:
+    sys.path.insert(0, SRC)
 from pureos import run as run_pureos
 
 
