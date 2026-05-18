@@ -140,8 +140,8 @@ class Shell:
                 sel = lines[:n]
             else:
                 sel = lines[-n:]
-            for l in sel:
-                print(l)
+            for line in sel:
+                print(line)
             return
 
         if line == "ps":
@@ -167,7 +167,7 @@ class Shell:
             name = parts[2]
             if action == "start":
                 try:
-                    t = self.kernel.services.start(name)
+                    self.kernel.services.start(name)
                     print(f"Started service {name}")
                 except KeyError:
                     print(f"{name}: not registered")

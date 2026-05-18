@@ -2,7 +2,6 @@ import importlib
 import os
 import sys
 import socket
-import time
 
 try:
     net_mod = importlib.import_module("pureos.network")
