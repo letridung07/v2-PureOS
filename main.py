@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-# Minimal entrypoint for v2-PureOS
-"""Simple initializer for the v2-PureOS demo project.
-Prints basic system information using only the Python standard library.
+# Entrypoint for v2-PureOS
+"""Starter script for v2-PureOS demo project.
+
+Initializes the package and optionally enters an interactive shell.
 """
-import sys
-import platform
-import os
+import argparse
 import json
-import socket
-import getpass
+import os
+import platform
+import sys
 import time
+import getpass
+import socket
+
+from pureos import run as run_pureos
 
 
 def banner():
@@ -31,8 +35,13 @@ def system_info():
 
 
 def main():
+    parser = argparse.ArgumentParser(description="v2-PureOS entrypoint")
+    parser.add_argument("--shell", action="store_true", help="Start interactive shell after initialization")
+    args = parser.parse_args()
+
     banner()
     system_info()
+    run_pureos(shell=args.shell)
     print("Initialization complete.")
     print("Exiting.")
 
