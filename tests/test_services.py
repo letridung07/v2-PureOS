@@ -78,7 +78,7 @@ def test_service_status_and_restart(tmp_path):
     assert status["description"] == "test service"
     assert status["auto_start"] is False
 
-    t = sm.start("svc")
+    sm.start("svc")
     time.sleep(0.05)
     assert sm.status("svc")["state"] == "running"
     sm.stop("svc", timeout=1.0)
