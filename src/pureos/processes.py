@@ -25,7 +25,13 @@ class Scheduler:
 
     def spawn(self, name: str, runtime: float = 5.0) -> Process:
         pid = next(self._pid_iter)
-        proc = Process(pid=pid, name=name, status="running", exit_code=None, exit_reason="started")
+        proc = Process(
+            pid=pid,
+            name=name,
+            status="running",
+            exit_code=None,
+            exit_reason="started",
+        )
         self.processes[pid] = proc
         stop_event = threading.Event()
         self._stop_events[pid] = stop_event
@@ -44,7 +50,11 @@ class Scheduler:
                 proc.exit_code = 1
                 proc.exit_reason = str(exc)
 
-        thread = threading.Thread(target=target, name=f"process-{pid}", daemon=True)
+        thread = threading.Thread(
+            target=target,
+            name=f"process-{pid}",
+            daemon=True,
+        )
         thread.start()
         self._threads[pid] = thread
         return proc
