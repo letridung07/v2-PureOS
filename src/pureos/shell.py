@@ -51,7 +51,7 @@ class Shell:
             if result == "exit":
                 return "exit"
             success = result is not False
-        return None
+        return success
 
     def _execute_pipeline(self, line: str):
         line = self._substitute_env_vars(line)

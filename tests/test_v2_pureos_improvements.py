@@ -27,6 +27,13 @@ def test_general_redirection(tmp_path, capsys):
     sh.execute("echo world >> /tmp/out")
     assert k.fs.read("/tmp/out") == "helloworld"
     
+    # Test syntax error for missing redirection target
+    capsys.readouterr()
+    res = sh.execute("echo hello >")
+    captured = capsys.readouterr()
+    assert "Syntax error: redirect target not specified" in captured.out
+    assert res is False
+
     # Clean shutdown
     k.shutdown()
 

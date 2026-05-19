@@ -194,8 +194,7 @@ def split_redirection(line: str) -> Tuple[str, Optional[str], Optional[str]]:
         op = line[op_index : op_index + op_len]
         target_part = line[op_index + op_len :].strip()
         target_tokens = tokenize(target_part)
-        if target_tokens:
-            target = target_tokens[0]
-            return cmd_part, op, target
+        target = target_tokens[0] if target_tokens else None
+        return cmd_part, op, target
     return line, None, None
 
