@@ -338,3 +338,119 @@ class TestPipelines:
         kernel.fs.write("/tmp/scores", "Alice:90\nBob:75\nCarol:88\n")
         result = shell._execute_pipeline("cat /tmp/scores | cut -f 2 -d : | sort -n")
         assert result is True
+
+
+# ============================================================
+# Edge-case / regression tests for fixed bugs
+# ============================================================
+
+
+class TestEdgeCases:
+    # --- grep: pattern is always literal unless -E ---
+
+    def test_grep_dot_is_literal(self, shell):
+        """'.' must match a literal dot, not any character (no -E)."""
+        result = run(shell, "grep .", input_data="3.14\nhello\n2.71")
+        # Only lines containing a literal '.' should match
+        lines = result.splitlines()
+        assert all("." in ln for ln in lines)
+        assert "hello" not in lines
+
+    def test_grep_star_is_literal(self, shell):
+        """'*' must match a literal asterisk without -E."""
+        result = run(shell, "grep *", input_data="a*b\nhello\nc*d", capture=False)
+        # 'a*b' and 'c*d' contain literal '*'; 'hello' does not
+        # Without -E the pattern '*' is re.escape'd so it's fine
+        assert result is not False  # at least one match
+
+    def test_grep_E_enables_regex(self, shell):
+        """With -E, '^foo' should match lines starting with 'foo'."""
+        result = run(shell, "grep -E ^foo", input_data="foobar\nbarfoo\nfoo")
+        lines = result.splitlines()
+        assert "foobar" in lines
+        assert "foo" in lines
+        assert "barfoo" not in lines
+
+    def test_grep_literal_special_chars(self, shell):
+        """Special regex chars in pattern should match literally without -E."""
+        result = run(shell, "grep (test)", input_data="(test)\ntest\nno match")
+        assert "(test)" in result
+        assert "test\n" not in result or result == "(test)"
+
+    # --- tr: empty set1 guard ---
+
+    def test_tr_empty_set1_fails(self, shell):
+        """tr with a set1 that expands to empty (z-a inverted range) should fail."""
+        # An inverted range like z-a produces an empty expansion.
+        # The guard in tr should catch this and return False.
+        result = run(shell, "tr z-a B", input_data="hello", capture=False)
+        # z-a: ord('z')=122 > ord('a')=97, range(122, 97+1) is empty
+        assert result is False
+
+    def test_tr_delete_ignores_set2(self, shell):
+        """-d deletes set1 chars; set2 is ignored per POSIX."""
+        result = run(shell, "tr -d aeiou xyz", input_data="hello world")
+        # 'xyz' should be silently ignored
+        assert result == "hll wrld"
+
+    # --- cut: invalid range spec ---
+
+    def test_cut_invalid_field_spec_letters(self, shell):
+        """cut -f abc should fail gracefully, not raise ValueError."""
+        result = run(shell, "cut -f abc -d ,", input_data="a,b,c", capture=False)
+        assert result is False
+
+    def test_cut_zero_field(self, shell):
+        """Field number 0 is invalid (fields are 1-indexed)."""
+        result = run(shell, "cut -f 0 -d ,", input_data="a,b,c", capture=False)
+        assert result is False
+
+    def test_cut_inverted_range(self, shell):
+        """A range like 5-2 (hi < lo) is invalid."""
+        result = run(shell, "cut -f 5-2 -d ,", input_data="a,b,c,d,e", capture=False)
+        assert result is False
+
+    # --- cut: mutually exclusive -f and -c ---
+
+    def test_cut_f_and_c_mutually_exclusive(self, shell):
+        """Specifying both -f and -c should return False."""
+        result = run(shell, "cut -f 1 -c 1 -d ,", input_data="a,b,c", capture=False)
+        assert result is False
+
+    # --- wc: multi-byte (UTF-8) bytes vs chars ---
+
+    def test_wc_bytes_utf8(self, shell):
+        """wc -c counts bytes, not Unicode code points."""
+        # '£' is U+00A3, encoded as 2 bytes in UTF-8
+        result = run(shell, "wc -c", input_data="£")
+        assert result.strip() == "2"
+
+    # --- sort: already-sorted input is unchanged ---
+
+    def test_sort_stable_already_sorted(self, shell):
+        result = run(shell, "sort", input_data="a\nb\nc")
+        assert result == "a\nb\nc"
+
+    # --- uniq: single-line input ---
+
+    def test_uniq_single_line(self, shell):
+        result = run(shell, "uniq", input_data="only")
+        assert result == "only"
+
+    # --- grep: empty pattern matches all lines ---
+
+    def test_grep_pattern_subset_of_lines(self, shell):
+        """grep only returns lines that contain the pattern."""
+        result = run(shell, "grep apple", input_data="apple\napricot\ncherry")
+        lines = result.splitlines()
+        assert "apple" in lines
+        assert "apricot" not in lines
+        assert "cherry" not in lines
+
+    # --- xargs: -n 0 should not infinite-loop ---
+
+    def test_xargs_n_zero_treated_as_all(self, shell):
+        """max_args=0 is treated as 'all words at once' (chunk_size=total)."""
+        result = run(shell, "xargs -n 0 echo", input_data="a b c")
+        # chunk_size = max(0,0) falls through to len(stdin_words)
+        assert "a" in result and "b" in result

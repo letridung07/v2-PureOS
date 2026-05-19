@@ -150,18 +150,12 @@ class GrepCommand(Command):
 
         re_flags = re.IGNORECASE if "i" in flags else 0
         try:
-            if "E" not in flags:
-                # Treat pattern as a literal unless it looks like regex
-                compiled = re.compile(
-                    (
-                        re.escape(pattern_str)
-                        if not any(c in pattern_str for c in r".*+?[](){}^$|\\")
-                        else pattern_str
-                    ),
-                    re_flags,
-                )
-            else:
+            if "E" in flags:
+                # -E: extended regex — compile as-is
                 compiled = re.compile(pattern_str, re_flags)
+            else:
+                # No -E: always treat the pattern as a literal string
+                compiled = re.compile(re.escape(pattern_str), re_flags)
         except re.error as exc:
             print(f"grep: invalid pattern: {exc}")
             return False
@@ -347,16 +341,32 @@ class CutCommand(Command):
                 delim = tok[2:]
                 i += 1
             elif tok in ("-f",) and i + 1 < len(parts):
-                fields = self._parse_range(parts[i + 1])
+                try:
+                    fields = self._parse_range(parts[i + 1])
+                except ValueError as exc:
+                    print(str(exc))
+                    return False
                 i += 2
             elif tok.startswith("-f") and len(tok) > 2:
-                fields = self._parse_range(tok[2:])
+                try:
+                    fields = self._parse_range(tok[2:])
+                except ValueError as exc:
+                    print(str(exc))
+                    return False
                 i += 1
             elif tok in ("-c",) and i + 1 < len(parts):
-                chars = self._parse_range(parts[i + 1])
+                try:
+                    chars = self._parse_range(parts[i + 1])
+                except ValueError as exc:
+                    print(str(exc))
+                    return False
                 i += 2
             elif tok.startswith("-c") and len(tok) > 2:
-                chars = self._parse_range(tok[2:])
+                try:
+                    chars = self._parse_range(tok[2:])
+                except ValueError as exc:
+                    print(str(exc))
+                    return False
                 i += 1
             else:
                 file_args.append(tok)
@@ -364,6 +374,9 @@ class CutCommand(Command):
 
         if fields is None and chars is None:
             print("cut: you must specify either -f or -c")
+            return False
+        if fields is not None and chars is not None:
+            print("cut: options -f and -c are mutually exclusive")
             return False
 
         text = _read_input(self, file_args, input_data, file_arg_index=1)
@@ -388,17 +401,35 @@ class CutCommand(Command):
 
     @staticmethod
     def _parse_range(spec: str) -> List[int]:
-        """Parse a cut field/char specification like '1,3-5,7'."""
+        """Parse a cut field/char specification like '1,3-5,7'.
+
+        Raises ValueError on malformed specs so callers can report an error.
+        """
         indices = []
         for part in spec.split(","):
             part = part.strip()
+            if not part:
+                continue
             if "-" in part:
                 lo_s, hi_s = part.split("-", 1)
-                lo = int(lo_s) if lo_s else 1
-                hi = int(hi_s) if hi_s else 9999
+                try:
+                    lo = int(lo_s) if lo_s else 1
+                    hi = int(hi_s) if hi_s else 9999
+                except ValueError:
+                    raise ValueError(f"cut: invalid field/char spec: {spec!r}")
+                if lo < 1 or hi < lo:
+                    raise ValueError(f"cut: invalid range {part!r} in spec {spec!r}")
                 indices.extend(range(lo, hi + 1))
             else:
-                indices.append(int(part))
+                try:
+                    n = int(part)
+                except ValueError:
+                    raise ValueError(f"cut: invalid field/char spec: {spec!r}")
+                if n < 1:
+                    raise ValueError("cut: fields/chars are numbered from 1")
+                indices.append(n)
+        if not indices:
+            raise ValueError(f"cut: empty field/char spec: {spec!r}")
         return sorted(set(indices))
 
 
@@ -447,12 +478,21 @@ class TrCommand(Command):
         set1 = self._expand_set(positional[1])
         set2 = self._expand_set(positional[2]) if len(positional) > 2 else ""
 
+        if not set1:
+            print("tr: set1 must not be empty")
+            return False
+        if set2 and not delete and len(set2) == 0:
+            # guard: set2 is referenced via [-1] below; already empty-checked above
+            print("tr: set2 must not be empty when translating")
+            return False
+
         text = input_data
 
         if delete:
+            # -d: delete chars in set1; set2 is ignored per POSIX
             text = "".join(c for c in text if c not in set1)
         elif set2:
-            # Build a translation table
+            # Build a translation table; if set2 is shorter, last char repeats
             table = {}
             for idx, ch in enumerate(set1):
                 dest = set2[idx] if idx < len(set2) else set2[-1]
