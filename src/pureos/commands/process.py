@@ -95,16 +95,23 @@ class WaitCommand(Command):
         raw_line=None,
     ):
         if len(parts) > 1:
-            try:
-                pid = int(parts[1])
-            except ValueError:
-                print("Usage: wait [pid]")
-                return False
-            p = self.kernel.scheduler.status(pid)
-            if not p:
-                print(f"wait: no such process: {pid}")
-                return False
-            self.kernel.scheduler.wait(pid)
+            pids = []
+            for arg in parts[1:]:
+                try:
+                    pid = int(arg)
+                    pids.append(pid)
+                except ValueError:
+                    print("Usage: wait [pid]...")
+                    return False
+
+            for pid in pids:
+                p = self.kernel.scheduler.status(pid)
+                if not p:
+                    print(f"wait: no such process: {pid}")
+                    return False
+
+            for pid in pids:
+                self.kernel.scheduler.wait(pid)
             return True
         else:
             self.kernel.scheduler.wait_all()

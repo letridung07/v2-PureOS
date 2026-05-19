@@ -69,6 +69,22 @@ def test_wait_command_all(kernel, shell):
     assert all(p.status == "completed" for p in procs)
 
 
+def test_wait_command_multi(kernel, shell):
+    # Spawn multiple background jobs
+    shell.execute("spawn job1")
+    shell.execute("spawn job2")
+
+    procs = kernel.scheduler.list()
+    assert len(procs) >= 2
+    pids = [p.pid for p in procs]
+
+    # Wait for both specific PIDs
+    res = shell.execute(f"wait {pids[0]} {pids[1]}")
+    assert res is True
+
+    assert all(p.status == "completed" for p in procs)
+
+
 def test_tar_create_list_extract(kernel, shell):
     # Prepare directory structure
     kernel.fs.mkdir("/tmp/tardir")
