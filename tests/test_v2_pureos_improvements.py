@@ -1,3 +1,13 @@
+"""Integration and unit tests for v2-PureOS feature updates.
+
+Covers:
+1. General shell output redirection (> and >>) across all commands.
+2. System monitoring statistics commands (uptime, date, df, free).
+3. Interactive line-based text editor (edit command with mock user input).
+4. Networking command utilities (ifconfig, ping, nc) and TCP echo_server
+   service integration.
+"""
+
 import time
 from unittest.mock import patch
 
