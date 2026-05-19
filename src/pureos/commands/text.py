@@ -334,9 +334,13 @@ class CutCommand(Command):
         i = 1
         while i < len(parts):
             tok = parts[i]
-            if tok in ("-d",) and i + 1 < len(parts):
+            if tok == "-d" and i + 1 < len(parts):
                 delim = parts[i + 1]
                 i += 2
+            elif tok == "-d":
+                # -d flag with no following argument
+                print("cut: option -d requires an argument")
+                return False
             elif tok.startswith("-d") and len(tok) > 2:
                 delim = tok[2:]
                 i += 1
@@ -524,14 +528,34 @@ class TrCommand(Command):
 
     @staticmethod
     def _expand_set(spec: str) -> str:
-        """Expand a tr set specification, handling a-z ranges."""
+        """Expand a tr set specification, handling a-z ranges.
+
+        A range ``lo-hi`` where ``ord(lo) > ord(hi)`` is treated as three
+        literal characters (lo, '-', hi) to match common tr implementations.
+        A trailing '-' or leading '-' that cannot form a range is kept
+        as a literal '-'.
+        """
         result = []
         i = 0
         while i < len(spec):
-            if i + 2 < len(spec) and spec[i + 1] == "-":
-                start, end = ord(spec[i]), ord(spec[i + 2])
-                result.extend(chr(c) for c in range(start, end + 1))
-                i += 3
+            # Only attempt range expansion when a '-' sits between two chars
+            # AND the range is non-empty (start <= end).
+            if (
+                i + 2 <= len(spec) - 1  # there IS a char after the '-'
+                and spec[i + 1] == "-"
+            ):
+                start_ord = ord(spec[i])
+                end_ord = ord(spec[i + 2])
+                if start_ord <= end_ord:
+                    # Valid ascending range
+                    result.extend(chr(c) for c in range(start_ord, end_ord + 1))
+                    i += 3
+                else:
+                    # Inverted/empty range — treat all three as literals
+                    result.append(spec[i])
+                    result.append("-")
+                    result.append(spec[i + 2])
+                    i += 3
             else:
                 result.append(spec[i])
                 i += 1
