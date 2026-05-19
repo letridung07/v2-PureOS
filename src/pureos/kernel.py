@@ -20,6 +20,18 @@ def _noop_service(stop_event=None):
             time.sleep(0.1)
 
 
+def _echo_server_service(stop_event=None):
+    from .network import start_echo_server
+    port, thread, srv_stop_event = start_echo_server(host="127.0.0.1", port=50007)
+    while not (stop_event and stop_event.is_set()):
+        if stop_event:
+            stop_event.wait(0.1)
+        else:
+            time.sleep(0.1)
+    srv_stop_event.set()
+    thread.join()
+
+
 class Kernel:
     def __init__(self, config: Optional[dict] = None):
         self.config = Config.from_dict(config)
@@ -28,6 +40,7 @@ class Kernel:
         self.scheduler = Scheduler()
         self.services = ServiceManager()
         self.shell = Shell(self)
+        self.boot_time = time.time()
 
         # register a tiny noop service so there's at least one background thread
         self.services.register(
@@ -37,6 +50,15 @@ class Kernel:
             stoppable=True,
             description="No-op background service",
             auto_start=True,
+        )
+
+        self.services.register(
+            "echo_server",
+            _echo_server_service,
+            daemon=True,
+            stoppable=True,
+            description="TCP echo server on port 50007",
+            auto_start=False,
         )
 
     def register_service(

@@ -4,7 +4,7 @@ import re
 from typing import List
 
 from .commands import CommandRegistry
-from .parser import split_command_sequence, split_pipeline, tokenize
+from .parser import split_command_sequence, split_pipeline, tokenize, split_redirection
 
 
 class Shell:
@@ -60,8 +60,9 @@ class Shell:
             return None
         input_data = None
         for index, stage in enumerate(stages):
+            stage, redirect_op, redirect_target = split_redirection(stage)
             tokens = self._expand_alias(self._tokenize(stage))
-            capture_output = index < len(stages) - 1
+            capture_output = (index < len(stages) - 1) or bool(redirect_op)
             result = self.registry.execute(
                 tokens,
                 input_data=input_data,
@@ -72,11 +73,29 @@ class Shell:
                 return "exit"
             if result is False:
                 return False
-            if capture_output:
-                input_data = result if isinstance(result, str) else ""
+            
+            if redirect_op:
+                if not redirect_target:
+                    print("Syntax error: redirect target not specified")
+                    return False
+                target_path = self.resolve_path(redirect_target)
+                content = result if isinstance(result, str) else ""
+                try:
+                    if redirect_op == ">>":
+                        self.kernel.fs.append(target_path, content)
+                    else:
+                        self.kernel.fs.write(target_path, content)
+                except (ValueError, PermissionError) as exc:
+                    print(str(exc))
+                    return False
+                if index < len(stages) - 1:
+                    input_data = ""
             else:
-                if isinstance(result, str):
-                    print(result)
+                if index < len(stages) - 1:
+                    input_data = result if isinstance(result, str) else ""
+                else:
+                    if isinstance(result, str):
+                        print(result)
         return True
 
     def _substitute_env_vars(self, line: str) -> str:

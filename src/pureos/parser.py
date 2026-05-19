@@ -148,3 +148,54 @@ def tokenize(line: str) -> List[str]:
     if current:
         parts.append("".join(current))
     return parts
+
+
+def split_redirection(line: str) -> Tuple[str, Optional[str], Optional[str]]:
+    """Scan the command line to split at the first unquoted/unescaped redirection operator (> or >>).
+    
+    Returns (command_part, operator, target_file).
+    """
+    quote = None
+    escaped = False
+    index = 0
+    op_index = -1
+    op_len = 0
+    while index < len(line):
+        char = line[index]
+        if escaped:
+            escaped = False
+            index += 1
+            continue
+        if char == "\\":
+            escaped = True
+            index += 1
+            continue
+        if quote:
+            if char == quote:
+                quote = None
+            index += 1
+            continue
+        if char in ('"', "'"):
+            quote = char
+            index += 1
+            continue
+        if line.startswith(">>", index):
+            op_index = index
+            op_len = 2
+            break
+        if char == ">":
+            op_index = index
+            op_len = 1
+            break
+        index += 1
+    
+    if op_index != -1:
+        cmd_part = line[:op_index]
+        op = line[op_index : op_index + op_len]
+        target_part = line[op_index + op_len :].strip()
+        target_tokens = tokenize(target_part)
+        if target_tokens:
+            target = target_tokens[0]
+            return cmd_part, op, target
+    return line, None, None
+

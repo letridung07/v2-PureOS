@@ -6,6 +6,7 @@ from .fs import register_fs_commands
 from .process import register_process_commands
 from .service import register_service_commands
 from .system import register_system_commands
+from .network import register_network_commands
 
 
 class CommandRegistry:
@@ -38,12 +39,34 @@ class CommandRegistry:
         if not handler:
             print("Unknown command:", " ".join(parts))
             return False
-        return handler.execute(
-            parts,
-            input_data=input_data,
-            capture_output=capture_output,
-            raw_line=raw_line,
-        )
+        
+        if capture_output:
+            import io
+            import contextlib
+            
+            f = io.StringIO()
+            with contextlib.redirect_stdout(f):
+                result = handler.execute(
+                    parts,
+                    input_data=input_data,
+                    capture_output=capture_output,
+                    raw_line=raw_line,
+                )
+            if result is False:
+                return False
+            if isinstance(result, str):
+                return result
+            val = f.getvalue()
+            if val.endswith("\n"):
+                val = val[:-1]
+            return val
+        else:
+            return handler.execute(
+                parts,
+                input_data=input_data,
+                capture_output=capture_output,
+                raw_line=raw_line,
+            )
 
     def register(self, command: Command):
         self.commands[command.name] = command
@@ -55,3 +78,4 @@ class CommandRegistry:
         register_fs_commands(self)
         register_service_commands(self)
         register_process_commands(self)
+        register_network_commands(self)

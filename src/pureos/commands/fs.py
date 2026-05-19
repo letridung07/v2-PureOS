@@ -136,65 +136,7 @@ class EchoCommand(FileCommand):
             print()
             return True
 
-        tokens = parts[1:]
-        operator = None
-        target = None
-        content_tokens = []
-        for index, token in enumerate(tokens):
-            if token == ">>" or token == ">":
-                operator = token
-                target = tokens[index + 1] if index + 1 < len(tokens) else None
-                content_tokens = tokens[:index]
-                break
-            if token.startswith(">>") and " " not in token:
-                operator = ">>"
-                target = token[2:]
-                content_tokens = tokens[:index]
-                break
-            if token.startswith(">") and " " not in token:
-                operator = ">"
-                target = token[1:]
-                content_tokens = tokens[:index]
-                break
-            if token.endswith(">>") and " " not in token:
-                operator = ">>"
-                target = tokens[index + 1] if index + 1 < len(tokens) else None
-                content_tokens = tokens[:index] + [token[:-2]]
-                break
-            if token.endswith(">") and " " not in token:
-                operator = ">"
-                target = tokens[index + 1] if index + 1 < len(tokens) else None
-                content_tokens = tokens[:index] + [token[:-1]]
-                break
-            if ">>" in token and " " not in token:
-                idx = token.find(">>")
-                operator = ">>"
-                content_tokens = tokens[:index] + ([token[:idx]] if idx else [])
-                target = token[idx + 2 :]
-                break
-            if ">" in token and " " not in token:
-                idx = token.find(">")
-                operator = ">"
-                content_tokens = tokens[:index] + ([token[:idx]] if idx else [])
-                target = token[idx + 1 :]
-                break
-        if operator:
-            if target is None or target == "":
-                print("Usage: echo <text> > <path>")
-                return False
-            content = " ".join(content_tokens)
-            try:
-                if operator == ">>":
-                    self.kernel.fs.append(self._resolve_path(target), content)
-                else:
-                    self.kernel.fs.write(self._resolve_path(target), content)
-                print(f"Wrote {len(content)} bytes to {target}")
-                return True
-            except (ValueError, PermissionError) as exc:
-                print(str(exc))
-                return False
-
-        line = " ".join(tokens)
+        line = " ".join(parts[1:])
         if capture_output:
             return line
         print(line)
@@ -608,6 +550,113 @@ class HeadTailCommand(FileCommand):
         return True
 
 
+class EditCommand(FileCommand):
+    name = "edit"
+    usage = "edit <path>"
+    description = "Interactive line-based text editor."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) < 2:
+            print("Usage: edit <path>")
+            return False
+        path = self._resolve_path(parts[1])
+        
+        # Load file content if it exists
+        buffer = []
+        if self.kernel.fs.exists(path):
+            if self.kernel.fs.is_dir(path):
+                print(f"Error: {parts[1]} is a directory")
+                return False
+            try:
+                content = self.kernel.fs.read(path)
+                if content is not None:
+                    buffer = content.splitlines()
+            except PermissionError as exc:
+                print(str(exc))
+                return False
+
+        print(f"Entering edit mode for {parts[1]}")
+        print("Commands:")
+        print("  :wq  - save and quit")
+        print("  :q   - quit without saving")
+        print("  :w   - save current buffer")
+        print("  :l   - list lines with line numbers")
+        print("  :d <line_number> - delete line at 1-indexed number")
+        print("  :a <line_number> <content> - insert content after line number (0 to insert at top)")
+        print("Type any text to append to the end of the file.")
+        print("-" * 48)
+
+        # Show current content
+        for idx, line in enumerate(buffer, 1):
+            print(f"{idx}: {line}")
+
+        while True:
+            try:
+                line = input("edit> ")
+            except (EOFError, KeyboardInterrupt):
+                print("\nQuit editor without saving.")
+                break
+
+            if line.startswith(":"):
+                sub_parts = line.split(maxsplit=2)
+                cmd = sub_parts[0]
+                if cmd == ":q":
+                    break
+                elif cmd == ":w":
+                    content = "\n".join(buffer)
+                    try:
+                        self.kernel.fs.write(path, content)
+                        print(f"Saved {len(content)} bytes to {parts[1]}")
+                    except (ValueError, PermissionError) as exc:
+                        print(f"Error saving: {exc}")
+                elif cmd == ":wq":
+                    content = "\n".join(buffer)
+                    try:
+                        self.kernel.fs.write(path, content)
+                        print(f"Saved {len(content)} bytes to {parts[1]}")
+                    except (ValueError, PermissionError) as exc:
+                        print(f"Error saving: {exc}")
+                        continue
+                    break
+                elif cmd in (":l", ":list"):
+                    for idx, l in enumerate(buffer, 1):
+                        print(f"{idx}: {l}")
+                elif cmd in (":d", ":delete"):
+                    if len(sub_parts) < 2:
+                        print("Usage: :d <line_number>")
+                        continue
+                    try:
+                        line_num = int(sub_parts[1])
+                        if 1 <= line_num <= len(buffer):
+                            removed = buffer.pop(line_num - 1)
+                            print(f"Deleted line {line_num}: {removed}")
+                        else:
+                            print("Line number out of range.")
+                    except ValueError:
+                        print("Invalid line number.")
+                elif cmd in (":a", ":append", ":i", ":insert"):
+                    if len(sub_parts) < 3:
+                        print("Usage: :a <line_number> <content>")
+                        continue
+                    try:
+                        line_num = int(sub_parts[1])
+                        insert_content = sub_parts[2]
+                        if 0 <= line_num <= len(buffer):
+                            buffer.insert(line_num, insert_content)
+                            print(f"Inserted line after {line_num}")
+                        else:
+                            print("Line number out of range.")
+                    except ValueError:
+                        print("Invalid line number.")
+                else:
+                    print(f"Unknown editor command: {cmd}")
+            else:
+                buffer.append(line)
+        return True
+
+
 def register_fs_commands(registry):
     registry.register(GrepCommand(registry.kernel))
     registry.register(CatCommand(registry.kernel))
@@ -629,3 +678,4 @@ def register_fs_commands(registry):
     registry.register(StatCommand(registry.kernel))
     registry.register(SourceCommand(registry.kernel))
     registry.register(HeadTailCommand(registry.kernel))
+    registry.register(EditCommand(registry.kernel))

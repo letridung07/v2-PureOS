@@ -137,6 +137,75 @@ class HistoryCommand(Command):
         return True
 
 
+class UptimeCommand(Command):
+    name = "uptime"
+    usage = "uptime"
+    description = "Show system uptime."
+
+    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+        import time
+        uptime_seconds = int(time.time() - self.kernel.boot_time)
+        hours = uptime_seconds // 3600
+        minutes = (uptime_seconds % 3600) // 60
+        seconds = uptime_seconds % 60
+        out = f"uptime: {hours:02d}:{minutes:02d}:{seconds:02d} ({uptime_seconds}s)"
+        if capture_output:
+            return out
+        print(out)
+        return True
+
+
+class DateCommand(Command):
+    name = "date"
+    usage = "date"
+    description = "Show current date and time."
+
+    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+        import time
+        out = time.strftime("%a %b %d %H:%M:%S %Z %Y")
+        if capture_output:
+            return out
+        print(out)
+        return True
+
+
+class DfCommand(Command):
+    name = "df"
+    usage = "df"
+    description = "Show virtual disk usage statistics."
+
+    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+        fs = self.kernel.fs
+        num_files = len(fs.files)
+        num_dirs = len(fs.dirs)
+        total_bytes = sum(len(content) for content in fs.files.values())
+        out = (
+            f"Filesystem      Directories       Files        Used (Bytes)\n"
+            f"virtualfs       {num_dirs:<17} {num_files:<12} {total_bytes}"
+        )
+        if capture_output:
+            return out
+        print(out)
+        return True
+
+
+class FreeCommand(Command):
+    name = "free"
+    usage = "free"
+    description = "Show mock memory usage statistics."
+
+    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+        out = (
+            "              total        used        free      shared  buff/cache   available\n"
+            "Mem:        8192000     2048000     4096000           0     2048000     6144000\n"
+            "Swap:       2048000      512000     1536000"
+        )
+        if capture_output:
+            return out
+        print(out)
+        return True
+
+
 def register_system_commands(registry):
     registry.register(HelpCommand(registry.kernel))
     registry.register(InfoCommand(registry.kernel))
@@ -144,3 +213,7 @@ def register_system_commands(registry):
     registry.register(AliasCommand(registry.kernel))
     registry.register(UnaliasCommand(registry.kernel))
     registry.register(HistoryCommand(registry.kernel))
+    registry.register(UptimeCommand(registry.kernel))
+    registry.register(DateCommand(registry.kernel))
+    registry.register(DfCommand(registry.kernel))
+    registry.register(FreeCommand(registry.kernel))
