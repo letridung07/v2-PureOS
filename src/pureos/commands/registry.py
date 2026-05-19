@@ -279,7 +279,8 @@ class CommandRegistry:
                         and obj is not Command
                         and not inspect.isabstract(obj)
                     ):
-                        if "name" in obj.__dict__ and obj.name:
+                        cmd_name = getattr(obj, "name", None)
+                        if cmd_name:
                             command_instance = obj(self.kernel)
                             self._register_unlocked(command_instance)
 

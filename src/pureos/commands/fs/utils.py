@@ -60,6 +60,62 @@ class HeadTailCommand(FileCommand):
         return True
 
 
+class StatCommand(FileCommand):
+    name = "stat"
+    usage = "stat <path>"
+    description = "Display metadata for a path."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) < 2:
+            print("Usage: stat <path>")
+            return False
+        path = self._resolve_path(parts[1], allow_dir=True)
+        info = self.kernel.fs.stat(path)
+        if info is None:
+            print(f"{parts[1]}: not found")
+            return False
+
+        out_lines = []
+        for k, v in info.items():
+            if k == "mode" and isinstance(v, int):
+                out_lines.append(f"{k}: {oct(v)}")
+            else:
+                out_lines.append(f"{k}: {v}")
+
+        out = "\n".join(out_lines)
+        if capture_output:
+            return out
+        print(out)
+        return True
+
+
+class SourceCommand(FileCommand):
+    name = "source"
+    usage = "source <path>"
+    description = "Execute commands from a file."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) < 2:
+            print("Usage: source <path>")
+            return False
+        path = self._resolve_path(parts[1])
+        content = self.kernel.fs.read(path)
+        if content is None:
+            print(f"{parts[1]}: not found")
+            return False
+
+        for line in content.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            self.kernel.shell.execute(line)
+        return True
+
+
 class FormatCommand(FileCommand):
     name = "format"
     usage = "format"
