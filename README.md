@@ -62,3 +62,5 @@ The project includes a GitHub Actions workflow at `.github/workflows/ci.yml`.
 ## Notes
 
 This README is intended as a project overview and quickstart. For detailed shell commands, examples, and implementation notes, consult `docs/index.md`.
+
+Test commit entry created by assistant.
