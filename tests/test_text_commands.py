@@ -26,13 +26,14 @@ def run(shell, cmd, input_data=None, capture=True):
 # wc
 # ============================================================
 
+
 class TestWc:
     def test_counts_all(self, kernel, shell):
         kernel.fs.write("/tmp/words", "hello world\nfoo bar baz\n")
         result = run(shell, "wc /tmp/words")
         parts = result.split()
-        assert parts[0] == "2"   # lines
-        assert parts[1] == "5"   # words
+        assert parts[0] == "2"  # lines
+        assert parts[1] == "5"  # words
         assert int(parts[2]) > 0  # bytes
 
     def test_lines_flag(self, kernel, shell):
@@ -69,6 +70,7 @@ class TestWc:
 # grep
 # ============================================================
 
+
 class TestGrep:
     def test_basic_match(self, shell):
         result = run(shell, "grep hello", input_data="hello world\nfoo bar")
@@ -98,7 +100,7 @@ class TestGrep:
         result = run(shell, "grep -E ^foo", input_data="foobar\nbar\nfoobaz")
         lines = result.strip().splitlines()
         assert len(lines) == 2
-        assert all(l.startswith("foo") for l in lines)
+        assert all(line.startswith("foo") for line in lines)
 
     def test_file_read(self, kernel, shell):
         kernel.fs.write("/tmp/gtest", "apple\nbanana\ncherry\n")
@@ -117,6 +119,7 @@ class TestGrep:
 # ============================================================
 # sort
 # ============================================================
+
 
 class TestSort:
     def test_alphabetical(self, shell):
@@ -153,6 +156,7 @@ class TestSort:
 # ============================================================
 # uniq
 # ============================================================
+
 
 class TestUniq:
     def test_basic_dedup(self, shell):
@@ -195,6 +199,7 @@ class TestUniq:
 # cut
 # ============================================================
 
+
 class TestCut:
     def test_field_cut(self, shell):
         result = run(shell, "cut -f 2 -d :", input_data="a:b:c\n1:2:3")
@@ -236,6 +241,7 @@ class TestCut:
 # tr
 # ============================================================
 
+
 class TestTr:
     def test_translate(self, shell):
         result = run(shell, "tr abc ABC", input_data="abc def")
@@ -271,6 +277,7 @@ class TestTr:
 # xargs
 # ============================================================
 
+
 class TestXargs:
     def test_basic(self, kernel, shell):
         # echo each word — xargs echo word1 word2
@@ -280,8 +287,6 @@ class TestXargs:
 
     def test_max_args(self, shell):
         # With -n 1 each word runs the command separately
-        outputs = []
-        # Capture via pipeline substitute: run manually
         result = run(shell, "xargs -n 1 echo", input_data="a b c")
         # Should contain all three words
         assert "a" in result
@@ -313,6 +318,7 @@ class TestXargs:
 # Pipeline integration tests
 # ============================================================
 
+
 class TestPipelines:
     def test_cat_grep_pipeline(self, kernel, shell):
         kernel.fs.write("/tmp/fruits", "apple\nbanana\napricot\ncherry\n")
@@ -320,9 +326,7 @@ class TestPipelines:
         assert result is True or result is not False
 
     def test_sort_uniq_pipeline(self, shell):
-        result = shell._execute_pipeline(
-            "echo 'b\na\nb\na' | sort | uniq"
-        )
+        result = shell._execute_pipeline("echo 'b\na\nb\na' | sort | uniq")
         assert result is True
 
     def test_wc_after_grep(self, kernel, shell):
@@ -332,7 +336,5 @@ class TestPipelines:
 
     def test_cut_sort(self, kernel, shell):
         kernel.fs.write("/tmp/scores", "Alice:90\nBob:75\nCarol:88\n")
-        result = shell._execute_pipeline(
-            "cat /tmp/scores | cut -f 2 -d : | sort -n"
-        )
+        result = shell._execute_pipeline("cat /tmp/scores | cut -f 2 -d : | sort -n")
         assert result is True

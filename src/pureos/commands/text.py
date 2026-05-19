@@ -13,10 +13,10 @@ from typing import List, Optional
 
 from .base import Command
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _read_input(
     cmd: Command,
@@ -62,6 +62,7 @@ def _emit(text: str, capture_output: bool):
 # ---------------------------------------------------------------------------
 # wc
 # ---------------------------------------------------------------------------
+
 
 class WcCommand(Command):
     name = "wc"
@@ -111,6 +112,7 @@ class WcCommand(Command):
 # grep
 # ---------------------------------------------------------------------------
 
+
 class GrepCommand(Command):
     name = "grep"
     usage = "grep [-i] [-v] [-n] [-c] [-E] <pattern> [file]"
@@ -150,9 +152,14 @@ class GrepCommand(Command):
         try:
             if "E" not in flags:
                 # Treat pattern as a literal unless it looks like regex
-                compiled = re.compile(re.escape(pattern_str) if not any(
-                    c in pattern_str for c in r".*+?[](){}^$|\\"
-                ) else pattern_str, re_flags)
+                compiled = re.compile(
+                    (
+                        re.escape(pattern_str)
+                        if not any(c in pattern_str for c in r".*+?[](){}^$|\\")
+                        else pattern_str
+                    ),
+                    re_flags,
+                )
             else:
                 compiled = re.compile(pattern_str, re_flags)
         except re.error as exc:
@@ -192,6 +199,7 @@ class GrepCommand(Command):
 # sort
 # ---------------------------------------------------------------------------
 
+
 class SortCommand(Command):
     name = "sort"
     usage = "sort [-r] [-n] [-u] [file]"
@@ -224,11 +232,13 @@ class SortCommand(Command):
         unique = "u" in flags
 
         if numeric:
+
             def key_fn(line: str):
                 stripped = line.strip()
                 # extract leading number
                 m = re.match(r"^-?\d+(\.\d+)?", stripped)
                 return float(m.group()) if m else 0.0
+
         else:
             key_fn = None  # type: ignore[assignment]
 
@@ -250,6 +260,7 @@ class SortCommand(Command):
 # ---------------------------------------------------------------------------
 # uniq
 # ---------------------------------------------------------------------------
+
 
 class UniqCommand(Command):
     name = "uniq"
@@ -308,6 +319,7 @@ class UniqCommand(Command):
 # cut
 # ---------------------------------------------------------------------------
 
+
 class CutCommand(Command):
     name = "cut"
     usage = "cut -f <fields> [-d <delim>] [file]  |  cut -c <range> [file]"
@@ -361,13 +373,12 @@ class CutCommand(Command):
         result = []
         for line in text.splitlines():
             if chars is not None:
-                extracted = "".join(
-                    line[c - 1] for c in chars if 0 < c <= len(line)
-                )
+                extracted = "".join(line[c - 1] for c in chars if 0 < c <= len(line))
             else:
                 col_parts = line.split(delim)
                 extracted = delim.join(
-                    col_parts[f - 1] for f in fields  # type: ignore[index]
+                    col_parts[f - 1]
+                    for f in fields  # type: ignore[index]
                     if 0 < f <= len(col_parts)
                 )
             result.append(extracted)
@@ -394,6 +405,7 @@ class CutCommand(Command):
 # ---------------------------------------------------------------------------
 # tr
 # ---------------------------------------------------------------------------
+
 
 class TrCommand(Command):
     name = "tr"
@@ -490,6 +502,7 @@ class TrCommand(Command):
 # xargs
 # ---------------------------------------------------------------------------
 
+
 class XargsCommand(Command):
     name = "xargs"
     usage = "xargs [-n <max_args>] <command> [initial_args...]"
@@ -571,6 +584,7 @@ class XargsCommand(Command):
 # ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
+
 
 def register_text_commands(registry):
     registry.register(WcCommand(registry.kernel))
