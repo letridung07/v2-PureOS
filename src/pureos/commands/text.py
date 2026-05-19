@@ -380,6 +380,9 @@ class CutCommand(Command):
         if fields is not None and chars is not None:
             print("cut: options -f and -c are mutually exclusive")
             return False
+        if delim == "":
+            print("cut: delimiter cannot be empty")
+            return False
 
         text = _read_input(self, file_args, input_data, file_arg_index=1)
         if text is None:

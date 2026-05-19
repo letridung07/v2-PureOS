@@ -601,3 +601,11 @@ class TestEdgeCases:
         """cut -f 2 returns empty string when delimiter is absent."""
         result = run(shell, "cut -f 2 -d ,", input_data="no_comma_here")
         assert result == ""
+
+    # --- cut: empty delimiter validation ---
+
+    def test_cut_empty_delimiter_fails(self, shell):
+        """cut should fail when an empty delimiter is supplied."""
+        # Using a list instead of a string to bypass parser's token stripping of empty quotes
+        result = shell.registry.execute(["cut", "-f", "1", "-d", ""], input_data="a,b")
+        assert result is False
