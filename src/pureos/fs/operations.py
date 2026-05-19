@@ -182,6 +182,8 @@ class FSOperations:
 
     def delete(self, path: str):
         normalized = PathResolver.normalize_path(path, allow_dir=True)
+        if normalized == "/":
+            raise PermissionError("Cannot delete root directory")
         self.permissions.ensure_parent_writable(normalized)
         if normalized in self.state.files:
             del self.state.files[normalized]
