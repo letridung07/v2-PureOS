@@ -220,8 +220,10 @@ class FreeCommand(Command):
         raw_line=None,
     ):
         out = (
-            "              total        used        free      shared  buff/cache   available\n"
-            "Mem:        8192000     2048000     4096000           0     2048000     6144000\n"
+            "              total        used        free      "
+            "shared  buff/cache   available\n"
+            "Mem:        8192000     2048000     4096000           "
+            "0     2048000     6144000\n"
             "Swap:       2048000      512000     1536000"
         )
         if capture_output:
