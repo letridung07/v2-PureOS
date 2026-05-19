@@ -1,12 +1,25 @@
 """Lightweight service manager with optional stoppable services."""
 
 import threading
+from dataclasses import dataclass
 from typing import Callable, Dict, Optional
+
+
+@dataclass
+class Service:
+    name: str
+    func: Callable
+    daemon: bool = True
+    stoppable: bool = False
+    description: str = ""
+    auto_start: bool = False
+    state: str = "stopped"
+    error: Optional[BaseException] = None
 
 
 class ServiceManager:
     def __init__(self):
-        self._services: Dict[str, Dict] = {}
+        self._services: Dict[str, Service] = {}
         self._threads: Dict[str, threading.Thread] = {}
         self._stop_events: Dict[str, threading.Event] = {}
 
@@ -19,15 +32,14 @@ class ServiceManager:
         description: str = "",
         auto_start: bool = False,
     ):
-        self._services[name] = {
-            "func": func,
-            "daemon": daemon,
-            "stoppable": stoppable,
-            "description": description,
-            "auto_start": auto_start,
-            "state": "stopped",
-            "error": None,
-        }
+        self._services[name] = Service(
+            name=name,
+            func=func,
+            daemon=daemon,
+            stoppable=stoppable,
+            description=description,
+            auto_start=auto_start,
+        )
 
     def start(self, name: str):
         if name not in self._services:
@@ -37,27 +49,27 @@ class ServiceManager:
         if existing and existing.is_alive():
             return existing
 
-        svc["state"] = "starting"
-        svc["error"] = None
+        svc.state = "starting"
+        svc.error = None
 
         def on_exit():
-            if svc["state"] in ("starting", "running"):
-                svc["state"] = "stopped"
+            if svc.state in ("starting", "running"):
+                svc.state = "stopped"
 
-        func = svc["func"]
-        daemon = svc["daemon"]
-        stoppable = svc["stoppable"]
+        func = svc.func
+        daemon = svc.daemon
+        stoppable = svc.stoppable
         if stoppable:
             stop_event = threading.Event()
             self._stop_events[name] = stop_event
 
             def target():
                 try:
-                    svc["state"] = "running"
+                    svc.state = "running"
                     return func(stop_event)
                 except Exception as exc:
-                    svc["state"] = "failed"
-                    svc["error"] = exc
+                    svc.state = "failed"
+                    svc.error = exc
                 finally:
                     on_exit()
 
@@ -65,11 +77,11 @@ class ServiceManager:
 
             def target():
                 try:
-                    svc["state"] = "running"
+                    svc.state = "running"
                     return func()
                 except Exception as exc:
-                    svc["state"] = "failed"
-                    svc["error"] = exc
+                    svc.state = "failed"
+                    svc.error = exc
                 finally:
                     on_exit()
 
@@ -80,7 +92,7 @@ class ServiceManager:
 
     def start_all(self, auto_start_only: bool = False):
         for name, svc in list(self._services.items()):
-            if auto_start_only and not svc.get("auto_start"):
+            if auto_start_only and not svc.auto_start:
                 continue
             self.start(name)
 
@@ -88,22 +100,22 @@ class ServiceManager:
         if name not in self._services:
             return
         svc = self._services[name]
-        if not svc["stoppable"]:
+        if not svc.stoppable:
             return
 
-        svc["state"] = "stopping"
+        svc.state = "stopping"
         ev = self._stop_events.get(name)
         if ev:
             ev.set()
         t = self._threads.get(name)
         if t and t.is_alive():
             t.join(timeout)
-        if svc["state"] == "failed":
+        if svc.state == "failed":
             return
         if t and t.is_alive():
-            svc["state"] = "stopping"
+            svc.state = "stopping"
         else:
-            svc["state"] = "stopped"
+            svc.state = "stopped"
 
     def restart(self, name: str, timeout: Optional[float] = 1.0):
         if name not in self._services:
@@ -119,11 +131,11 @@ class ServiceManager:
         alive = t.is_alive() if t else False
         return {
             "alive": alive,
-            "stoppable": svc["stoppable"],
-            "state": svc["state"],
-            "description": svc["description"],
-            "auto_start": svc["auto_start"],
-            "error": str(svc["error"]) if svc["error"] else None,
+            "stoppable": svc.stoppable,
+            "state": svc.state,
+            "description": svc.description,
+            "auto_start": svc.auto_start,
+            "error": str(svc.error) if svc.error else None,
         }
 
     def stop_all(self, timeout: Optional[float] = 1.0):

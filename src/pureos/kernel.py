@@ -4,7 +4,7 @@ import logging
 import time
 from typing import Callable, List, Optional
 
-from .config import DEFAULT_CONFIG
+from .config import Config
 from .fs import VirtualFS
 from .processes import Scheduler
 from .services import ServiceManager
@@ -22,12 +22,9 @@ def _noop_service(stop_event=None):
 
 class Kernel:
     def __init__(self, config: Optional[dict] = None):
-        self.config = DEFAULT_CONFIG.copy()
-        if config:
-            self.config.update(config)
+        self.config = Config.from_dict(config)
         self.logger = logging.getLogger("pureos")
-        fs_backing = self.config.get("fs_backing")
-        self.fs = VirtualFS(backing_path=fs_backing)
+        self.fs = VirtualFS(backing_path=self.config.fs_backing)
         self.scheduler = Scheduler()
         self.services = ServiceManager()
         self.shell = Shell(self)
@@ -66,14 +63,14 @@ class Kernel:
 
     def initialize(self):
         self.logger.info("Kernel: initializing")
-        if self.config.get("format_on_boot") or not self.fs.has_content():
+        if self.config.format_on_boot or not self.fs.has_content():
             print("Kernel: formatting filesystem...")
             self.fs.format()
         elif "/etc/motd" not in self.fs.files:
             self.fs.mkdir("/etc/")
             self.fs.write("/etc/motd", "Welcome to v2-PureOS")
         print("Kernel: starting core services...")
-        auto_start = self.config.get("auto_start_services")
+        auto_start = self.config.auto_start_services
         if isinstance(auto_start, list):
             for name in auto_start:
                 try:

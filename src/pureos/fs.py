@@ -418,6 +418,11 @@ class VirtualFS:
             normalized += "/"
         return normalized
 
+    def normalize_path(
+        self, path: str, is_dir: bool = False, allow_dir: bool = False
+    ) -> str:
+        return self._normalize_path(path, is_dir=is_dir, allow_dir=allow_dir)
+
     def _save_if_needed(self):
         if self.backing_path:
             self.save()
