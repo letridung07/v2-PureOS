@@ -99,15 +99,15 @@ sort [-r] [-n] [-u] [file]
 ### Examples
 
 ```text
-v2-pureos> echo "banana\napple\ncherry" | sort
+v2-pureos> echo -e "banana\napple\ncherry" | sort
 apple
 banana
 cherry
-v2-pureos> echo "10\n2\n30" | sort -n
+v2-pureos> echo -e "10\n2\n30" | sort -n
 2
 10
 30
-v2-pureos> echo "b\na\nb\na" | sort -u
+v2-pureos> echo -e "b\na\nb\na" | sort | uniq
 a
 b
 ```
@@ -132,15 +132,15 @@ uniq [-c] [-d] [-u] [file]
 ### Examples
 
 ```text
-v2-pureos> echo "a\na\nb\nc\nc" | uniq
+v2-pureos> echo -e "a\na\nb\nc\nc" | uniq
 a
 b
 c
-v2-pureos> echo "a\na\nb\nc\nc" | uniq -c
+v2-pureos> echo -e "a\na\nb\nc\nc" | uniq -c
       2 a
       1 b
       2 c
-v2-pureos> echo "a\na\nb" | sort | uniq -d
+v2-pureos> echo -e "a\na\nb" | sort | uniq -d
 a
 ```
 
@@ -244,16 +244,16 @@ Encodes or decodes text using Base64. By default, it encodes. Use `-d` or `-D` t
 ### Examples
 
 ```text
-v2-pureos> echo "hello" | base64
+v2-pureos> echo -n "hello" | base64
 aGVsbG8=
-v2-pureos> echo "aGVsbG8=" | base64 -d
+v2-pureos> echo -n "aGVsbG8=" | base64 -d
 hello
-v2-pureos> echo "hello world" | base64 -w 4
+v2-pureos> echo -n "hello world" | base64 -w 4
 aGVs
 bG8g
 d29y
-bG==
-v2-pureos> echo "secret" | base64 -
+bGQK
+v2-pureos> echo -n "secret" | base64 -
 c2VjcmV0
 ```
 

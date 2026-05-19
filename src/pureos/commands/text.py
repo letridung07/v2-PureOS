@@ -34,15 +34,20 @@ def _read_input(
     2. *input_data* from a pipeline.
     Returns None and prints an error when neither is available.
     """
-    if len(parts) > file_arg_index and not parts[file_arg_index].startswith("-"):
+    if len(parts) > file_arg_index:
         path_arg = parts[file_arg_index]
-        if path_arg == "-":
-            if input_data is not None:
-                return input_data
-            print(f"{parts[0]}: -: Standard input not available")
-            return None
+        # Skip if it's a flag (starts with - and length > 1)
+        # But allow '-' specifically as standard input
+        if path_arg.startswith("-") and len(path_arg) > 1:
+            pass
+        else:
+            if path_arg == "-":
+                if input_data is not None:
+                    return input_data
+                print(f"{parts[0]}: -: Standard input not available")
+                return None
 
-        path = cmd.resolve_path(path_arg)
+            path = cmd.resolve_path(path_arg)
         if not cmd.kernel.fs.exists(path):
             print(f"{parts[0]}: {path_arg}: No such file or directory")
             return None

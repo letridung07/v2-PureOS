@@ -105,17 +105,20 @@ class CatCommand(FileCommand):
 
 class EchoCommand(FileCommand):
     name = "echo"
-    usage = "echo [-n] [text] [> path]"
+    usage = "echo [-n] [-e] [text] [> path]"
     description = "Print text or redirect it to a file."
 
     def execute(
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
         no_newline = False
+        expand_escapes = False
         remaining = []
         for p in parts[1:]:
             if p == "-n":
                 no_newline = True
+            elif p == "-e":
+                expand_escapes = True
             else:
                 remaining.append(p)
 
@@ -126,6 +129,10 @@ class EchoCommand(FileCommand):
                 content = ""
         else:
             content = " ".join(remaining)
+
+        if expand_escapes:
+            # Basic escape expansion for \n, \t, \\
+            content = content.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
 
         if not no_newline:
             content += "\n"
