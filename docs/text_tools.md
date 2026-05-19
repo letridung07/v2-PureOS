@@ -231,14 +231,15 @@ v2-pureos> cat /tmp/dirs | xargs mkdir
 ## `base64` — Base64 Encode/Decode
 
 ```
-base64 [-d] [file]
+base64 [-d|-D] [-w cols] [file]
 ```
 
-Encodes or decodes text using Base64. By default, it encodes. Use `-d` to decode.
+Encodes or decodes text using Base64. By default, it encodes. Use `-d` or `-D` to decode. Supports the `-` convention to read from standard input.
 
 | Flag | Meaning |
 |------|---------|
-| `-d` | Decode Base64 input into plain text |
+| `-d`, `-D` | Decode Base64 input into plain text |
+| `-w <cols>`| Wrap encoded output at `<cols>` characters (0 to disable, default) |
 
 ### Examples
 
@@ -247,9 +248,13 @@ v2-pureos> echo "hello" | base64
 aGVsbG8=
 v2-pureos> echo "aGVsbG8=" | base64 -d
 hello
-v2-pureos> write /tmp/plain "pureos"
-v2-pureos> base64 /tmp/plain
-cHVyZW9z
+v2-pureos> echo "hello world" | base64 -w 4
+aGVs
+bG8g
+d29y
+bG==
+v2-pureos> echo "secret" | base64 -
+c2VjcmV0
 ```
 
 ---

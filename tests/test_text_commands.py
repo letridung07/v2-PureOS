@@ -340,6 +340,24 @@ class TestBase64:
         result = run(shell, "base64 -d", input_data="aGVsb G8g\nZ28=")
         assert result.strip() == "hello go"
 
+    def test_stdin_hyphen(self, shell):
+        result = run(shell, "base64 -", input_data="hello")
+        assert result.strip() == "aGVsbG8="
+
+    def test_wrap_flag(self, shell):
+        # "hello world" -> "aGVsbG8gd29ybGQ="
+        # wrap at 4 chars
+        result = run(shell, "base64 -w 4", input_data="hello world")
+        lines = result.splitlines()
+        assert all(len(ln) <= 4 for ln in lines)
+        assert "".join(lines) == "aGVsbG8gd29ybGQ="
+
+    def test_wrap_flag_compact(self, shell):
+        result = run(shell, "base64 -w4", input_data="hello world")
+        lines = result.splitlines()
+        assert all(len(ln) <= 4 for ln in lines)
+        assert "".join(lines) == "aGVsbG8gd29ybGQ="
+
     def test_round_trip_pipeline(self, shell):
         # We need to use the shell pipeline execution to verify | works
         result = shell._execute_pipeline("echo 'hello world' | base64 | base64 -d")

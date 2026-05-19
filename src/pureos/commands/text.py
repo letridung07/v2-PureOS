@@ -30,16 +30,24 @@ def _read_input(
 
     Priority:
     1. File path at *file_arg_index* in *parts* (if present and not a flag).
+       Treats '-' as a request for *input_data*.
     2. *input_data* from a pipeline.
     Returns None and prints an error when neither is available.
     """
     if len(parts) > file_arg_index and not parts[file_arg_index].startswith("-"):
-        path = cmd.resolve_path(parts[file_arg_index])
+        path_arg = parts[file_arg_index]
+        if path_arg == "-":
+            if input_data is not None:
+                return input_data
+            print(f"{parts[0]}: -: Standard input not available")
+            return None
+
+        path = cmd.resolve_path(path_arg)
         if not cmd.kernel.fs.exists(path):
-            print(f"{parts[0]}: {parts[file_arg_index]}: No such file or directory")
+            print(f"{parts[0]}: {path_arg}: No such file or directory")
             return None
         if cmd.kernel.fs.is_dir(path):
-            print(f"{parts[0]}: {parts[file_arg_index]}: Is a directory")
+            print(f"{parts[0]}: {path_arg}: Is a directory")
             return None
         try:
             content = cmd.kernel.fs.read(path)
@@ -657,7 +665,7 @@ class XargsCommand(Command):
 
 class Base64Command(Command):
     name = "base64"
-    usage = "base64 [-d|-D] [file]"
+    usage = "base64 [-d|-D] [-w cols] [file]"
     description = "Encode or decode text using Base64."
 
     def execute(
@@ -669,14 +677,31 @@ class Base64Command(Command):
     ):
         # Parse flags
         decode = False
+        wrap_cols = 0
         remaining = [parts[0]]
-        for tok in parts[1:]:
+        i = 1
+        while i < len(parts):
+            tok = parts[i]
             if tok in ("-d", "-D"):
                 decode = True
+            elif tok == "-w" and i + 1 < len(parts):
+                try:
+                    wrap_cols = int(parts[i + 1])
+                    i += 1
+                except ValueError:
+                    print(f"base64: invalid wrap columns: {parts[i+1]}")
+                    return False
+            elif tok.startswith("-w") and len(tok) > 2:
+                try:
+                    wrap_cols = int(tok[2:])
+                except ValueError:
+                    print(f"base64: invalid wrap columns: {tok[2:]}")
+                    return False
             elif tok.startswith("-") and any(c in tok for c in "dD"):
                 decode = True
             else:
                 remaining.append(tok)
+            i += 1
 
         text = _read_input(self, remaining, input_data, file_arg_index=1)
         if text is None:
@@ -693,6 +718,10 @@ class Base64Command(Command):
                 # Encoding: input is plain text -> output is base64 string
                 encoded_bytes = base64.b64encode(text.encode("utf-8"))
                 out = encoded_bytes.decode("utf-8")
+                if wrap_cols > 0:
+                    out = "\n".join(
+                        out[j : j + wrap_cols] for j in range(0, len(out), wrap_cols)
+                    )
         except (binascii.Error, UnicodeDecodeError) as exc:
             print(f"base64: {exc}")
             return False
