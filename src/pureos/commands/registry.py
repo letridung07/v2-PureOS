@@ -1,7 +1,7 @@
 import importlib
 import inspect
 import pkgutil
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Dict, List, Optional, Sequence, Union, Set
 
 from ..parser import tokenize
 from .base import Command, CommandResult
@@ -11,16 +11,21 @@ class CommandRegistry:
     def __init__(self, kernel):
         self.kernel = kernel
         self.commands: Dict[str, Command] = {}
+        # Track which commands are "built-in" and cannot be overwritten
+        self.system_commands: Set[str] = set()
         # Track which commands (and aliases) were loaded from which VFS file
         self.vfs_source_map: Dict[str, List[str]] = {}
         self._register_default_commands()
+
+        # Mark all initial commands as system commands
+        self.system_commands = set(self.commands.keys())
 
     def load_from_vfs(self, file_path: str) -> bool:
         """Loads and registers commands from a Python file in the VirtualFS."""
         if not self.kernel.fs.exists(file_path):
             return False
 
-        # If already loaded, unregister first to avoid orphans if names changed
+        # If already loaded, unregister first to avoid orphans
         if file_path in self.vfs_source_map:
             self.unregister_from_vfs(file_path)
 
@@ -59,10 +64,18 @@ class CommandRegistry:
                 ):
                     cmd_name = getattr(obj, "name", None)
                     if cmd_name:
+                        # Safety: Prevent overwriting system commands
+                        if cmd_name in self.system_commands:
+                            print(
+                                "Error: Package cannot overwrite system command "
+                                f"'{cmd_name}'."
+                            )
+                            continue
+
                         if cmd_name in self.commands:
                             print(
                                 f"Warning: Package command '{cmd_name}' "
-                                "is overwriting an existing command."
+                                "is overwriting an existing dynamic command."
                             )
 
                         command_instance = obj(self.kernel)
@@ -71,6 +84,13 @@ class CommandRegistry:
                         # Track for future unregistration
                         self.vfs_source_map[file_path].append(cmd_name)
                         for alias in getattr(command_instance, "aliases", []):
+                            # Also protect system commands from alias overwrites
+                            if alias in self.system_commands:
+                                print(
+                                    f"Warning: Alias '{alias}' skipped "
+                                    "(protects system command)."
+                                )
+                                continue
                             self.vfs_source_map[file_path].append(alias)
 
                         registered_any = True
@@ -84,6 +104,7 @@ class CommandRegistry:
         """Unregisters all commands that were loaded from the specified VFS file."""
         if file_path in self.vfs_source_map:
             for cmd_name in self.vfs_source_map[file_path]:
+                # Only delete if it's still in the commands dict
                 if cmd_name in self.commands:
                     del self.commands[cmd_name]
             del self.vfs_source_map[file_path]

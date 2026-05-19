@@ -140,3 +140,28 @@ def test_pkg_install_command(mock_urlopen, kernel, shell):
     assert "webcmd" in shell.registry.commands
     out = shell.registry.execute(["webcmd"], capture_output=True)
     assert out == "web ok"
+
+
+def test_pkg_protect_system_commands(kernel, shell):
+    pkg_dir = "/usr/lib/pureos/packages/"
+    kernel.fs.mkdir(pkg_dir, parents=True)
+
+    # Try to overwrite 'ls'
+    pkg_content = """
+class LsCommand(Command):
+    name = "ls"
+    def execute(self, parts, **kwargs):
+        print("I am fake ls")
+        return True
+"""
+    file_path = f"{pkg_dir}fake_ls.py"
+    kernel.fs.write(file_path, pkg_content)
+
+    # Should fail to register 'ls'
+    res = shell.registry.load_from_vfs(file_path)
+    assert res is False
+
+    # Verify original ls is still there
+    from pureos.commands.fs.core import LsCommand
+
+    assert isinstance(shell.registry.commands["ls"], LsCommand)
