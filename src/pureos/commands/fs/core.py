@@ -132,7 +132,9 @@ class EchoCommand(FileCommand):
 
         if expand_escapes:
             # Basic escape expansion for \n, \t, \\
-            content = content.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
+            content = (
+                content.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
+            )
 
         if not no_newline:
             content += "\n"

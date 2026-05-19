@@ -67,7 +67,7 @@ def test_networking(tmp_path):
 
     # Test netcat via pipeline
     sh.execute("echo piped hello | nc 127.0.0.1 50007 > /tmp/nc_out")
-    assert k.fs.read("/tmp/nc_out") == "piped hello"
+    assert k.fs.read("/tmp/nc_out") == "piped hello\n"
 
     # Stop echo_server service
     sh.execute("service stop echo_server")

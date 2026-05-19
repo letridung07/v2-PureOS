@@ -316,7 +316,7 @@ def test_shell_quoted_arguments_and_escaped_pipes(tmp_path, capsys):
 
     sh.execute("help")
     captured = capsys.readouterr()
-    assert "echo [-n] [text] [> path]" in captured.out
+    assert "echo [-n] [-e] [text] [> path]" in captured.out
     assert "alias [name command]" in captured.out
 
     sh.execute('alias ll "ls -l"')
