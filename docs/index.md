@@ -1,6 +1,16 @@
 # v2-PureOS Documentation
 
-This guide provides a detailed reference for v2-PureOS, including how the shell works, available commands, filesystem behavior, service management, and project structure.
+Welcome to the documentation for v2-PureOS. This guide provides a reference for the system, including how the shell works, available commands, filesystem behavior, service management, and project structure.
+
+## Documentation Index
+
+For detailed information about the inner workings of v2-PureOS, please consult the following specialized documentation files:
+
+- [v2-PureOS Architecture](architecture.md): Kernel, Boot Sequence, Process Scheduler, Service Manager, and Networking.
+- [Virtual Filesystem Architecture](filesystem.md): State-Manager pattern, path resolution, permissions, and persistence.
+- [Shell and Commands](shell_and_commands.md): The shell execution lifecycle, command chaining, piping, redirection, and creating custom commands.
+
+---
 
 ## Overview
 
@@ -9,13 +19,13 @@ v2-PureOS is a minimal OS-like system built with Python 3.8+. The package includ
 - `pureos.kernel` — kernel initialization and service startup
 - `pureos.boot` — system boot sequence and startup scripts
 - `pureos.builtin_services` — default background services
-- `pureos.fs` — virtual filesystem (State-Manager architecture)
+- `pureos.fs` — virtual filesystem
 - `pureos.commands` — interactive shell command registry and modular commands
 - `pureos.services` — lightweight service management
 - `pureos.processes` — simple process scheduler and lifecycle control
 - `pureos.shell` — interactive shell loop and command parsing
 
-## Running the shell
+## Quickstart: Running the shell
 
 From the project root:
 
@@ -31,7 +41,7 @@ Package-style execution:
 PYTHONPATH=src python3 -m pureos --shell
 ```
 
-## CLI options
+### CLI options
 
 The package supports the following launch options:
 
@@ -39,38 +49,30 @@ The package supports the following launch options:
 - `--version` — print the package version and exit
 - `--backing <path>` — use a persistent backing file for the virtual filesystem
 
-## Shell command workflow
+---
 
-The shell accepts a single command line or a chained command sequence. Command chaining is supported using:
+## Command Cheatsheet
+
+Below is a quick reference for the commands available within the v2-PureOS interactive shell. For details on how commands are parsed and executed, see [Shell and Commands](shell_and_commands.md).
+
+### General Shell
 
 - `;` — run commands sequentially
 - `&&` — run the next command only if the previous succeeded
 - `||` — run the next command only if the previous failed
 - `|` — pipe command output into the next built-in command
-
-The shell also supports simple environment variables and aliases:
-
 - `export VAR=value` — set a shell variable
 - `$VAR` — substitute the variable value in the command line
 - `alias name command` — define a shorthand command
 - `unalias name` — remove an alias
 - `history` — display the session command history
 
-Quoted strings are preserved during parsing, allowing multi-word content for commands such as `write` and `append`.
-
-## File system commands
-
-The shell exposes a virtual filesystem with support for relative and absolute paths. The current working directory is tracked in the shell and affects relative path resolution.
-
-### Navigation
+### File system
 
 - `pwd` — show current working directory
 - `cd <path>` — change directory
 - `find [path]` — recursively list files and directories under a path
 - `ls [-l] [prefix]` — list directory contents or a file
-
-### File operations
-
 - `cat <path>` — display file contents
 - `write <path> <content>` — overwrite or create a file
 - `append <path> <content>` — append text to a file
@@ -82,40 +84,24 @@ The shell exposes a virtual filesystem with support for relative and absolute pa
 - `mv <src> <dst>` — rename or move an entry
 - `cp <src> <dst>` — copy a file or directory
 - `format` — reset the virtual filesystem to initial state
-
-### Permissions and metadata
-
 - `chmod <mode> <path>` — set a file or directory mode
 - `stat <path>` — display metadata for a path
-
-### Shell scripting
-
-- `source <path>` — read a file from the virtual filesystem and execute each non-comment line as a shell command
-
-### File preview
-
+- `source <path>` — read a file and execute each non-comment line as a shell command
 - `head <path> [n]` — display the first `n` lines of a file (default 10)
 - `tail <path> [n]` — display the last `n` lines of a file (default 10)
 
-## Process and service commands
-
-v2-PureOS includes basic process and service management from the shell.
-
-### Processes
+### Processes & Services
 
 - `ps` — list active processes
 - `spawn <name>` — create a new process with a name
 - `kill <pid>` — terminate a process by PID
-
-### Services
-
 - `services` — list registered services
 - `service start <name>` — start a service
 - `service stop <name>` — stop a service
 - `service status <name>` — show service state
 - `service restart <name>` — restart a service
 
-## Example commands
+### Example session
 
 ```text
 v2-pureos> mkdir /tmp
@@ -127,6 +113,8 @@ v2-pureos> spawn worker
 v2-pureos> ps
 v2-pureos> exit
 ```
+
+---
 
 ## Testing
 
@@ -142,7 +130,11 @@ pytest
 - `main.py` — executable launcher script
 - `src/pureos` — main Python package
 - `tests` — unit and integration tests
-- `docs/index.md` — detailed user and command reference
+- `docs/` — comprehensive documentation
+  - `index.md` — landing page and command reference
+  - `architecture.md` — system architecture overview
+  - `filesystem.md` — virtual filesystem internals
+  - `shell_and_commands.md` — shell parsing and command plugins
 
 ## Design notes
 
