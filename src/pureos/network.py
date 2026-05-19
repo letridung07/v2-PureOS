@@ -40,3 +40,25 @@ def start_echo_server(
     t = threading.Thread(target=serve, daemon=True)
     t.start()
     return selected_port, t, stop_event
+
+
+def resolve_host(fs, host: str) -> str:
+    """Resolve a host name using virtual filesystem's /etc/hosts or fallback to dns."""
+    if fs.exists("/etc/hosts"):
+        try:
+            content = fs.read("/etc/hosts")
+            if content:
+                for line in content.splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        ip = parts[0]
+                        hosts = parts[1:]
+                        if host in hosts:
+                            return ip
+        except Exception:
+            pass
+
+    return socket.gethostbyname(host)

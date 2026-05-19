@@ -57,7 +57,33 @@ class KillCommand(Command):
         return False
 
 
+class JobsCommand(Command):
+    name = "jobs"
+    usage = "jobs"
+    description = "List active background jobs."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        count = 0
+        for p in self.kernel.scheduler.list():
+            if p.status in ("running", "ready"):
+                out = f"[{p.pid}] {p.status}\t{p.name}"
+                if capture_output:
+                    # Usually jobs prints directly. If capture_output is True,
+                    # we can gather and return the output.
+                    pass
+                print(out)
+                count += 1
+        return True
+
+
 def register_process_commands(registry):
     registry.register(PsCommand(registry.kernel))
     registry.register(SpawnCommand(registry.kernel))
     registry.register(KillCommand(registry.kernel))
+    registry.register(JobsCommand(registry.kernel))

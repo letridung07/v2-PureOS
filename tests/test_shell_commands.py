@@ -367,3 +367,120 @@ def test_shell_source_script(tmp_path):
     )
     sh.execute("source /tmp/script")
     assert k.fs.read("/scriptdir/foo") == "bar"
+
+
+def test_general_redirection(tmp_path, capsys):
+    k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+    k.initialize()
+    sh = k.shell
+
+    # Test ls redirection
+    sh.execute("mkdir /tmp")
+    sh.execute("touch /tmp/a")
+    sh.execute("ls /tmp > /tmp/out")
+    assert k.fs.read("/tmp/out") == "/tmp/a"
+
+    # Test ps redirection
+    sh.execute("spawn test_proc")
+    sh.execute("ps > /tmp/ps_out")
+    ps_content = k.fs.read("/tmp/ps_out")
+    assert "test_proc" in ps_content
+
+    # Test append redirection
+    sh.execute("echo hello > /tmp/out")
+    sh.execute("echo world >> /tmp/out")
+    assert k.fs.read("/tmp/out") == "helloworld"
+
+    # Test syntax error for missing redirection target
+    capsys.readouterr()
+    res = sh.execute("echo hello >")
+    captured = capsys.readouterr()
+    assert "Syntax error: redirect target not specified" in captured.out
+    assert res is False
+
+    # Clean shutdown
+    k.shutdown()
+
+
+def test_background_jobs(tmp_path, capsys):
+    k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+    k.initialize()
+    sh = k.shell
+
+    # Create a script that writes to a file
+    k.fs.write("/tmp/bg_script", "touch /tmp/bg_done")
+
+    # Run the script in the background using &
+    sh.execute("source /tmp/bg_script &")
+
+    # Check if a process is registered and runs
+    import time
+
+    time.sleep(0.2)
+    assert k.fs.exists("/tmp/bg_done")
+
+    # Check jobs output
+    sh.execute("jobs")
+    captured = capsys.readouterr()
+    assert "running" in captured.out or "completed" in captured.out or not captured.out
+
+    k.shutdown()
+
+
+def test_autocomplete(tmp_path):
+    k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+    k.initialize()
+    sh = k.shell
+
+    # Command completion
+    assert sh.completer("l", 0) == "ls"
+
+    # Path completion
+    k.fs.mkdir("/testdir/")
+    k.fs.write("/testdir/file1.txt", "hello")
+    k.fs.write("/testdir/file2.txt", "world")
+
+    # Completing /testdir/fi
+    matches = sh._complete_path("/testdir/fi")
+    assert "/testdir/file1.txt" in matches
+    assert "/testdir/file2.txt" in matches
+
+    k.shutdown()
+
+
+def test_extra_commands(tmp_path, capsys):
+    k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+    k.initialize()
+    sh = k.shell
+
+    # Test wc
+    k.fs.write("/tmp/wc_test", "hello\nworld\n")
+    wc_out = sh.registry.execute(["wc", "/tmp/wc_test"], capture_output=True)
+    assert "2" in wc_out  # 2 lines
+    assert "2" in wc_out  # 2 words
+    assert "12" in wc_out  # 12 bytes
+
+    # Test wc stdin/piping
+    sh.execute("cat /tmp/wc_test | wc -l > /tmp/wc_l")
+    assert k.fs.read("/tmp/wc_l").strip() == "2"
+
+    # Test sort
+    k.fs.write("/tmp/sort_test", "banana\napple\ncherry\n")
+    sh.execute("sort /tmp/sort_test > /tmp/sort_res")
+    assert k.fs.read("/tmp/sort_res") == "apple\nbanana\ncherry"
+
+    # Test sort reverse
+    sh.execute("sort -r /tmp/sort_test > /tmp/sort_res_r")
+    assert k.fs.read("/tmp/sort_res_r") == "cherry\nbanana\napple"
+
+    # Test uniq
+    k.fs.write("/tmp/uniq_test", "a\na\nb\na\n")
+    sh.execute("uniq /tmp/uniq_test > /tmp/uniq_res")
+    # uniq groups adjacent, so: a, b, a
+    assert k.fs.read("/tmp/uniq_res") == "a\nb\na"
+
+    # uniq with counts
+    sh.execute("uniq -c /tmp/uniq_test > /tmp/uniq_res_c")
+    assert "2 a" in k.fs.read("/tmp/uniq_res_c")
+
+    k.shutdown()

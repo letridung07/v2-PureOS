@@ -6,7 +6,6 @@ def split_command_sequence(line: str) -> List[Tuple[str, Optional[str]]]:
     current: List[str] = []
     quote: Optional[str] = None
     escaped = False
-    separator: Optional[str] = None
     index = 0
     while index < len(line):
         char = line[index]
@@ -33,24 +32,28 @@ def split_command_sequence(line: str) -> List[Tuple[str, Optional[str]]]:
         if line.startswith("&&", index):
             command = "".join(current).strip()
             if command:
-                commands.append((command, separator))
-            separator = "&&"
+                commands.append((command, "&&"))
             current = []
             index += 2
             continue
         if line.startswith("||", index):
             command = "".join(current).strip()
             if command:
-                commands.append((command, separator))
-            separator = "||"
+                commands.append((command, "||"))
             current = []
             index += 2
             continue
         if char == ";":
             command = "".join(current).strip()
             if command:
-                commands.append((command, separator))
-            separator = ";"
+                commands.append((command, ";"))
+            current = []
+            index += 1
+            continue
+        if char == "&":
+            command = "".join(current).strip()
+            if command:
+                commands.append((command, "&"))
             current = []
             index += 1
             continue
@@ -60,7 +63,7 @@ def split_command_sequence(line: str) -> List[Tuple[str, Optional[str]]]:
         current.append("\\")
     command = "".join(current).strip()
     if command:
-        commands.append((command, separator))
+        commands.append((command, None))
     return commands
 
 

@@ -1,6 +1,7 @@
 import socket
 from typing import List
 
+from ..network import resolve_host
 from .base import Command
 
 
@@ -35,7 +36,8 @@ class NetcatCommand(Command):
             msg = ""
 
         try:
-            s = socket.create_connection((host, port), timeout=2)
+            resolved_host = resolve_host(self.kernel.fs, host)
+            s = socket.create_connection((resolved_host, port), timeout=2)
             s.sendall(msg.encode("utf-8"))
             response = s.recv(4096).decode("utf-8")
             s.close()
@@ -74,7 +76,8 @@ class PingCommand(Command):
 
         if port is not None:
             try:
-                s = socket.create_connection((host, port), timeout=2)
+                resolved_host = resolve_host(self.kernel.fs, host)
+                s = socket.create_connection((resolved_host, port), timeout=2)
                 s.close()
                 out = f"Ping successful: host {host} port {port} is open"
                 if capture_output:
@@ -89,7 +92,7 @@ class PingCommand(Command):
                 return False
         else:
             try:
-                ip = socket.gethostbyname(host)
+                ip = resolve_host(self.kernel.fs, host)
                 out = f"Ping successful: host {host} resolved to {ip}"
                 if capture_output:
                     return out

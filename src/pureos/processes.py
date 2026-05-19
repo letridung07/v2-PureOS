@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import itertools
 import threading
 import time
-from typing import Optional
+from typing import Optional, Callable
 
 
 @dataclass
@@ -23,8 +23,19 @@ class Scheduler:
         self._threads = {}
         self._stop_events = {}
 
-    def spawn(self, name: str, runtime: float = 5.0) -> Process:
+    def spawn(
+        self, name: str, target_func: Optional[Callable] = None, *args, **kwargs
+    ) -> Process:
         pid = next(self._pid_iter)
+
+        runtime = kwargs.get("runtime", 5.0)
+        actual_target = None
+        if target_func is not None:
+            if callable(target_func):
+                actual_target = target_func
+            else:
+                runtime = float(target_func)
+
         proc = Process(
             pid=pid,
             name=name,
@@ -38,9 +49,18 @@ class Scheduler:
 
         def target():
             try:
-                start = time.time()
-                while not stop_event.is_set() and time.time() - start < runtime:
-                    time.sleep(0.1)
+                if actual_target:
+                    import inspect
+
+                    sig = inspect.signature(actual_target)
+                    if "stop_event" in sig.parameters:
+                        actual_target(*args, stop_event=stop_event, **kwargs)
+                    else:
+                        actual_target(*args, **kwargs)
+                else:
+                    start = time.time()
+                    while not stop_event.is_set() and time.time() - start < runtime:
+                        time.sleep(0.1)
                 if proc.status == "running":
                     proc.status = "completed"
                     proc.exit_code = 0

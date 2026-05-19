@@ -1,7 +1,7 @@
 """Tiny interactive shell for v2-PureOS."""
 
 import re
-from typing import List
+from typing import List, Optional
 
 from .commands import CommandRegistry
 from .parser import split_command_sequence, split_pipeline, tokenize, split_redirection
@@ -42,15 +42,25 @@ class Shell:
         self.history.append(line)
         commands = split_command_sequence(line)
         success = True
+        next_conditional = None
         for command, separator in commands:
-            if separator == "&&" and not success:
+            if next_conditional == "&&" and not success:
+                next_conditional = separator
                 continue
-            if separator == "||" and success:
+            if next_conditional == "||" and success:
+                next_conditional = separator
                 continue
-            result = self._execute_pipeline(command)
-            if result == "exit":
-                return "exit"
-            success = result is not False
+
+            if separator == "&":
+                self._execute_background(command)
+                success = True
+            else:
+                result = self._execute_pipeline(command)
+                if result == "exit":
+                    return "exit"
+                success = result is not False
+
+            next_conditional = separator
         return success
 
     def _execute_pipeline(self, line: str):
@@ -177,8 +187,87 @@ class Shell:
             depth += 1
         return expanded
 
+    def _execute_background(self, command: str):
+        subshell = Shell(self.kernel)
+        subshell.cwd = self.cwd
+        subshell.env = self.env.copy()
+        subshell.aliases = self.aliases.copy()
+
+        def job_runner(stop_event=None):
+            subshell._execute_pipeline(command)
+
+        p = self.kernel.scheduler.spawn(command, target_func=job_runner)
+        print(f"[{p.pid}] running: {command}")
+
+    def completer(self, text: str, state: int) -> Optional[str]:
+        try:
+            import readline
+
+            buffer = readline.get_line_buffer()
+        except ImportError:
+            buffer = text
+
+        stripped_buffer = buffer.lstrip()
+        words = stripped_buffer.split()
+        if not words or (len(words) == 1 and not buffer.endswith(" ")):
+            options = [cmd for cmd in self.registry.commands if cmd.startswith(text)]
+            if state < len(options):
+                return options[state]
+            return None
+
+        options = self._complete_path(text)
+        if state < len(options):
+            return options[state]
+        return None
+
+    def _complete_path(self, text: str) -> List[str]:
+        search_path = text if text else ""
+        if "/" in search_path:
+            dir_part, prefix = search_path.rsplit("/", 1)
+            if not dir_part:
+                dir_to_search = "/"
+            else:
+                dir_to_search = dir_part
+        else:
+            dir_to_search = ""
+            prefix = search_path
+
+        resolved_dir = self.resolve_path(dir_to_search, allow_dir=True)
+        if not self.kernel.fs.exists(resolved_dir) or not self.kernel.fs.is_dir(
+            resolved_dir
+        ):
+            return []
+
+        try:
+            entries = self.kernel.fs.list(resolved_dir)
+        except PermissionError:
+            return []
+
+        matches = []
+        for entry in entries:
+            basename = entry.rstrip("/").rsplit("/", 1)[-1]
+            if basename.startswith(prefix):
+                if dir_to_search:
+                    completed = f"{dir_to_search}/{basename}"
+                else:
+                    completed = basename
+
+                if entry.endswith("/") or self.kernel.fs.is_dir(entry):
+                    completed += "/"
+                matches.append(completed)
+        return matches
+
     def run(self):
         print("Starting v2-PureOS shell (type 'help' for commands)")
+        try:
+            import readline
+
+            readline.set_completer(self.completer)
+            readline.parse_and_bind("tab: complete")
+            readline.set_completer_delims(" \t\n\"'")
+        except ImportError:
+            pass
+
         while True:
             try:
                 line = input(self.prompt).strip()
