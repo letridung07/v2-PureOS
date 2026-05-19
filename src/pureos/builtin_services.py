@@ -26,7 +26,9 @@ def _echo_server_service(stop_event=None):
     thread.join()
 
 
-def _field_matches(field_str: str, current_val: int, min_val: int, max_val: int) -> bool:
+def _field_matches(
+    field_str: str, current_val: int, min_val: int, max_val: int
+) -> bool:
     if field_str == "*":
         return True
 
@@ -73,8 +75,18 @@ def _field_matches(field_str: str, current_val: int, min_val: int, max_val: int)
 
 def _cron_service(kernel, stop_event=None):
     MONTHS = {
-        "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
-        "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "may": 5,
+        "jun": 6,
+        "jul": 7,
+        "aug": 8,
+        "sep": 9,
+        "oct": 10,
+        "nov": 11,
+        "dec": 12,
     }
     DAYS = {"sun": 0, "mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat": 6}
 
@@ -134,15 +146,26 @@ def _cron_service(kernel, stop_event=None):
                         except Exception:
                             continue
 
-                        if match_min and match_hour and match_dom and match_mon and match_dow:
+                        if (
+                            match_min
+                            and match_hour
+                            and match_dom
+                            and match_mon
+                            and match_dow
+                        ):
+
                             def make_target(cmd):
                                 def run_job(stop_event=None):
                                     from .shell import Shell
+
                                     subshell = Shell(kernel)
                                     subshell.execute(cmd, add_to_history=False)
+
                                 return run_job
 
-                            kernel.scheduler.spawn(f"cron:{command}", target_func=make_target(command))
+                            kernel.scheduler.spawn(
+                                f"cron:{command}", target_func=make_target(command)
+                            )
 
         if stop_event:
             stop_event.wait(1.0)
