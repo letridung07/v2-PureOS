@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Sequence, Union
 
+from ..parser import tokenize
 from .base import Command, CommandResult
 from .fs import register_fs_commands
 from .process import register_process_commands
@@ -20,12 +21,11 @@ class CommandRegistry:
         capture_output: bool = False,
     ) -> CommandResult:
         if isinstance(line, str):
-            line = line.strip()
-            if not line:
+            parts = tokenize(line)
+            if not parts:
                 return None
-            if line in ("exit", "quit"):
+            if parts[0] in ("exit", "quit"):
                 return "exit"
-            parts = line.split()
         else:
             parts = list(line)
             if not parts:

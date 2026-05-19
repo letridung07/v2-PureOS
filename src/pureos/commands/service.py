@@ -5,6 +5,8 @@ from .base import Command
 
 class ServicesCommand(Command):
     name = "services"
+    usage = "services"
+    description = "List registered services."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         print(", ".join(self.kernel.services.list()))
@@ -13,6 +15,8 @@ class ServicesCommand(Command):
 
 class ServiceCommand(Command):
     name = "service"
+    usage = "service start|stop|status|restart <name>"
+    description = "Control a registered service."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 3:

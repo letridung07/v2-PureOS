@@ -284,6 +284,15 @@ def test_shell_quoted_arguments_and_escaped_pipes(tmp_path, capsys):
     captured = capsys.readouterr()
     assert captured.out.strip() == "hello|world"
 
+    sh.execute('echo "a > b" > /tmp/quoted')
+    captured = capsys.readouterr()
+    assert k.fs.read("/tmp/quoted") == "a > b"
+
+    sh.execute("help")
+    captured = capsys.readouterr()
+    assert "echo [text] [> path]" in captured.out
+    assert "alias [name command]" in captured.out
+
     sh.execute('alias ll "ls -l"')
     sh.execute("mkdir /tmp")
     sh.execute("touch /tmp/file")

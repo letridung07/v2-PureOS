@@ -33,6 +33,8 @@ class HelpCommand(Command):
 
 class InfoCommand(Command):
     name = "info"
+    usage = "info"
+    description = "Show kernel state and loaded components."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         print("Kernel info:")
@@ -44,6 +46,8 @@ class InfoCommand(Command):
 
 class ExportCommand(Command):
     name = "export"
+    usage = "export [VAR=value]..."
+    description = "Set or list shell environment variables."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         shell = self.kernel.shell
@@ -62,6 +66,8 @@ class ExportCommand(Command):
 
 class AliasCommand(Command):
     name = "alias"
+    usage = "alias [name command]"
+    description = "Create or list shell command aliases."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         shell = self.kernel.shell
@@ -81,6 +87,8 @@ class AliasCommand(Command):
 
 class UnaliasCommand(Command):
     name = "unalias"
+    usage = "unalias <name>"
+    description = "Remove a shell alias."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         shell = self.kernel.shell
@@ -97,6 +105,8 @@ class UnaliasCommand(Command):
 
 class HistoryCommand(Command):
     name = "history"
+    usage = "history"
+    description = "Show the shell command history."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         shell = self.kernel.shell

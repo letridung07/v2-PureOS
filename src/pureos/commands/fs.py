@@ -15,6 +15,8 @@ class FileCommand(Command):
 
 class GrepCommand(FileCommand):
     name = "grep"
+    usage = "grep <pattern> [path]"
+    description = "Search file content for lines containing a pattern."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -44,6 +46,8 @@ class GrepCommand(FileCommand):
 
 class CatCommand(FileCommand):
     name = "cat"
+    usage = "cat <path>"
+    description = "Show file contents or pipe input through the shell."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -69,6 +73,8 @@ class CatCommand(FileCommand):
 
 class WriteCommand(FileCommand):
     name = "write"
+    usage = "write <path> <content>"
+    description = "Write text to a file, creating it if necessary."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 3:
@@ -87,6 +93,8 @@ class WriteCommand(FileCommand):
 
 class AppendCommand(FileCommand):
     name = "append"
+    usage = "append <path> <content>"
+    description = "Append text to the end of a file."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 3:
@@ -105,6 +113,8 @@ class AppendCommand(FileCommand):
 
 class EchoCommand(FileCommand):
     name = "echo"
+    usage = "echo [text] [> path]"
+    description = "Print text or redirect it to a file."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -115,11 +125,15 @@ class EchoCommand(FileCommand):
                 return True
             print()
             return True
-        line = " ".join(parts[1:])
-        if ">" in line:
-            content, path = line.split(">", maxsplit=1)
-            content = content.strip()
-            path = path.strip()
+
+        tokens = parts[1:]
+        if ">" in tokens:
+            redir_index = tokens.index(">")
+            if redir_index == len(tokens) - 1:
+                print("Usage: echo <text> > <path>")
+                return False
+            content = " ".join(tokens[:redir_index])
+            path = tokens[redir_index + 1]
             try:
                 self.kernel.fs.write(self._resolve_path(path), content)
                 print(f"Wrote {len(content)} bytes to {path}")
@@ -127,6 +141,8 @@ class EchoCommand(FileCommand):
             except ValueError as exc:
                 print(str(exc))
                 return False
+
+        line = " ".join(tokens)
         if capture_output:
             return line
         print(line)
@@ -135,6 +151,8 @@ class EchoCommand(FileCommand):
 
 class FormatCommand(FileCommand):
     name = "format"
+    usage = "format"
+    description = "Reset the virtual filesystem to initial state."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) != 1:
@@ -151,6 +169,8 @@ class FormatCommand(FileCommand):
 
 class LsCommand(FileCommand):
     name = "ls"
+    usage = "ls [-l] [path]"
+    description = "List files and directories in the virtual filesystem."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         long_listing = False
@@ -188,6 +208,8 @@ class LsCommand(FileCommand):
 
 class PwdCommand(FileCommand):
     name = "pwd"
+    usage = "pwd"
+    description = "Print the current working directory."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         print(self.kernel.shell.cwd)
@@ -196,6 +218,8 @@ class PwdCommand(FileCommand):
 
 class CdCommand(FileCommand):
     name = "cd"
+    usage = "cd <path>"
+    description = "Change the current working directory."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -211,6 +235,8 @@ class CdCommand(FileCommand):
 
 class FindCommand(FileCommand):
     name = "find"
+    usage = "find [path]"
+    description = "Recursively list files and directories from a path."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) > 1:
@@ -235,6 +261,8 @@ class FindCommand(FileCommand):
 
 class MkdirCommand(FileCommand):
     name = "mkdir"
+    usage = "mkdir <path>"
+    description = "Create a directory in the virtual filesystem."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -252,6 +280,8 @@ class MkdirCommand(FileCommand):
 
 class TouchCommand(FileCommand):
     name = "touch"
+    usage = "touch <path>"
+    description = "Create or update a file timestamp in the virtual filesystem."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -272,6 +302,8 @@ class TouchCommand(FileCommand):
 
 class RmCommand(FileCommand):
     name = "rm"
+    usage = "rm <path>"
+    description = "Remove a file or directory entry from the virtual filesystem."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -292,6 +324,8 @@ class RmCommand(FileCommand):
 
 class RmdirCommand(FileCommand):
     name = "rmdir"
+    usage = "rmdir <path>"
+    description = "Remove an empty directory from the virtual filesystem."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -318,6 +352,8 @@ class RmdirCommand(FileCommand):
 
 class MvCommand(FileCommand):
     name = "mv"
+    usage = "mv <src> <dst>"
+    description = "Move or rename a file or directory."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 3:
@@ -339,6 +375,8 @@ class MvCommand(FileCommand):
 
 class CpCommand(FileCommand):
     name = "cp"
+    usage = "cp <src> <dst>"
+    description = "Copy a file or directory."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 3:
@@ -360,6 +398,8 @@ class CpCommand(FileCommand):
 
 class ChmodCommand(FileCommand):
     name = "chmod"
+    usage = "chmod <mode> <path>"
+    description = "Change file or directory permission bits."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 3:
@@ -382,6 +422,8 @@ class ChmodCommand(FileCommand):
 
 class StatCommand(FileCommand):
     name = "stat"
+    usage = "stat <path>"
+    description = "Show metadata for a file or directory."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -402,6 +444,8 @@ class StatCommand(FileCommand):
 
 class SourceCommand(FileCommand):
     name = "source"
+    usage = "source <path>"
+    description = "Execute commands from a file line by line."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -429,6 +473,8 @@ class SourceCommand(FileCommand):
 class HeadTailCommand(FileCommand):
     name = "head"
     aliases = ["tail"]
+    usage = "head|tail [-n N] [path]"
+    description = "Show the beginning or end of a file or input stream."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         cmd = parts[0]

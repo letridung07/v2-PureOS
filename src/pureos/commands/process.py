@@ -5,6 +5,8 @@ from .base import Command
 
 class PsCommand(Command):
     name = "ps"
+    usage = "ps"
+    description = "List running and managed processes."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         for p in self.kernel.scheduler.list():
@@ -14,6 +16,8 @@ class PsCommand(Command):
 
 class SpawnCommand(Command):
     name = "spawn"
+    usage = "spawn <name>"
+    description = "Create a new background process."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
@@ -27,6 +31,8 @@ class SpawnCommand(Command):
 
 class KillCommand(Command):
     name = "kill"
+    usage = "kill <pid>"
+    description = "Terminate a managed process."
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
         if len(parts) < 2:
