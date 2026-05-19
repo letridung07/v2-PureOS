@@ -340,6 +340,11 @@ class ChgrpCommand(Command):
                 return False
             group_gid = users.groups[group]
 
+        if current_user and current_user.uid != 0:
+            if group_gid not in current_user.gids:
+                print("chgrp: Permission denied")
+                return False
+
         self.kernel.fs.state.groups[resolved_path] = group_gid
         self.kernel.fs.persistence.save_if_needed()
         return True

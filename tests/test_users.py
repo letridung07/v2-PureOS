@@ -253,3 +253,86 @@ class TestExitStatusVariable:
         # Test braced form ${?} - translates to 'echo 1' and sets status back to 0
         shell.execute("echo ${?}")
         assert shell.env["?"] == "0"
+
+
+class TestUserEdgeCases:
+    def test_passwd_non_root_permission_elevation(self, kernel, shell):
+        # Create non-root user
+        kernel.users.add_user("bob")
+
+        # Switch to bob
+        success = kernel.users.su("bob")
+        assert success is True
+        assert kernel.users.current_user.username == "bob"
+
+        # Change password (succeeds via temporary root elevation)
+        with patch("builtins.input", side_effect=["bobpwd123", "bobpwd123"]):
+            res = run(shell, "passwd bob", capture=False)
+            assert res is True
+
+        assert kernel.users.users["bob"].check_password("bobpwd123") is True
+
+    def test_directory_deletion_cleans_up_ownership_mappings(self, kernel, shell):
+        # Create a directory
+        kernel.fs.mkdir("/tmp/deldir")
+        kernel.fs.write("/tmp/deldir/file1", "content")
+
+        assert "/tmp/deldir/" in kernel.fs.state.owners
+        assert "/tmp/deldir/file1" in kernel.fs.state.owners
+
+        # Delete directory
+        kernel.fs.delete("/tmp/deldir")
+
+        assert "/tmp/deldir/" not in kernel.fs.state.owners
+        assert "/tmp/deldir/file1" not in kernel.fs.state.owners
+        assert "/tmp/deldir/" not in kernel.fs.state.groups
+        assert "/tmp/deldir/file1" not in kernel.fs.state.groups
+
+    def test_rename_preserves_ownership_and_copy_sets_active_ownership(
+        self, kernel, shell
+    ):
+        # Create dev user
+        kernel.users.add_user("devuser")
+
+        # Create file as root
+        kernel.fs.write("/tmp/rootfile", "data")
+        assert kernel.fs.state.owners["/tmp/rootfile"] == 0
+
+        # Switch to devuser
+        kernel.users.su("devuser")
+        dev_uid = kernel.users.users["devuser"].uid
+        dev_gid = kernel.users.users["devuser"].gid
+
+        # Copy file: should take devuser's ownership context
+        kernel.fs.copy("/tmp/rootfile", "/tmp/copiedfile")
+        assert kernel.fs.state.owners["/tmp/copiedfile"] == dev_uid
+        assert kernel.fs.state.groups["/tmp/copiedfile"] == dev_gid
+
+        # Rename file: should preserve original ownership (root)
+        kernel.users.su("root")
+        kernel.fs.rename("/tmp/rootfile", "/tmp/movedfile")
+        assert kernel.fs.state.owners["/tmp/movedfile"] == 0
+
+    def test_chgrp_non_root_group_membership_enforcement(self, kernel, shell):
+        # Create non-root user and groups
+        kernel.users.groups["groupA"] = 6000
+        kernel.users.groups["groupB"] = 6001
+
+        kernel.users.add_user("userA")
+        # Add userA to groupA but NOT groupB
+        kernel.users.group_members["groupA"] = ["userA"]
+        kernel.users.users["userA"].gids.append(6000)
+
+        # userA creates a file
+        kernel.users.su("userA")
+        run(shell, "write /tmp/userAfile 'content'", capture=False)
+
+        # userA tries to chgrp to groupA (should succeed)
+        res = run(shell, "chgrp groupA /tmp/userAfile", capture=False)
+        assert res is True
+        assert kernel.fs.state.groups["/tmp/userAfile"] == 6000
+
+        # userA tries to chgrp to groupB (should fail - not member)
+        res = run(shell, "chgrp groupB /tmp/userAfile", capture=False)
+        assert res is False
+        assert kernel.fs.state.groups["/tmp/userAfile"] == 6000  # unchanged

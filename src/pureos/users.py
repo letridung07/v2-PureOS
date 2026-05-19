@@ -139,24 +139,33 @@ class UserDB:
 
     def save_to_fs(self):
         """Save users and groups to /etc/passwd and /etc/group."""
-        passwd_lines = []
-        for user in self.users.values():
-            # username:password_hash:uid:gid:gecos:home:shell
-            line = (
-                f"{user.username}:{user.password_hash}:{user.uid}:{user.gid}:"
-                f"{user.username}:/home/{user.username}:/bin/sh"
-            )
-            passwd_lines.append(line)
+        # Temporarily elevate to root to allow writing etc files (like setuid root)
+        old_user = self.current_user
+        root_user = self.users.get("root")
+        if root_user:
+            self.current_user = root_user
 
-        group_lines = []
-        for groupname, gid in self.groups.items():
-            members = self.group_members.get(groupname, [])
-            # groupname:password:gid:member_list
-            line = f"{groupname}:x:{gid}:{','.join(members)}"
-            group_lines.append(line)
+        try:
+            passwd_lines = []
+            for user in self.users.values():
+                # username:password_hash:uid:gid:gecos:home:shell
+                line = (
+                    f"{user.username}:{user.password_hash}:{user.uid}:{user.gid}:"
+                    f"{user.username}:/home/{user.username}:/bin/sh"
+                )
+                passwd_lines.append(line)
 
-        self.kernel.fs.write("/etc/passwd", "\n".join(passwd_lines) + "\n")
-        self.kernel.fs.write("/etc/group", "\n".join(group_lines) + "\n")
+            group_lines = []
+            for groupname, gid in self.groups.items():
+                members = self.group_members.get(groupname, [])
+                # groupname:password:gid:member_list
+                line = f"{groupname}:x:{gid}:{','.join(members)}"
+                group_lines.append(line)
+
+            self.kernel.fs.write("/etc/passwd", "\n".join(passwd_lines) + "\n")
+            self.kernel.fs.write("/etc/group", "\n".join(group_lines) + "\n")
+        finally:
+            self.current_user = old_user
 
     def add_user(
         self,

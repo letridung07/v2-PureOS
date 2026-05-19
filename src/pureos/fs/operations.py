@@ -249,6 +249,8 @@ class FSOperations:
         if normalized in self.state.files:
             del self.state.files[normalized]
             self.state.modes.pop(normalized, None)
+            self.state.owners.pop(normalized, None)
+            self.state.groups.pop(normalized, None)
             self.persistence.save_if_needed()
             return
         if (
@@ -262,12 +264,18 @@ class FSOperations:
             if file_path.startswith(normalized):
                 del self.state.files[file_path]
                 self.state.modes.pop(file_path, None)
+                self.state.owners.pop(file_path, None)
+                self.state.groups.pop(file_path, None)
         for dir_path in list(self.state.dirs):
             if dir_path.startswith(normalized):
                 self.state.dirs.discard(dir_path)
                 self.state.modes.pop(dir_path, None)
+                self.state.owners.pop(dir_path, None)
+                self.state.groups.pop(dir_path, None)
         self.state.dirs.discard(normalized)
         self.state.modes.pop(normalized, None)
+        self.state.owners.pop(normalized, None)
+        self.state.groups.pop(normalized, None)
         self.persistence.save_if_needed()
 
     def rename(self, src: str, dst: str):
@@ -304,6 +312,8 @@ class FSOperations:
         PathResolver.ensure_dir_parents(self.state, normalized_dst)
         self.state.files[normalized_dst] = self.state.files.pop(src)
         self.state.modes[normalized_dst] = self.state.modes.pop(src, 0o644)
+        self.state.owners[normalized_dst] = self.state.owners.pop(src, 0)
+        self.state.groups[normalized_dst] = self.state.groups.pop(src, 0)
         self.persistence.save_if_needed()
 
     def _copy_file(self, src: str, dst: str):
@@ -320,6 +330,9 @@ class FSOperations:
         PathResolver.ensure_dir_parents(self.state, normalized_dst)
         self.state.files[normalized_dst] = self.state.files[src]
         self.state.modes[normalized_dst] = self.state.modes.get(src, 0o644)
+        uid, gid = self._get_active_context()
+        self.state.owners[normalized_dst] = uid
+        self.state.groups[normalized_dst] = gid
         self.persistence.save_if_needed()
 
     def _rename_dir(self, src: str, dst: str):
@@ -332,12 +345,20 @@ class FSOperations:
                 f"Cannot rename directory into its own subdirectory: {dst_dir}"
             )
         self.mkdir(dst_dir, parents=True)
+        self.state.owners[dst_dir] = self.state.owners.pop(src_dir, 0)
+        self.state.groups[dst_dir] = self.state.groups.pop(src_dir, 0)
         for directory in sorted(self.state.dirs):
             if directory.startswith(src_dir):
                 relative = directory[len(src_dir) :]
                 self.state.dirs.add(dst_dir + relative)
                 self.state.modes[dst_dir + relative] = self.state.modes.pop(
                     directory, 0o755
+                )
+                self.state.owners[dst_dir + relative] = self.state.owners.pop(
+                    directory, 0
+                )
+                self.state.groups[dst_dir + relative] = self.state.groups.pop(
+                    directory, 0
                 )
                 self.state.dirs.discard(directory)
         for file_path in list(self.state.files):
@@ -346,6 +367,12 @@ class FSOperations:
                 self.state.files[dst_dir + relative] = self.state.files.pop(file_path)
                 self.state.modes[dst_dir + relative] = self.state.modes.pop(
                     file_path, 0o644
+                )
+                self.state.owners[dst_dir + relative] = self.state.owners.pop(
+                    file_path, 0
+                )
+                self.state.groups[dst_dir + relative] = self.state.groups.pop(
+                    file_path, 0
                 )
         self.delete(src_dir)
         self.persistence.save_if_needed()
@@ -360,6 +387,9 @@ class FSOperations:
                 f"Cannot copy directory into its own subdirectory: {dst_dir}"
             )
         self.mkdir(dst_dir, parents=True)
+        uid, gid = self._get_active_context()
+        self.state.owners[dst_dir] = uid
+        self.state.groups[dst_dir] = gid
         for directory in sorted(self.state.dirs):
             if directory.startswith(src_dir):
                 relative = directory[len(src_dir) :]
@@ -367,6 +397,8 @@ class FSOperations:
                 self.state.modes[dst_dir + relative] = self.state.modes.get(
                     directory, 0o755
                 )
+                self.state.owners[dst_dir + relative] = uid
+                self.state.groups[dst_dir + relative] = gid
         for file_path, content in list(self.state.files.items()):
             if file_path.startswith(src_dir):
                 relative = file_path[len(src_dir) :]
@@ -374,4 +406,6 @@ class FSOperations:
                 self.state.modes[dst_dir + relative] = self.state.modes.get(
                     file_path, 0o644
                 )
+                self.state.owners[dst_dir + relative] = uid
+                self.state.groups[dst_dir + relative] = gid
         self.persistence.save_if_needed()
