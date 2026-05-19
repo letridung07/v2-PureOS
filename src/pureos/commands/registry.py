@@ -1,13 +1,10 @@
+import importlib
+import inspect
+import pkgutil
 from typing import Dict, Optional, Sequence, Union
 
 from ..parser import tokenize
 from .base import Command, CommandResult
-from .fs import register_fs_commands
-from .process import register_process_commands
-from .service import register_service_commands
-from .system import register_system_commands
-from .network import register_network_commands
-
 
 class CommandRegistry:
     def __init__(self, kernel):
@@ -74,8 +71,32 @@ class CommandRegistry:
             self.commands[alias] = command
 
     def _register_default_commands(self):
-        register_system_commands(self)
-        register_fs_commands(self)
-        register_service_commands(self)
-        register_process_commands(self)
-        register_network_commands(self)
+        # Dynamically load all modules in the commands package
+        import pureos.commands
+
+        package = pureos.commands
+        for _, module_name, is_pkg in pkgutil.iter_modules(package.__path__):
+            if is_pkg or module_name in ("base", "registry"):
+                continue
+
+            try:
+                module = importlib.import_module(f".{module_name}", package.__name__)
+                # Look for register_{module_name}_commands or generic register_commands
+                register_func_name = f"register_{module_name}_commands"
+                if hasattr(module, register_func_name):
+                    func = getattr(module, register_func_name)
+                    func(self)
+                elif hasattr(module, "register_commands"):
+                    func = getattr(module, "register_commands")
+                    func(self)
+                else:
+                    # Alternatively, scan for Command subclasses and register them directly
+                    for name, obj in inspect.getmembers(module):
+                        if inspect.isclass(obj) and issubclass(obj, Command) and obj is not Command:
+                            if not inspect.isabstract(obj):
+                                # If the class does not have an explicit name, skip or auto-assign?
+                                # Assuming commands are instantiated later or they need to be registered 
+                                # Let's just warn or ignore if no register function is found.
+                                pass
+            except ImportError as e:
+                print(f"Error loading command module {module_name}: {e}")

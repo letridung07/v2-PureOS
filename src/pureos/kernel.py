@@ -9,28 +9,11 @@ from .fs import VirtualFS
 from .processes import Scheduler
 from .services import ServiceManager
 from .shell import Shell
+from .boot import run_boot_sequence
+from .builtin_services import register_builtin_services
 
 
-def _noop_service(stop_event=None):
-    # simple background task that can be stopped when given an event
-    while not (stop_event and stop_event.is_set()):
-        if stop_event:
-            stop_event.wait(0.1)
-        else:
-            time.sleep(0.1)
 
-
-def _echo_server_service(stop_event=None):
-    from .network import start_echo_server
-
-    port, thread, srv_stop_event = start_echo_server(host="127.0.0.1", port=50007)
-    while not (stop_event and stop_event.is_set()):
-        if stop_event:
-            stop_event.wait(0.1)
-        else:
-            time.sleep(0.1)
-    srv_stop_event.set()
-    thread.join()
 
 
 class Kernel:
@@ -43,24 +26,8 @@ class Kernel:
         self.shell = Shell(self)
         self.boot_time = time.time()
 
-        # register a tiny noop service so there's at least one background thread
-        self.services.register(
-            "noop",
-            _noop_service,
-            daemon=True,
-            stoppable=True,
-            description="No-op background service",
-            auto_start=True,
-        )
-
-        self.services.register(
-            "echo_server",
-            _echo_server_service,
-            daemon=True,
-            stoppable=True,
-            description="TCP echo server on port 50007",
-            auto_start=False,
-        )
+        # register built-in background services
+        register_builtin_services(self)
 
     def register_service(
         self,
@@ -85,22 +52,7 @@ class Kernel:
             self.register_service(**svc)
 
     def initialize(self):
-        self.logger.info("Kernel: initializing")
-        if self.config.format_on_boot or not self.fs.has_content():
-            print("Kernel: formatting filesystem...")
-            self.fs.format()
-        else:
-            if "/etc/motd" not in self.fs.files:
-                if not self.fs.exists("/etc/"):
-                    self.fs.mkdir("/etc/")
-                self.fs.write("/etc/motd", "Welcome to v2-PureOS")
-            if "/etc/pureosrc" not in self.fs.files:
-                if not self.fs.exists("/etc/"):
-                    self.fs.mkdir("/etc/")
-                self.fs.write(
-                    "/etc/pureosrc",
-                    "alias ll ls -l\n" "alias la ls\n" "alias grep grep -i\n",
-                )
+        run_boot_sequence(self)
         print("Kernel: starting core services...")
         auto_start = self.config.auto_start_services
         if isinstance(auto_start, list):
