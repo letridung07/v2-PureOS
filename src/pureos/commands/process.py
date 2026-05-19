@@ -82,8 +82,38 @@ class JobsCommand(Command):
         return True
 
 
+class WaitCommand(Command):
+    name = "wait"
+    usage = "wait [pid]"
+    description = "Wait for background processes to complete."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        if len(parts) > 1:
+            try:
+                pid = int(parts[1])
+            except ValueError:
+                print("Usage: wait [pid]")
+                return False
+            p = self.kernel.scheduler.status(pid)
+            if not p:
+                print(f"wait: no such process: {pid}")
+                return False
+            self.kernel.scheduler.wait(pid)
+            return True
+        else:
+            self.kernel.scheduler.wait_all()
+            return True
+
+
 def register_process_commands(registry):
     registry.register(PsCommand(registry.kernel))
     registry.register(SpawnCommand(registry.kernel))
     registry.register(KillCommand(registry.kernel))
     registry.register(JobsCommand(registry.kernel))
+    registry.register(WaitCommand(registry.kernel))

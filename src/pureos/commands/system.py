@@ -309,6 +309,39 @@ class WhichCommand(Command):
         return False
 
 
+class EnvCommand(Command):
+    name = "env"
+    aliases = ["printenv"]
+    usage = "env"
+    description = "List all active environment variables."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        shell = self.kernel.shell
+        out = "\n".join(f"{name}={value}" for name, value in shell.env.items())
+        if capture_output:
+            return out
+        if out:
+            print(out)
+        return True
+
+
+class ClearCommand(Command):
+    name = "clear"
+    usage = "clear"
+    description = "Clear the terminal screen."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        out = "\033[H\033[2J"
+        if capture_output:
+            return out
+        print(out, end="")
+        return True
+
+
 def register_system_commands(registry):
     registry.register(HelpCommand(registry.kernel))
     registry.register(InfoCommand(registry.kernel))
@@ -322,3 +355,5 @@ def register_system_commands(registry):
     registry.register(FreeCommand(registry.kernel))
     registry.register(SleepCommand(registry.kernel))
     registry.register(WhichCommand(registry.kernel))
+    registry.register(EnvCommand(registry.kernel))
+    registry.register(ClearCommand(registry.kernel))
