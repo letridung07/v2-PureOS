@@ -90,7 +90,8 @@ class WcCommand(Command):
         if text is None:
             return False
 
-        lines = text.splitlines()
+        # Count newlines (POSIX-correct: wc -l counts '\n' characters)
+        line_count = text.count("\n")
         words = text.split()
         chars = len(text.encode("utf-8"))
 
@@ -98,7 +99,7 @@ class WcCommand(Command):
 
         parts_out = []
         if show_all or "l" in flags:
-            parts_out.append(str(len(lines)))
+            parts_out.append(str(line_count))
         if show_all or "w" in flags:
             parts_out.append(str(len(words)))
         if show_all or "c" in flags:
@@ -181,8 +182,6 @@ class GrepCommand(Command):
             return _emit(str(len(matched_lines)), capture_output)
 
         if not matched_lines:
-            if capture_output:
-                return ""
             return False
 
         out = "\n".join(matched_lines)
@@ -485,9 +484,9 @@ class TrCommand(Command):
         if not set1:
             print("tr: set1 must not be empty")
             return False
-        if set2 and not delete and len(set2) == 0:
-            # guard: set2 is referenced via [-1] below; already empty-checked above
-            print("tr: set2 must not be empty when translating")
+        if not delete and not squeeze and not set2:
+            # POSIX: set2 is required when neither -d nor -s is given
+            print("tr: missing operand: set2 is required when not using -d or -s")
             return False
 
         text = input_data

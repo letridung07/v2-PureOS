@@ -32,13 +32,14 @@ class TestWc:
         kernel.fs.write("/tmp/words", "hello world\nfoo bar baz\n")
         result = run(shell, "wc /tmp/words")
         parts = result.split()
-        assert parts[0] == "2"  # lines
+        assert parts[0] == "2"  # 2 newlines
         assert parts[1] == "5"  # words
         assert int(parts[2]) > 0  # bytes
 
     def test_lines_flag(self, kernel, shell):
         kernel.fs.write("/tmp/lns", "a\nb\nc\n")
         result = run(shell, "wc -l /tmp/lns")
+        # file has 3 '\n' characters
         assert result.strip() == "3"
 
     def test_words_flag(self, kernel, shell):
@@ -50,8 +51,9 @@ class TestWc:
         assert result.strip() == "3"
 
     def test_pipeline_input(self, shell):
+        # "a\nb\nc" has 2 newlines → wc -l counts '\n' chars (POSIX)
         result = run(shell, "wc -l", input_data="a\nb\nc")
-        assert result.strip() == "3"
+        assert result.strip() == "2"
 
     def test_empty_input(self, shell):
         result = run(shell, "wc -l", input_data="")
@@ -484,4 +486,40 @@ class TestEdgeCases:
     def test_cut_d_missing_argument(self, shell):
         """cut -d at end of args with no delimiter value should fail."""
         result = run(shell, "cut -f 1 -d", input_data="a:b", capture=False)
+        assert result is False
+
+    # --- wc: POSIX newline counting (not splitlines) ---
+
+    def test_wc_l_no_trailing_newline(self, shell):
+        """wc -l counts '\\n' characters; 'a\\nb' has 1 newline → returns 1."""
+        result = run(shell, "wc -l", input_data="a\nb")
+        assert result.strip() == "1"
+
+    def test_wc_l_with_trailing_newline(self, shell):
+        """'a\\nb\\n' has 2 newlines → wc -l returns 2."""
+        result = run(shell, "wc -l", input_data="a\nb\n")
+        assert result.strip() == "2"
+
+    # --- tr: set2 required when no -d and no -s ---
+
+    def test_tr_missing_set2_no_flags_fails(self, shell):
+        """tr with only set1 and no -d or -s should fail (POSIX)."""
+        result = run(shell, "tr abc", input_data="hello", capture=False)
+        assert result is False
+
+    def test_tr_s_without_set2_is_valid(self, shell):
+        """-s with only set1 is valid: squeeze repeated chars in set1."""
+        result = run(shell, "tr -s ' '", input_data="a  b   c")
+        assert result == "a b c"
+
+    # --- grep: empty input returns False, not empty string ---
+
+    def test_grep_empty_input_returns_false(self, shell):
+        """grep on empty input with no matches must return False, not ''."""
+        result = run(shell, "grep foo", input_data="", capture=False)
+        assert result is False
+
+    def test_grep_no_match_capture_returns_false(self, shell):
+        """grep with capture_output=True and no matches returns False."""
+        result = run(shell, "grep foo", input_data="bar baz")
         assert result is False
