@@ -43,6 +43,11 @@ def parse_args(argv=None):
         action="store_true",
         help="Show package version and exit",
     )
+    parser.add_argument(
+        "--backing",
+        metavar="PATH",
+        help="Use a persistent backing file for the virtual filesystem",
+    )
     return parser.parse_args(argv)
 
 
@@ -53,6 +58,7 @@ def main(argv=None):
         return
     banner()
     system_info()
-    run_pureos(shell=args.shell)
+    config = {"fs_backing": args.backing}
+    run_pureos(shell=args.shell, config=config)
     print("Initialization complete.")
     print("Exiting.")

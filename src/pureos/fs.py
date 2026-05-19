@@ -12,15 +12,21 @@ class VirtualFS:
         self.dirs: Set[str] = {"/"}
         self.modes: Dict[str, int] = {"/": 0o755}
         if backing_path:
-            try:
-                self._load()
-            except Exception:
-                self.files = {}
-                self.dirs = {"/"}
-                self.modes = {"/": 0o755}
+            self.load()
 
     def has_content(self) -> bool:
         return bool(self.files or len(self.dirs) > 1)
+
+    def load(self):
+        """Load persisted filesystem state from the backing store."""
+        if not self.backing_path or not os.path.exists(self.backing_path):
+            return
+        try:
+            self._load()
+        except (OSError, ValueError, json.JSONDecodeError):
+            self.files = {}
+            self.dirs = {"/"}
+            self.modes = {"/": 0o755}
 
     def _has_permission(
         self, path: str, permission: int, allow_dir: bool = False
@@ -412,7 +418,8 @@ class VirtualFS:
         dirpath = os.path.dirname(self.backing_path)
         if dirpath and not os.path.exists(dirpath):
             os.makedirs(dirpath, exist_ok=True)
-        with open(self.backing_path, "w", encoding="utf-8") as f:
+        temp_path = f"{self.backing_path}.tmp"
+        with open(temp_path, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "files": self.files,
@@ -422,6 +429,7 @@ class VirtualFS:
                 f,
                 indent=2,
             )
+        os.replace(temp_path, self.backing_path)
 
     def _load(self):
         if os.path.exists(self.backing_path):

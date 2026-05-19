@@ -43,6 +43,11 @@ def test_shell_fs_and_processes_and_services(tmp_path, capsys):
     sh.execute("cp /tmp/b /tmp/c")
     assert k.fs.read("/tmp/c") == "helloworld"
 
+    # format
+    sh.execute("format")
+    assert k.fs.read("/tmp/c") is None
+    assert k.fs.read("/etc/motd") == "Welcome to v2-PureOS"
+
     # rm
     sh.execute("rm /tmp/b")
     assert k.fs.read("/tmp/b") is None

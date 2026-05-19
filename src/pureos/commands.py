@@ -58,6 +58,7 @@ class CommandRegistry:
         self.register("source", self._cmd_source)
         self.register("head", self._cmd_head_tail)
         self.register("tail", self._cmd_head_tail)
+        self.register("format", self._cmd_format)
         self.register("ps", self._cmd_ps)
         self.register("services", self._cmd_services)
         self.register("service", self._cmd_service)
@@ -76,7 +77,7 @@ class CommandRegistry:
         capture_output: bool = False,
     ) -> bool:
         print(
-            "help, info, export, alias, unalias, history, grep, ls [-l] [prefix], pwd, cd <path>, find [path], ps, services, exit"
+            "help, info, export, alias, unalias, history, grep, format, ls [-l] [prefix], pwd, cd <path>, find [path], ps, services, exit"
         )
         print(
             "mkdir <path>, rmdir <path>, rm <path>, mv <src> <dst>, cp <src> <dst>, touch <path>"
@@ -294,6 +295,23 @@ class CommandRegistry:
             return line
         print(line)
         return True
+
+    def _cmd_format(
+        self,
+        parts: List[str],
+        input_data: Optional[str] = None,
+        capture_output: bool = False,
+    ) -> bool:
+        if len(parts) != 1:
+            print("Usage: format")
+            return False
+        try:
+            self.kernel.fs.format()
+            print("Formatted filesystem")
+            return True
+        except PermissionError as exc:
+            print(str(exc))
+            return False
 
     def _cmd_ls(
         self,

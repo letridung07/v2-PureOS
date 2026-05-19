@@ -16,6 +16,9 @@ def test_persistent_fs(tmp_path):
     a = VirtualFS(backing_path=str(store))
     a.format()
     a.write("/var/data", "hello")
+    a.copy("/var/data", "/var/data2")
+    a.rename("/var/data2", "/var/data3")
 
     b = VirtualFS(backing_path=str(store))
     assert b.read("/var/data") == "hello"
+    assert b.read("/var/data3") == "hello"

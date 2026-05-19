@@ -35,6 +35,7 @@ The package supports the following launch options:
 
 - `--shell` — start the interactive shell after initialization
 - `--version` — print the package version and exit
+- `--backing <path>` — use a persistent backing file for the virtual filesystem
 
 ## Shell command workflow
 
@@ -78,6 +79,8 @@ The shell exposes a virtual filesystem with support for relative and absolute pa
 - `rmdir <path>` — remove an empty directory
 - `mv <src> <dst>` — rename or move an entry
 - `cp <src> <dst>` — copy a file or directory
+- `format` — reset the virtual filesystem to initial state
+- `format` — reset the virtual filesystem to initial state
 
 ### Permissions and metadata
 

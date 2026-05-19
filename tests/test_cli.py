@@ -19,3 +19,10 @@ def test_cli_version_flag():
     args = cli_mod.parse_args(["--version"])
     assert args.version is True
     assert args.shell is False
+
+
+def test_cli_backing_flag():
+    args = cli_mod.parse_args(["--backing", "/tmp/pureos.json"])
+    assert args.backing == "/tmp/pureos.json"
+    assert args.shell is False
+    assert args.version is False

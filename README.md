@@ -33,6 +33,7 @@ The entrypoint supports two options:
 
 - `--shell` — start the interactive shell
 - `--version` — print the package version and exit
+- `--backing <path>` — specify a persistent backing file for the virtual filesystem
 
 Once inside the shell, use `help` to see the available commands. For a full command reference and usage notes, see `docs/index.md`.
 
