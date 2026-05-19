@@ -14,20 +14,56 @@ class FSOperations:
         self.permissions = permissions
         self.persistence = persistence
 
+    def _get_active_context(self) -> tuple[int, int]:
+        if self.permissions.kernel and hasattr(self.permissions.kernel, "users") and self.permissions.kernel.users:
+            user = self.permissions.kernel.users.current_user
+            if user:
+                return user.uid, user.gid
+        return 0, 0
+
     def format(self):
         """Reset filesystem to initial state."""
         self.state.files.clear()
-        self.state.dirs = {"/", "/etc/"}
+        self.state.dirs = {"/", "/etc/", "/tmp/"}
         self.state.modes = {
             "/": 0o755,
             "/etc/": 0o755,
+            "/tmp/": 0o777,
             "/etc/motd": 0o644,
             "/etc/pureosrc": 0o644,
+            "/etc/passwd": 0o644,
+            "/etc/group": 0o644,
         }
         self.state.files["/etc/motd"] = "Welcome to v2-PureOS"
         self.state.files["/etc/pureosrc"] = (
             "alias ll ls -l\n" "alias la ls\n" "alias grep grep -i\n"
         )
+        self.state.files["/etc/passwd"] = (
+            "root::0:0:root:/root:/bin/sh\n"
+            "guest::1000:1000:guest:/home/guest:/bin/sh\n"
+        )
+        self.state.files["/etc/group"] = (
+            "root:x:0:root\n"
+            "guest:x:1000:guest\n"
+        )
+        self.state.owners = {
+            "/": 0,
+            "/etc/": 0,
+            "/tmp/": 0,
+            "/etc/motd": 0,
+            "/etc/pureosrc": 0,
+            "/etc/passwd": 0,
+            "/etc/group": 0,
+        }
+        self.state.groups = {
+            "/": 0,
+            "/etc/": 0,
+            "/tmp/": 0,
+            "/etc/motd": 0,
+            "/etc/pureosrc": 0,
+            "/etc/passwd": 0,
+            "/etc/group": 0,
+        }
         self.persistence.save_if_needed()
 
     def mkdir(self, path: str, parents: bool = True):
@@ -39,6 +75,14 @@ class FSOperations:
             PathResolver.ensure_dir_parents(self.state, path)
         self.state.dirs.add(path)
         self.state.modes.setdefault(path, 0o755)
+
+        uid, gid = self._get_active_context()
+        self.state.owners.setdefault(path, uid)
+        self.state.groups.setdefault(path, gid)
+        for d in self.state.dirs:
+            self.state.owners.setdefault(d, uid)
+            self.state.groups.setdefault(d, gid)
+
         self.persistence.save_if_needed()
 
     def write(self, path: str, content: str):
@@ -56,6 +100,14 @@ class FSOperations:
         PathResolver.ensure_dir_parents(self.state, normalized)
         self.state.files[normalized] = content
         self.state.modes.setdefault(normalized, 0o644)
+
+        uid, gid = self._get_active_context()
+        self.state.owners.setdefault(normalized, uid)
+        self.state.groups.setdefault(normalized, gid)
+        for d in self.state.dirs:
+            self.state.owners.setdefault(d, uid)
+            self.state.groups.setdefault(d, gid)
+
         self.persistence.save_if_needed()
 
     def append(self, path: str, content: str):
@@ -73,6 +125,14 @@ class FSOperations:
         PathResolver.ensure_dir_parents(self.state, normalized)
         self.state.files[normalized] = self.state.files.get(normalized, "") + content
         self.state.modes.setdefault(normalized, 0o644)
+
+        uid, gid = self._get_active_context()
+        self.state.owners.setdefault(normalized, uid)
+        self.state.groups.setdefault(normalized, gid)
+        for d in self.state.dirs:
+            self.state.owners.setdefault(d, uid)
+            self.state.groups.setdefault(d, gid)
+
         self.persistence.save_if_needed()
 
     def read(self, path: str) -> Optional[str]:

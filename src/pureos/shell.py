@@ -9,17 +9,23 @@ from .parser import split_command_sequence, split_pipeline, tokenize, split_redi
 
 class Shell:
     VARIABLE_PATTERN = re.compile(
-        r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|(?P<plain>[A-Za-z_][A-Za-z0-9_]*))"
+        r"\$(?:\{(?P<braced>[A-Za-z_0-9\?]+)\}|(?P<plain>[A-Za-z_][A-Za-z0-9_]*|\?))"
     )
 
     def __init__(self, kernel):
         self.kernel = kernel
         self.cwd = "/"
-        self.prompt = kernel.config.shell_prompt
         self.registry = CommandRegistry(kernel)
-        self.env = {}
+        self.env = {"?": "0"}
         self.aliases = {}
         self.history = []
+
+    @property
+    def prompt(self) -> str:
+        username = "root"
+        if self.kernel and hasattr(self.kernel, "users") and self.kernel.users and self.kernel.users.current_user:
+            username = self.kernel.users.current_user.username
+        return f"{username}@pureos:{self.cwd}> "
 
     def resolve_path(
         self, path: str, is_dir: bool = False, allow_dir: bool = False
@@ -55,11 +61,13 @@ class Shell:
             if separator == "&":
                 self._execute_background(command)
                 success = True
+                self.env["?"] = "0"
             else:
                 result = self._execute_pipeline(command)
                 if result == "exit":
                     return "exit"
                 success = result is not False
+                self.env["?"] = "0" if success else "1"
 
             next_conditional = separator
         return success

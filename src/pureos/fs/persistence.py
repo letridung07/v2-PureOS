@@ -25,6 +25,8 @@ class FSPersistence:
                     "files": self.state.files,
                     "dirs": sorted(self.state.dirs),
                     "modes": {path: mode for path, mode in self.state.modes.items()},
+                    "owners": {path: uid for path, uid in self.state.owners.items()},
+                    "groups": {path: gid for path, gid in self.state.groups.items()},
                 },
                 f,
                 indent=2,
@@ -41,6 +43,8 @@ class FSPersistence:
             self.state.files = {}
             self.state.dirs = {"/"}
             self.state.modes = {"/": 0o755}
+            self.state.owners = {"/": 0}
+            self.state.groups = {"/": 0}
 
     def _load(self):
         if os.path.exists(self.state.backing_path):
@@ -49,6 +53,8 @@ class FSPersistence:
             self.state.files = {}
             self.state.dirs = {"/"}
             self.state.modes = {"/": 0o755}
+            self.state.owners = {"/": 0}
+            self.state.groups = {"/": 0}
             if isinstance(data, dict) and all(
                 isinstance(v, str) for v in data.values()
             ):
@@ -78,12 +84,31 @@ class FSPersistence:
                     for path, mode in data.get("modes", {}).items()
                 }
                 self.state.modes.setdefault("/", 0o755)
+                self.state.owners = {
+                    PathResolver.normalize_path(path, allow_dir=True): uid
+                    for path, uid in data.get("owners", {}).items()
+                }
+                self.state.groups = {
+                    PathResolver.normalize_path(path, allow_dir=True): gid
+                    for path, gid in data.get("groups", {}).items()
+                }
                 for path in self.state.files:
                     PathResolver.ensure_dir_parents(self.state, path)
                     self.state.modes.setdefault(path, 0o644)
                 for path in self.state.dirs:
                     self.state.modes.setdefault(path, 0o755)
+            # Ensure default ownership for any entries that lack them
+            for path in self.state.files:
+                self.state.owners.setdefault(path, 0)
+                self.state.groups.setdefault(path, 0)
+            for path in self.state.dirs:
+                self.state.owners.setdefault(path, 0)
+                self.state.groups.setdefault(path, 0)
+            self.state.owners.setdefault("/", 0)
+            self.state.groups.setdefault("/", 0)
         else:
             self.state.files = {}
             self.state.dirs = {"/"}
             self.state.modes = {"/": 0o755}
+            self.state.owners = {"/": 0}
+            self.state.groups = {"/": 0}

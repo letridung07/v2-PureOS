@@ -7,6 +7,8 @@ class FSState:
         self.files: Dict[str, str] = {}
         self.dirs: Set[str] = {"/"}
         self.modes: Dict[str, int] = {"/": 0o755}
+        self.owners: Dict[str, int] = {"/": 0}
+        self.groups: Dict[str, int] = {"/": 0}
 
     def has_content(self) -> bool:
         return bool(self.files or len(self.dirs) > 1)

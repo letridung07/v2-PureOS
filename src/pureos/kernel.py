@@ -17,7 +17,10 @@ class Kernel:
     def __init__(self, config: Optional[dict] = None):
         self.config = Config.from_dict(config)
         self.logger = logging.getLogger("pureos")
-        self.fs = VirtualFS(backing_path=self.config.fs_backing)
+        self.users = None
+        self.fs = VirtualFS(backing_path=self.config.fs_backing, kernel=self)
+        from .users import UserDB
+        self.users = UserDB(self)
         self.scheduler = Scheduler()
         self.services = ServiceManager()
         self.shell = Shell(self)
@@ -50,6 +53,8 @@ class Kernel:
 
     def initialize(self):
         run_boot_sequence(self)
+        if self.users:
+            self.users.initialize()
         print("Kernel: starting core services...")
         auto_start = self.config.auto_start_services
         if isinstance(auto_start, list):

@@ -7,9 +7,10 @@ from .operations import FSOperations
 
 
 class VirtualFS:
-    def __init__(self, backing_path: Optional[str] = None):
+    def __init__(self, backing_path: Optional[str] = None, kernel=None):
+        self.kernel = kernel
         self.state = FSState(backing_path)
-        self.permissions = FSPermissions(self.state)
+        self.permissions = FSPermissions(self.state, kernel=kernel)
         self.persistence = FSPersistence(self.state)
         self.operations = FSOperations(self.state, self.permissions, self.persistence)
         if backing_path:
