@@ -15,7 +15,11 @@ class FSOperations:
         self.persistence = persistence
 
     def _get_active_context(self) -> tuple[int, int]:
-        if self.permissions.kernel and hasattr(self.permissions.kernel, "users") and self.permissions.kernel.users:
+        if (
+            self.permissions.kernel
+            and hasattr(self.permissions.kernel, "users")
+            and self.permissions.kernel.users
+        ):
             user = self.permissions.kernel.users.current_user
             if user:
                 return user.uid, user.gid
@@ -42,10 +46,7 @@ class FSOperations:
             "root::0:0:root:/root:/bin/sh\n"
             "guest::1000:1000:guest:/home/guest:/bin/sh\n"
         )
-        self.state.files["/etc/group"] = (
-            "root:x:0:root\n"
-            "guest:x:1000:guest\n"
-        )
+        self.state.files["/etc/group"] = "root:x:0:root\n" "guest:x:1000:guest\n"
         self.state.owners = {
             "/": 0,
             "/etc/": 0,

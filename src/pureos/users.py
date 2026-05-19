@@ -79,7 +79,9 @@ class UserDB:
 
     def load_from_fs(self):
         """Load users and groups from /etc/passwd and /etc/group."""
-        if not self.kernel.fs.exists("/etc/passwd") or not self.kernel.fs.exists("/etc/group"):
+        if not self.kernel.fs.exists("/etc/passwd") or not self.kernel.fs.exists(
+            "/etc/group"
+        ):
             return
 
         passwd_content = self.kernel.fs.read("/etc/passwd") or ""
@@ -118,7 +120,7 @@ class UserDB:
                     gid = int(parts[3])
                 except ValueError:
                     continue
-                
+
                 # Resolve supplementary groups
                 gids = [gid]
                 for gname, ggid in self.groups.items():
@@ -140,7 +142,10 @@ class UserDB:
         passwd_lines = []
         for user in self.users.values():
             # username:password_hash:uid:gid:gecos:home:shell
-            line = f"{user.username}:{user.password_hash}:{user.uid}:{user.gid}:{user.username}:/home/{user.username}:/bin/sh"
+            line = (
+                f"{user.username}:{user.password_hash}:{user.uid}:{user.gid}:"
+                f"{user.username}:/home/{user.username}:/bin/sh"
+            )
             passwd_lines.append(line)
 
         group_lines = []
@@ -204,7 +209,7 @@ class UserDB:
             if username in members:
                 members.remove(username)
                 if groupname == username:
-                    # Clean up the user's primary group if empty or if it matched their name
+                    # Clean up user's primary group if empty or matches name
                     self.groups.pop(groupname, None)
                     self.group_members.pop(groupname, None)
 

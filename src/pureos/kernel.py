@@ -20,6 +20,7 @@ class Kernel:
         self.users = None
         self.fs = VirtualFS(backing_path=self.config.fs_backing, kernel=self)
         from .users import UserDB
+
         self.users = UserDB(self)
         self.scheduler = Scheduler()
         self.services = ServiceManager()

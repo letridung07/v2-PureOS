@@ -50,10 +50,7 @@ class SuCommand(Command):
         current_user = users.current_user
 
         # Root user bypasses password; empty password hash also bypasses
-        if (
-            (current_user and current_user.uid == 0)
-            or not target_user.password_hash
-        ):
+        if (current_user and current_user.uid == 0) or not target_user.password_hash:
             success = users.su(username)
             if not success:
                 print("su: Authentication failure")
@@ -64,6 +61,7 @@ class SuCommand(Command):
         try:
             if sys.stdin.isatty():
                 import getpass
+
                 password = getpass.getpass("Password: ")
             else:
                 password = input("Password: ")
@@ -167,7 +165,11 @@ class PasswdCommand(Command):
             return False
 
         current_user = users.current_user
-        username = parts[1] if len(parts) > 1 else (current_user.username if current_user else "root")
+        username = (
+            parts[1]
+            if len(parts) > 1
+            else (current_user.username if current_user else "root")
+        )
 
         if current_user and current_user.uid != 0 and current_user.username != username:
             print("passwd: Permission denied")
@@ -176,6 +178,7 @@ class PasswdCommand(Command):
         try:
             if sys.stdin.isatty():
                 import getpass
+
                 p1 = getpass.getpass("New password: ")
                 p2 = getpass.getpass("Retype new password: ")
             else:
@@ -217,7 +220,11 @@ class GroupsCommand(Command):
             return False
 
         current_user = users.current_user
-        username = parts[1] if len(parts) > 1 else (current_user.username if current_user else "root")
+        username = (
+            parts[1]
+            if len(parts) > 1
+            else (current_user.username if current_user else "root")
+        )
 
         user = users.users.get(username)
         if not user:
@@ -274,7 +281,9 @@ class ChownCommand(Command):
         resolved_path = self.resolve_path(path, allow_dir=True)
         if not self.kernel.fs.exists(resolved_path):
             # Check if directory exists ending in /
-            resolved_path_dir = resolved_path if resolved_path.endswith("/") else resolved_path + "/"
+            resolved_path_dir = (
+                resolved_path if resolved_path.endswith("/") else resolved_path + "/"
+            )
             if not self.kernel.fs.exists(resolved_path_dir):
                 print(f"chown: '{path}': No such file or directory")
                 return False
@@ -307,7 +316,9 @@ class ChgrpCommand(Command):
 
         resolved_path = self.resolve_path(path, allow_dir=True)
         if not self.kernel.fs.exists(resolved_path):
-            resolved_path_dir = resolved_path if resolved_path.endswith("/") else resolved_path + "/"
+            resolved_path_dir = (
+                resolved_path if resolved_path.endswith("/") else resolved_path + "/"
+            )
             if not self.kernel.fs.exists(resolved_path_dir):
                 print(f"chgrp: '{path}': No such file or directory")
                 return False

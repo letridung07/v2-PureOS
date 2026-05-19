@@ -1,10 +1,9 @@
 """Tests for user accounts, group memberships, file ownerships, and permissions."""
 
 import pytest
-import sys
 from unittest.mock import patch
 from pureos.kernel import Kernel
-from pureos.users import User, UserDB
+from pureos.users import User
 
 
 @pytest.fixture
@@ -22,7 +21,9 @@ def shell(kernel):
 def run(shell, cmd, input_data=None, capture=True):
     # Ensure variables like $? are expanded
     expanded = shell._substitute_env_vars(cmd)
-    return shell.registry.execute(expanded, input_data=input_data, capture_output=capture)
+    return shell.registry.execute(
+        expanded, input_data=input_data, capture_output=capture
+    )
 
 
 class TestUserModels:
@@ -57,7 +58,7 @@ class TestUserCommands:
     def test_useradd_and_userdel_permissions(self, kernel, shell):
         # Create non-root user
         kernel.users.add_user("alice")
-        
+
         # Switch to alice
         success = kernel.users.su("alice")
         assert success is True
@@ -68,7 +69,7 @@ class TestUserCommands:
         assert res is False
         assert "bob" not in kernel.users.users
 
-        # Switch back to root (su to root from alice requires password, but root has no password hash so it's bypassed)
+        # Switch back to root (bypassed as root has no password hash)
         success = kernel.users.su("root")
         assert success is True
 
@@ -92,22 +93,22 @@ class TestUserCommands:
     def test_passwd_and_su_with_auth(self, kernel, shell):
         # Create user with password
         kernel.users.add_user("charlie")
-        
+
         # Switch to root (bypasses check)
         kernel.users.su("root")
-        
+
         # Change charlie's password via passwd command (mock inputs)
         with patch("builtins.input", side_effect=["pwd123", "pwd123"]):
             res = run(shell, "passwd charlie", capture=False)
             assert res is True
-        
+
         assert kernel.users.users["charlie"].check_password("pwd123") is True
 
         # Switch user to charlie. Since we are root, su doesn't prompt for password
         success = kernel.users.su("charlie")
         assert success is True
 
-        # Switch user from charlie to root. Target root has no password hash, so it bypasses
+        # Switch from charlie to root (bypassed as root has no password hash)
         success = kernel.users.su("root")
         assert success is True
 
@@ -178,7 +179,7 @@ class TestFilePermissions:
     def test_group_access(self, kernel, shell):
         # Ensure shared group exists
         kernel.users.groups["shared"] = 5000
-        
+
         # Add members
         kernel.users.add_user("member")
         kernel.users.add_user("nonmember")
@@ -186,7 +187,7 @@ class TestFilePermissions:
         kernel.users.group_members["shared"] = ["member"]
         kernel.users.users["member"].gids.append(5000)
 
-        # root creates file, sets group to shared (5000) and permission to 640 (owner rw, group r, other none)
+        # root creates file, sets group to shared and mode to 640
         kernel.users.su("root")
         run(shell, "write /tmp/sharedfile 'hello group'", capture=False)
         run(shell, "chgrp shared /tmp/sharedfile", capture=False)
@@ -231,7 +232,7 @@ class TestExitStatusVariable:
         # A successful command should set $? to 0
         shell.execute("whoami")
         assert shell.env["?"] == "0"
-        
+
         # Test echo $? expansion
         # This translates to 'echo 0', runs successfully, and keeps status 0
         shell.execute("echo $?")
@@ -240,15 +241,15 @@ class TestExitStatusVariable:
         # An unknown command / failure should set $? to 1
         shell.execute("su non_existent_user")
         assert shell.env["?"] == "1"
-        
+
         # This translates to 'echo 1', runs successfully, and sets status back to 0
         shell.execute("echo $?")
         assert shell.env["?"] == "0"
-        
+
         # Set to 1 again
         shell.execute("su non_existent_user")
         assert shell.env["?"] == "1"
-        
+
         # Test braced form ${?} - translates to 'echo 1' and sets status back to 0
         shell.execute("echo ${?}")
         assert shell.env["?"] == "0"

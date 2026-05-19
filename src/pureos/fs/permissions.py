@@ -11,7 +11,7 @@ class FSPermissions:
         self, path: str, permission: int, allow_dir: bool = False
     ) -> bool:
         normalized = PathResolver.normalize_path(path, allow_dir=allow_dir)
-        
+
         # Find owner and group of the file
         owner_uid = self.state.owners.get(normalized, 0)
         group_gid = self.state.groups.get(normalized, 0)
@@ -29,7 +29,11 @@ class FSPermissions:
                 return False
 
         # If running standalone VirtualFS (no kernel/userDB), fallback to raw mode check
-        if not self.kernel or not hasattr(self.kernel, "users") or not self.kernel.users:
+        if (
+            not self.kernel
+            or not hasattr(self.kernel, "users")
+            or not self.kernel.users
+        ):
             return bool(mode & permission)
 
         # Get active user context

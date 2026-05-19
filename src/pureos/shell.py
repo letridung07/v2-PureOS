@@ -23,7 +23,12 @@ class Shell:
     @property
     def prompt(self) -> str:
         username = "root"
-        if self.kernel and hasattr(self.kernel, "users") and self.kernel.users and self.kernel.users.current_user:
+        if (
+            self.kernel
+            and hasattr(self.kernel, "users")
+            and self.kernel.users
+            and self.kernel.users.current_user
+        ):
             username = self.kernel.users.current_user.username
         return f"{username}@pureos:{self.cwd}> "
 
