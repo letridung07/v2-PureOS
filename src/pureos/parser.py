@@ -151,7 +151,8 @@ def tokenize(line: str) -> List[str]:
 
 
 def split_redirection(line: str) -> Tuple[str, Optional[str], Optional[str]]:
-    """Scan the command line to split at the first unquoted/unescaped redirection operator (> or >>).
+    """Scan the command line to split at the first unquoted/unescaped
+    redirection operator (> or >>).
     
     Returns (command_part, operator, target_file).
     """

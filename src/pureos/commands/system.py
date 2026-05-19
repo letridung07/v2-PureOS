@@ -142,7 +142,13 @@ class UptimeCommand(Command):
     usage = "uptime"
     description = "Show system uptime."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
         import time
         uptime_seconds = int(time.time() - self.kernel.boot_time)
         hours = uptime_seconds // 3600
@@ -160,7 +166,13 @@ class DateCommand(Command):
     usage = "date"
     description = "Show current date and time."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
         import time
         out = time.strftime("%a %b %d %H:%M:%S %Z %Y")
         if capture_output:
@@ -174,7 +186,13 @@ class DfCommand(Command):
     usage = "df"
     description = "Show virtual disk usage statistics."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
         fs = self.kernel.fs
         num_files = len(fs.files)
         num_dirs = len(fs.dirs)
@@ -194,7 +212,13 @@ class FreeCommand(Command):
     usage = "free"
     description = "Show mock memory usage statistics."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
         out = (
             "              total        used        free      shared  buff/cache   available\n"
             "Mem:        8192000     2048000     4096000           0     2048000     6144000\n"

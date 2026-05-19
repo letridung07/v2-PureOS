@@ -584,7 +584,7 @@ class EditCommand(FileCommand):
         print("  :w   - save current buffer")
         print("  :l   - list lines with line numbers")
         print("  :d <line_number> - delete line at 1-indexed number")
-        print("  :a <line_number> <content> - insert content after line number (0 to insert at top)")
+        print("  :a <line_number> <content> - insert after line (0 for top)")
         print("Type any text to append to the end of the file.")
         print("-" * 48)
 
@@ -621,8 +621,8 @@ class EditCommand(FileCommand):
                         continue
                     break
                 elif cmd in (":l", ":list"):
-                    for idx, l in enumerate(buffer, 1):
-                        print(f"{idx}: {l}")
+                    for idx, buf_line in enumerate(buffer, 1):
+                        print(f"{idx}: {buf_line}")
                 elif cmd in (":d", ":delete"):
                     if len(sub_parts) < 2:
                         print("Usage: :d <line_number>")
