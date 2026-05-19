@@ -2,7 +2,6 @@ from typing import List
 from .base import FileCommand
 
 
-
 class FindCommand(FileCommand):
     name = "find"
     usage = "find [path]"

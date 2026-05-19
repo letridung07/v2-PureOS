@@ -85,7 +85,9 @@ class TarCommand(FileCommand):
         try:
             if options["directory"]:
                 target_dir = self._resolve_path(options["directory"], allow_dir=True)
-                if not self.kernel.fs.exists(target_dir) or not self.kernel.fs.is_dir(target_dir):
+                if not self.kernel.fs.exists(target_dir) or not self.kernel.fs.is_dir(
+                    target_dir
+                ):
                     print(f"tar: {options['directory']}: No such directory")
                     return False
                 self.kernel.shell.cwd = target_dir

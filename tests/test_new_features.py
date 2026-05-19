@@ -1,4 +1,3 @@
-import time
 import pytest
 from pureos.kernel import Kernel
 
@@ -84,7 +83,9 @@ def test_tar_create_list_extract(kernel, shell):
     assert kernel.fs.exists("/tmp/archive.tar")
 
     # List tar
-    list_out = shell.registry.execute(["tar", "-tf", "/tmp/archive.tar"], capture_output=True)
+    list_out = shell.registry.execute(
+        ["tar", "-tf", "/tmp/archive.tar"], capture_output=True
+    )
     assert "tardir/file1.txt" in list_out
     assert "tardir/file2.txt" in list_out
     assert "tardir/sub/file3.txt" in list_out
@@ -117,7 +118,9 @@ def test_tar_gzip(kernel, shell):
     assert kernel.fs.exists("/tmp/archive.tar.gz")
 
     # List gzip tar
-    list_out = shell.registry.execute(["tar", "-tzf", "/tmp/archive.tar.gz"], capture_output=True)
+    list_out = shell.registry.execute(
+        ["tar", "-tzf", "/tmp/archive.tar.gz"], capture_output=True
+    )
     assert "tardir_gz/data.txt" in list_out
 
     # Delete and extract
