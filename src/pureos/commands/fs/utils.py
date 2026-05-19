@@ -2,65 +2,11 @@ from typing import List
 from .base import FileCommand
 
 
-class StatCommand(FileCommand):
-    name = "stat"
-    usage = "stat <path>"
-    description = "Show metadata for a file or directory."
-
-    def execute(
-        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
-    ):
-        if len(parts) < 2:
-            print("Usage: stat <path>")
-            return False
-        path = self._resolve_path(parts[1], allow_dir=True)
-        info = self.kernel.fs.stat(path)
-        if info is None:
-            print(f"{parts[1]}: not found")
-            return False
-        print(f"path: {info['path']}")
-        print(f"type: {info['type']}")
-        print(f"mode: {oct(info['mode'])}")
-        print(f"mode_str: {info['mode_str']}")
-        print(f"size: {info['size']}")
-        return True
-
-
-class SourceCommand(FileCommand):
-    name = "source"
-    usage = "source <path>"
-    description = "Execute commands from a file line by line."
-
-    def execute(
-        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
-    ):
-        if len(parts) < 2:
-            print("Usage: source <path>")
-            return False
-        path = self._resolve_path(parts[1])
-        try:
-            content = self.kernel.fs.read(path)
-        except PermissionError as exc:
-            print(str(exc))
-            return False
-        if content is None:
-            print(f"{parts[1]}: not found")
-            return False
-        for line in content.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            result = self.kernel.shell.execute(line, add_to_history=False)
-            if result == "exit":
-                return "exit"
-        return True
-
-
 class HeadTailCommand(FileCommand):
-    name = "head"
+    name = "head"  # Shared by both
     aliases = ["tail"]
     usage = "head|tail [-n N] [path]"
-    description = "Show the beginning or end of a file or input stream."
+    description = "Display first or last lines of a file."
 
     def execute(
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
@@ -127,6 +73,9 @@ class FormatCommand(FileCommand):
             return False
         try:
             self.kernel.fs.format()
+            # Deep Edge Case: Unregister dynamic commands on format
+            if hasattr(self.kernel.shell, "registry"):
+                self.kernel.shell.registry.clear_dynamic_commands()
             print("Formatted filesystem")
             return True
         except PermissionError as exc:

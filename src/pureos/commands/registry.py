@@ -145,6 +145,12 @@ class CommandRegistry:
         with self._lock:
             self._unregister_from_vfs_unlocked(file_path)
 
+    def clear_dynamic_commands(self):
+        """Unregisters all commands loaded from the VirtualFS."""
+        with self._lock:
+            for file_path in list(self.vfs_source_map.keys()):
+                self._unregister_from_vfs_unlocked(file_path)
+
     def _unregister_from_vfs_unlocked(self, file_path: str):
         if file_path in self.vfs_source_map:
             for name in self.vfs_source_map[file_path]:

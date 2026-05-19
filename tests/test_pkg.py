@@ -206,3 +206,26 @@ class FooB(Command):
     # Remove Package A - should be gone
     shell.execute("pkg remove pkgA")
     assert "foo" not in shell.registry.commands
+
+
+def test_pkg_format_clears_registry(kernel, shell):
+    pkg_dir = "/usr/lib/pureos/packages/"
+    kernel.fs.mkdir(pkg_dir, parents=True)
+    kernel.fs.write(
+        f"{pkg_dir}fmt.py",
+        """
+class FmtCommand(Command):
+    name = "fmtcmd"
+    def execute(self, parts, **kwargs):
+        return "alive"
+""",
+    )
+    shell.registry.load_from_vfs(f"{pkg_dir}fmt.py")
+    assert "fmtcmd" in shell.registry.commands
+
+    # Run format
+    shell.execute("format")
+
+    # Verify both VFS and Registry are clean
+    assert not kernel.fs.exists(f"{pkg_dir}fmt.py")
+    assert "fmtcmd" not in shell.registry.commands
