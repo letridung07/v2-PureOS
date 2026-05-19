@@ -606,6 +606,7 @@ class TestEdgeCases:
 
     def test_cut_empty_delimiter_fails(self, shell):
         """cut should fail when an empty delimiter is supplied."""
-        # Using a list instead of a string to bypass parser's token stripping of empty quotes
+        # Use a list instead of a string to bypass parser's token stripping
+        # of empty quotes.
         result = shell.registry.execute(["cut", "-f", "1", "-d", ""], input_data="a,b")
         assert result is False
