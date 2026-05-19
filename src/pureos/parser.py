@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Tuple
 
 
 def split_command_sequence(line: str) -> List[Tuple[str, Optional[str]]]:
