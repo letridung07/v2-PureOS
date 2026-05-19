@@ -7,8 +7,10 @@ This guide provides a detailed reference for v2-PureOS, including how the shell 
 v2-PureOS is a minimal OS-like system built with Python 3.8+. The package includes:
 
 - `pureos.kernel` — kernel initialization and service startup
-- `pureos.fs` — virtual filesystem with path resolution and permission checks
-- `pureos.commands` — interactive shell command registry
+- `pureos.boot` — system boot sequence and startup scripts
+- `pureos.builtin_services` — default background services
+- `pureos.fs` — virtual filesystem (State-Manager architecture)
+- `pureos.commands` — interactive shell command registry and modular commands
 - `pureos.services` — lightweight service management
 - `pureos.processes` — simple process scheduler and lifecycle control
 - `pureos.shell` — interactive shell loop and command parsing
@@ -79,7 +81,6 @@ The shell exposes a virtual filesystem with support for relative and absolute pa
 - `rmdir <path>` — remove an empty directory
 - `mv <src> <dst>` — rename or move an entry
 - `cp <src> <dst>` — copy a file or directory
-- `format` — reset the virtual filesystem to initial state
 - `format` — reset the virtual filesystem to initial state
 
 ### Permissions and metadata
