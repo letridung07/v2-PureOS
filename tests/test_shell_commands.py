@@ -269,6 +269,35 @@ def test_shell_alias_and_history(tmp_path, capsys):
     assert "Unknown command" in captured.out
 
 
+def test_shell_quoted_arguments_and_escaped_pipes(tmp_path, capsys):
+    backing = tmp_path / "store.json"
+    k = Kernel(config={"fs_backing": str(backing)})
+    k.initialize()
+    sh = k.shell
+    capsys.readouterr()
+
+    sh.execute('echo "hello world"')
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "hello world"
+
+    sh.execute('echo hello\\|world')
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "hello|world"
+
+    sh.execute('alias ll "ls -l"')
+    sh.execute("mkdir /tmp")
+    sh.execute("touch /tmp/file")
+    sh.execute("ll /tmp")
+    captured = capsys.readouterr()
+    assert "/tmp/file" in captured.out
+
+    sh.execute("alias a b")
+    sh.execute("alias b a")
+    sh.execute("a")
+    captured = capsys.readouterr()
+    assert "Unknown command" in captured.out
+
+
 def test_shell_pipes_and_grep(tmp_path, capsys):
     backing = tmp_path / "store.json"
     k = Kernel(config={"fs_backing": str(backing)})

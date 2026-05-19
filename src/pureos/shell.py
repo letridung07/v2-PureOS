@@ -1,8 +1,10 @@
 """Tiny interactive shell for v2-PureOS."""
 
 import re
+from typing import List
 
 from .commands import CommandRegistry
+from .parser import split_command_sequence, split_pipeline, tokenize
 
 
 class Shell:
@@ -38,7 +40,7 @@ class Shell:
         if not line:
             return None
         self.history.append(line)
-        commands = self._parse_command_sequence(line)
+        commands = split_command_sequence(line)
         success = True
         for command, separator in commands:
             if separator == "&&" and not success:
@@ -53,15 +55,15 @@ class Shell:
 
     def _execute_pipeline(self, line: str):
         line = self._substitute_env_vars(line)
-        stages = self._split_pipeline(line)
+        stages = split_pipeline(line)
         if not stages:
             return None
         input_data = None
         for index, stage in enumerate(stages):
-            stage = self._expand_alias(stage)
+            tokens = self._expand_alias(self._tokenize(stage))
             capture_output = index < len(stages) - 1
             result = self.registry.execute(
-                stage,
+                tokens,
                 input_data=input_data,
                 capture_output=capture_output,
             )
@@ -83,99 +85,24 @@ class Shell:
 
         return self.VARIABLE_PATTERN.sub(replace, line)
 
-    def _expand_alias(self, line: str) -> str:
-        stripped = line.strip()
-        if not stripped:
-            return line
-        parts = stripped.split()
-        name = parts[0]
-        if name in self.aliases:
-            alias_value = self.aliases[name]
-            remaining = " ".join(parts[1:])
-            return f"{alias_value} {remaining}".strip()
-        return line
+    def _tokenize(self, line: str) -> List[str]:
+        return tokenize(line)
 
-    def _split_pipeline(self, line: str):
-        stages = []
-        current = []
-        quote = None
-        index = 0
-        while index < len(line):
-            char = line[index]
-            if quote:
-                if char == quote:
-                    quote = None
-                current.append(char)
-                index += 1
-                continue
-            if char in ('"', "'"):
-                quote = char
-                current.append(char)
-                index += 1
-                continue
-            if char == "|":
-                stage = "".join(current).strip()
-                if stage:
-                    stages.append(stage)
-                current = []
-                index += 1
-                continue
-            current.append(char)
-            index += 1
-        stage = "".join(current).strip()
-        if stage:
-            stages.append(stage)
-        return stages
-
-    def _parse_command_sequence(self, line: str):
-        commands = []
-        current = []
-        quote = None
-        separator = None
-        index = 0
-        while index < len(line):
-            char = line[index]
-            if quote:
-                if char == quote:
-                    quote = None
-                current.append(char)
-                index += 1
-                continue
-            if char in ('"', "'"):
-                quote = char
-                current.append(char)
-                index += 1
-                continue
-            if line.startswith("&&", index):
-                command = "".join(current).strip()
-                if command:
-                    commands.append((command, separator))
-                separator = "&&"
-                current = []
-                index += 2
-                continue
-            if line.startswith("||", index):
-                command = "".join(current).strip()
-                if command:
-                    commands.append((command, separator))
-                separator = "||"
-                current = []
-                index += 2
-                continue
-            if char == ";":
-                command = "".join(current).strip()
-                if command:
-                    commands.append((command, separator))
-                separator = ";"
-                current = []
-                index += 1
-                continue
-            current.append(char)
-            index += 1
-        command = "".join(current).strip()
-        if command:
-            commands.append((command, separator))
-        return commands
+    def _expand_alias(self, tokens: List[str]) -> List[str]:
+        if not tokens:
+            return tokens
+        expanded = tokens
+        seen = set()
+        depth = 0
+        while depth < 10 and expanded and expanded[0] in self.aliases:
+            alias_name = expanded[0]
+            if alias_name in seen:
+                break
+            seen.add(alias_name)
+            alias_tokens = tokenize(self.aliases[alias_name])
+            expanded = alias_tokens + expanded[1:]
+            depth += 1
+        return expanded
 
     def run(self):
         print("Starting v2-PureOS shell (type 'help' for commands)")

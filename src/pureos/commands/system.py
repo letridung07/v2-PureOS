@@ -5,21 +5,28 @@ from .base import Command
 
 class HelpCommand(Command):
     name = "help"
+    description = "Show available commands and usage"
+    usage = "help"
 
     def execute(self, parts: List[str], input_data=None, capture_output=False):
-        print(
-            "help, info, export, alias, unalias, history, grep, format, ls [-l] [prefix], pwd, cd <path>, find [path], ps, services, exit"
-        )
-        print(
-            "mkdir <path>, rmdir <path>, rm <path>, mv <src> <dst>, cp <src> <dst>, touch <path>"
-        )
-        print(
-            "write <path> <content>, append <path> <content>, echo <text> > <path>, source <path>"
-        )
-        print("chmod <mode> <path>, stat <path>")
-        print("head <path> [n], tail <path> [n], grep <pattern> [path]")
-        print("service start|stop|status|restart <name>")
-        print("spawn <name>, kill <pid>")
+        seen = set()
+        commands = []
+        for command in self.kernel.shell.registry.commands.values():
+            if id(command) in seen:
+                continue
+            seen.add(id(command))
+            commands.append(command)
+        commands.sort(key=lambda command: command.name)
+        print("Available commands:")
+        for command in commands:
+            alias_text = ""
+            if command.aliases:
+                alias_text = f" (aliases: {', '.join(command.aliases)})"
+            usage = getattr(command, "usage", command.name) or command.name
+            description = getattr(command, "description", "")
+            print(f"  {usage}{alias_text}")
+            if description:
+                print(f"    {description}")
         print("Command chaining: cmd1 ; cmd2 && cmd3 || cmd4")
         return True
 

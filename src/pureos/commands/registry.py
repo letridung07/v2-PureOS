@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence, Union
 
 from .base import Command, CommandResult
 from .fs import register_fs_commands
@@ -15,20 +15,25 @@ class CommandRegistry:
 
     def execute(
         self,
-        line: str,
+        line: Union[str, Sequence[str]],
         input_data: Optional[str] = None,
         capture_output: bool = False,
     ) -> CommandResult:
-        line = line.strip()
-        if not line:
-            return None
-        if line in ("exit", "quit"):
-            return "exit"
-        parts = line.split()
+        if isinstance(line, str):
+            line = line.strip()
+            if not line:
+                return None
+            if line in ("exit", "quit"):
+                return "exit"
+            parts = line.split()
+        else:
+            parts = list(line)
+            if not parts:
+                return None
         cmd = parts[0]
         handler = self.commands.get(cmd)
         if not handler:
-            print("Unknown command:", line)
+            print("Unknown command:", " ".join(parts))
             return False
         return handler.execute(
             parts, input_data=input_data, capture_output=capture_output
