@@ -72,36 +72,46 @@ class CommandRegistry:
             self.commands[alias] = command
 
     def _register_default_commands(self):
-        # Dynamically load all modules in the commands package
+        # Dynamically load all modules in the commands package recursively
         import pureos.commands
 
         package = pureos.commands
-        for _, module_name, is_pkg in pkgutil.iter_modules(package.__path__):
-            if is_pkg or module_name in ("base", "registry"):
+        for _, module_name, is_pkg in pkgutil.walk_packages(
+            package.__path__, package.__name__ + "."
+        ):
+            if (
+                is_pkg
+                or module_name.endswith(".base")
+                or module_name.endswith(".registry")
+            ):
                 continue
 
             try:
-                module = importlib.import_module(f".{module_name}", package.__name__)
-                # Look for register_{module_name}_commands or generic register_commands
-                register_func_name = f"register_{module_name}_commands"
+                module = importlib.import_module(module_name)
+
+                # Check for explicit register functions first
+                short_name = module_name.split(".")[-1]
+                register_func_name = f"register_{short_name}_commands"
                 if hasattr(module, register_func_name):
                     func = getattr(module, register_func_name)
                     func(self)
                 elif hasattr(module, "register_commands"):
                     func = getattr(module, "register_commands")
                     func(self)
-                else:
-                    # Scan for Command subclasses and register them directly
-                    for name, obj in inspect.getmembers(module):
-                        if (
-                            inspect.isclass(obj)
-                            and issubclass(obj, Command)
-                            and obj is not Command
-                        ):
-                            if not inspect.isabstract(obj):
-                                # Skip or auto-assign if class lacks name.
-                                # Assuming commands are instantiated later.
-                                # Ignore if register function is not found.
-                                pass
+
+                # Auto-discover Command subclasses
+                for name, obj in inspect.getmembers(module):
+                    if (
+                        inspect.isclass(obj)
+                        and issubclass(obj, Command)
+                        and obj is not Command
+                        and not inspect.isabstract(obj)
+                    ):
+                        # Ensure it has a concrete name explicitly defined on the class
+                        if "name" in obj.__dict__ and obj.name:
+                            # Instantiate and register it
+                            command_instance = obj(self.kernel)
+                            self.register(command_instance)
+
             except ImportError as e:
                 print(f"Error loading command module {module_name}: {e}")

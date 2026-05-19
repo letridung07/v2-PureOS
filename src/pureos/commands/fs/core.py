@@ -1,0 +1,127 @@
+from typing import List
+from .base import FileCommand
+
+
+class LsCommand(FileCommand):
+    name = "ls"
+    usage = "ls [-l] [path]"
+    description = "List files and directories in the virtual filesystem."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        long_listing = False
+        path_arg = None
+        for arg in parts[1:]:
+            if arg == "-l":
+                long_listing = True
+            elif path_arg is None:
+                path_arg = arg
+        if path_arg:
+            prefix = self._resolve_path(path_arg, allow_dir=True)
+        else:
+            prefix = self.kernel.shell.cwd
+        if not self.kernel.fs.exists(prefix):
+            print(f"{path_arg}: not found")
+            return False
+        try:
+            entries = self.kernel.fs.list(prefix)
+        except PermissionError as exc:
+            print(str(exc))
+            return False
+        if long_listing:
+            if self.kernel.fs.is_file(prefix):
+                entries = [prefix]
+            for p in entries:
+                info = self.kernel.fs.stat(p)
+                if info is None:
+                    continue
+                print(f"{info['mode_str']} {info['size']:>5} {info['path']}")
+        else:
+            for p in entries:
+                print(p)
+        return True
+
+
+class PwdCommand(FileCommand):
+    name = "pwd"
+    usage = "pwd"
+    description = "Print the current working directory."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        print(self.kernel.shell.cwd)
+        return True
+
+
+class CdCommand(FileCommand):
+    name = "cd"
+    usage = "cd <path>"
+    description = "Change the current working directory."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) < 2:
+            print("Usage: cd <path>")
+            return False
+        path = self._resolve_path(parts[1], is_dir=True)
+        if not self.kernel.fs.exists(path) or not self.kernel.fs.is_dir(path):
+            print(f"{parts[1]}: not found")
+            return False
+        self.kernel.shell.cwd = path
+        return True
+
+
+class CatCommand(FileCommand):
+    name = "cat"
+    usage = "cat <path>"
+    description = "Show file contents or pipe input through the shell."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) < 2:
+            if input_data is None:
+                print("Usage: cat <path>")
+                return False
+            content = input_data
+        else:
+            path = self._resolve_path(parts[1])
+            try:
+                content = self.kernel.fs.read(path)
+            except PermissionError as exc:
+                print(str(exc))
+                return False
+            if content is None:
+                print(f"{parts[1]}: not found")
+                return False
+        if capture_output:
+            return content
+        print(content)
+        return True
+
+
+class EchoCommand(FileCommand):
+    name = "echo"
+    usage = "echo [text] [> path]"
+    description = "Print text or redirect it to a file."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) < 2:
+            if input_data is not None:
+                if capture_output:
+                    return input_data
+                print(input_data)
+                return True
+            print()
+            return True
+
+        line = " ".join(parts[1:])
+        if capture_output:
+            return line
+        print(line)
+        return True
