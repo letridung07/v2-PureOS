@@ -8,7 +8,9 @@ class HelpCommand(Command):
     description = "Show available commands and usage"
     usage = "help"
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
         seen = set()
         commands = []
         for command in self.kernel.shell.registry.commands.values():
@@ -36,7 +38,9 @@ class InfoCommand(Command):
     usage = "info"
     description = "Show kernel state and loaded components."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
         print("Kernel info:")
         print(f"FS entries: {len(self.kernel.fs.files)}")
         print(f"Processes: {len(self.kernel.scheduler.processes)}")
@@ -49,7 +53,9 @@ class ExportCommand(Command):
     usage = "export [VAR=value]..."
     description = "Set or list shell environment variables."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
         shell = self.kernel.shell
         if len(parts) == 1:
             for name, value in shell.env.items():
@@ -69,7 +75,9 @@ class AliasCommand(Command):
     usage = "alias [name command]"
     description = "Create or list shell command aliases."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
         shell = self.kernel.shell
         if len(parts) == 1:
             for name, value in shell.aliases.items():

@@ -8,7 +8,9 @@ class PsCommand(Command):
     usage = "ps"
     description = "List running and managed processes."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
         for p in self.kernel.scheduler.list():
             print(f"{p.pid}\t{p.name}\t{p.status}")
         return True
@@ -19,7 +21,9 @@ class SpawnCommand(Command):
     usage = "spawn <name>"
     description = "Create a new background process."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
         if len(parts) < 2:
             print("Usage: spawn <name>")
             return False
@@ -34,7 +38,9 @@ class KillCommand(Command):
     usage = "kill <pid>"
     description = "Terminate a managed process."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
         if len(parts) < 2:
             print("Usage: kill <pid>")
             return False

@@ -22,8 +22,7 @@ class Command(ABC):
         input_data: Optional[str] = None,
         capture_output: bool = False,
         raw_line: Optional[str] = None,
-    ) -> CommandResult:
-        ...
+    ) -> CommandResult: ...
 
     def resolve_path(
         self,
@@ -31,6 +30,4 @@ class Command(ABC):
         is_dir: bool = False,
         allow_dir: bool = False,
     ) -> str:
-        return self.kernel.shell.resolve_path(
-            path, is_dir=is_dir, allow_dir=allow_dir
-        )
+        return self.kernel.shell.resolve_path(path, is_dir=is_dir, allow_dir=allow_dir)

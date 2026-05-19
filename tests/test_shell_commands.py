@@ -280,7 +280,7 @@ def test_shell_quoted_arguments_and_escaped_pipes(tmp_path, capsys):
     captured = capsys.readouterr()
     assert captured.out.strip() == "hello world"
 
-    sh.execute('echo hello\\|world')
+    sh.execute("echo hello\\|world")
     captured = capsys.readouterr()
     assert captured.out.strip() == "hello|world"
 
@@ -288,8 +288,8 @@ def test_shell_quoted_arguments_and_escaped_pipes(tmp_path, capsys):
     captured = capsys.readouterr()
     assert k.fs.read("/tmp/quoted") == "a > b"
 
-    sh.execute('echo a >> /tmp/append')
-    sh.execute('echo b >> /tmp/append')
+    sh.execute("echo a >> /tmp/append")
+    sh.execute("echo b >> /tmp/append")
     captured = capsys.readouterr()
     assert k.fs.read("/tmp/append") == "ab"
 
@@ -297,7 +297,7 @@ def test_shell_quoted_arguments_and_escaped_pipes(tmp_path, capsys):
     captured = capsys.readouterr()
     assert captured.out.strip() == "foo > bar"
 
-    sh.execute('echo \'$FOO\'')
+    sh.execute("echo '$FOO'")
     captured = capsys.readouterr()
     assert captured.out.strip() == "$FOO"
 
@@ -306,7 +306,7 @@ def test_shell_quoted_arguments_and_escaped_pipes(tmp_path, capsys):
     captured = capsys.readouterr()
     assert captured.out.strip() == "$FOO"
 
-    sh.execute(r'echo foo\\')
+    sh.execute(r"echo foo\\")
     captured = capsys.readouterr()
     assert captured.out.strip() == "foo\\"
 
