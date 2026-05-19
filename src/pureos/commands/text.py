@@ -238,11 +238,10 @@ class SortCommand(Command):
         lines.sort(key=key_fn, reverse=reverse)
 
         if unique:
-            seen = []
-            deduped = []
-            for ln in lines:
-                if ln not in seen:
-                    seen.append(ln)
+            # List is already sorted; identical entries are adjacent → O(n) dedup
+            deduped = [lines[0]] if lines else []
+            for ln in lines[1:]:
+                if ln != deduped[-1]:
                     deduped.append(ln)
             lines = deduped
 
