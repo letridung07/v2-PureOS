@@ -61,6 +61,7 @@ def test_cron_service_executes_job():
     # Mock datetime.datetime using MagicMock
     with patch("pureos.builtin_services.datetime") as mock_datetime:
         mock_dt = MagicMock()
+        mock_dt.year = 2026
         mock_dt.minute = 15
         mock_dt.hour = 10
         mock_dt.day = 19

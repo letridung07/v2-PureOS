@@ -44,6 +44,8 @@ def _field_matches(
             range_part, step_str = part.split("/", 1)
             try:
                 step = int(step_str)
+                if step <= 0:
+                    continue
             except ValueError:
                 continue
 
@@ -96,14 +98,14 @@ def _cron_service(kernel, stop_event=None):
             s = s.replace(name, str(num))
         return s
 
-    last_run_minute = -1
+    last_run_time = None
 
     while not (stop_event and stop_event.is_set()):
         now = datetime.datetime.now()
-        current_minute = now.minute
+        current_time = (now.year, now.month, now.day, now.hour, now.minute)
 
-        if current_minute != last_run_minute:
-            last_run_minute = current_minute
+        if current_time != last_run_time:
+            last_run_time = current_time
 
             crontab_path = "/etc/crontab"
             if kernel.fs.exists(crontab_path):
