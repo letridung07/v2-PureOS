@@ -9,6 +9,7 @@ For detailed information about the inner workings of v2-PureOS, please consult t
 - [v2-PureOS Architecture](architecture.md): Kernel, Boot Sequence, Process Scheduler, Service Manager, and Networking.
 - [Virtual Filesystem Architecture](filesystem.md): State-Manager pattern, path resolution, permissions, and persistence.
 - [Shell and Commands](shell_and_commands.md): The shell execution lifecycle, command chaining, piping, redirection, and creating custom commands.
+- [Text Pipeline Tools](text_tools.md): `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`, and `xargs` — composable text processors.
 
 ---
 
@@ -89,6 +90,19 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `source <path>` — read a file and execute each non-comment line as a shell command
 - `head <path> [n]` — display the first `n` lines of a file (default 10)
 - `tail <path> [n]` — display the last `n` lines of a file (default 10)
+
+### Text Pipeline Tools
+
+All commands below are pipeline-aware: they read from a file argument **or** from stdin (a prior pipe stage).
+
+- `wc [-l] [-w] [-c] [file]` — count lines, words, and bytes
+- `grep [-i] [-v] [-n] [-c] [-E] <pattern> [file]` — filter lines by pattern; `-i` case-insensitive, `-v` invert, `-n` number, `-c` count, `-E` extended regex
+- `sort [-r] [-n] [-u] [file]` — sort lines; `-r` reverse, `-n` numeric, `-u` deduplicate
+- `uniq [-c] [-d] [-u] [file]` — deduplicate adjacent lines; `-c` prefix count, `-d` dup-only, `-u` unique-only
+- `cut -f <fields> [-d <delim>] [file]` — extract delimited fields (e.g. `-f 1,3 -d :`)
+- `cut -c <range> [file]` — extract character positions (e.g. `-c 1-5`)
+- `tr [-d] [-s] <set1> [set2]` — translate or delete characters; supports `a-z` ranges
+- `xargs [-n <max>] <command> [args...]` — build commands from stdin words
 
 ### Processes & Services
 
