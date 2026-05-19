@@ -640,6 +640,8 @@ class XargsCommand(Command):
                 outputs.append(result)
 
         if capture_output:
+            if not success:
+                return False
             return "\n".join(outputs)
         return success
 

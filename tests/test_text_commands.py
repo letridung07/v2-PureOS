@@ -523,3 +523,10 @@ class TestEdgeCases:
         """grep with capture_output=True and no matches returns False."""
         result = run(shell, "grep foo", input_data="bar baz")
         assert result is False
+
+    # --- xargs: returns False on subcommand failure even with capture_output ---
+
+    def test_xargs_failure_capture_returns_false(self, shell):
+        """xargs returning False when subcommand fails and capture_output is True."""
+        result = run(shell, "xargs nonexistent_command", input_data="hello")
+        assert result is False
