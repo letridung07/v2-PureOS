@@ -80,7 +80,7 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `cat <path>` — display file contents
 - `write <path> <content>` — overwrite or create a file
 - `append <path> <content>` — append text to a file
-- `echo <text> > <path>` — write redirected text to a file
+- `echo [-n] <text> > <path>` — write redirected text to a file
 - `mkdir <path>` — create a directory
 - `touch <path>` — create or update a file
 - `rm <path>` — delete a file or directory
@@ -106,7 +106,7 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 - `cut -f <fields> [-d <delim>] [file]` — extract delimited fields (e.g. `-f 1,3 -d :`)
 - `cut -c <range> [file]` — extract character positions (e.g. `-c 1-5`)
 - `tr [-d] [-s] <set1> [set2]` — translate or delete characters; supports `a-z` ranges
-- `base64 [-d] [file]` — encode or decode text using Base64
+- `base64 [-d|-D] [file]` — encode or decode text using Base64
 - `xargs [-n <max>] <command> [args...]` — build commands from stdin words
 
 ### Processes & Services

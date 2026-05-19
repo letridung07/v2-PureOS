@@ -105,23 +105,33 @@ class CatCommand(FileCommand):
 
 class EchoCommand(FileCommand):
     name = "echo"
-    usage = "echo [text] [> path]"
+    usage = "echo [-n] [text] [> path]"
     description = "Print text or redirect it to a file."
 
     def execute(
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
-        if len(parts) < 2:
-            if input_data is not None:
-                if capture_output:
-                    return input_data
-                print(input_data)
-                return True
-            print()
-            return True
+        no_newline = False
+        remaining = []
+        for p in parts[1:]:
+            if p == "-n":
+                no_newline = True
+            else:
+                remaining.append(p)
 
-        line = " ".join(parts[1:])
+        if not remaining:
+            if input_data is not None:
+                content = input_data
+            else:
+                content = ""
+        else:
+            content = " ".join(remaining)
+
+        if not no_newline:
+            content += "\n"
+
         if capture_output:
-            return line
-        print(line)
+            return content
+
+        print(content, end="")
         return True

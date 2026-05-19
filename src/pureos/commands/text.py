@@ -657,7 +657,7 @@ class XargsCommand(Command):
 
 class Base64Command(Command):
     name = "base64"
-    usage = "base64 [-d] [file]"
+    usage = "base64 [-d|-D] [file]"
     description = "Encode or decode text using Base64."
 
     def execute(
@@ -671,9 +671,9 @@ class Base64Command(Command):
         decode = False
         remaining = [parts[0]]
         for tok in parts[1:]:
-            if tok == "-d":
+            if tok in ("-d", "-D"):
                 decode = True
-            elif tok.startswith("-") and "d" in tok:
+            elif tok.startswith("-") and any(c in tok for c in "dD"):
                 decode = True
             else:
                 remaining.append(tok)
@@ -685,8 +685,8 @@ class Base64Command(Command):
         try:
             if decode:
                 # Decoding: input is base64 string -> output is plain text
-                # We need to strip whitespace as base64 often has newlines
-                clean_text = text.strip()
+                # Ignore all whitespace (newlines, spaces, etc.) per standard
+                clean_text = "".join(text.split())
                 decoded_bytes = base64.b64decode(clean_text)
                 out = decoded_bytes.decode("utf-8")
             else:

@@ -330,6 +330,16 @@ class TestBase64:
         result = run(shell, "base64 -d", input_data="aGVsbG8=")
         assert result.strip() == "hello"
 
+    def test_decode_D_flag(self, shell):
+        result = run(shell, "base64 -D", input_data="aGVsbG8=")
+        assert result.strip() == "hello"
+
+    def test_decode_internal_whitespace(self, shell):
+        # Base64 with spaces and newlines inside
+        # "aGVsbG8gZ28=" is "hello go"
+        result = run(shell, "base64 -d", input_data="aGVsb G8g\nZ28=")
+        assert result.strip() == "hello go"
+
     def test_round_trip_pipeline(self, shell):
         # We need to use the shell pipeline execution to verify | works
         result = shell._execute_pipeline("echo 'hello world' | base64 | base64 -d")

@@ -54,7 +54,11 @@ def test_shell_fs_and_processes_and_services(tmp_path, capsys):
 
     # echo redirect
     sh.execute("echo hi > /tmp/d")
-    assert k.fs.read("/tmp/d") == "hi"
+    assert k.fs.read("/tmp/d") == "hi\n"
+
+    # echo -n
+    sh.execute("echo -n hi > /tmp/d_n")
+    assert k.fs.read("/tmp/d_n") == "hi"
 
     # head/tail
     lines = "\n".join(f"line {i}" for i in range(1, 21))
@@ -224,7 +228,7 @@ def test_shell_permissions_and_chaining(tmp_path, capsys):
     assert "/tmp/a" in captured.out
 
     sh.execute("unknowncmd || echo ok > /tmp/ok")
-    assert k.fs.read("/tmp/ok") == "ok"
+    assert k.fs.read("/tmp/ok") == "ok\n"
 
     sh.execute("mkdir /chain ; touch /chain/a && write /chain/a data || echo fail")
     assert k.fs.read("/chain/a") == "data"
@@ -238,7 +242,7 @@ def test_shell_export_and_variable_substitution(tmp_path, capsys):
 
     sh.execute("export GREETING=hello")
     sh.execute("echo $GREETING > /tmp/greeting")
-    assert k.fs.read("/tmp/greeting") == "hello"
+    assert k.fs.read("/tmp/greeting") == "hello\n"
 
     sh.execute("export FILE_NAME=world")
     sh.execute("write /tmp/$FILE_NAME test")
@@ -286,12 +290,12 @@ def test_shell_quoted_arguments_and_escaped_pipes(tmp_path, capsys):
 
     sh.execute('echo "a > b" > /tmp/quoted')
     captured = capsys.readouterr()
-    assert k.fs.read("/tmp/quoted") == "a > b"
+    assert k.fs.read("/tmp/quoted") == "a > b\n"
 
     sh.execute("echo a >> /tmp/append")
     sh.execute("echo b >> /tmp/append")
     captured = capsys.readouterr()
-    assert k.fs.read("/tmp/append") == "ab"
+    assert k.fs.read("/tmp/append") == "a\nb\n"
 
     sh.execute('echo "foo > bar"')
     captured = capsys.readouterr()
@@ -312,7 +316,7 @@ def test_shell_quoted_arguments_and_escaped_pipes(tmp_path, capsys):
 
     sh.execute("help")
     captured = capsys.readouterr()
-    assert "echo [text] [> path]" in captured.out
+    assert "echo [-n] [text] [> path]" in captured.out
     assert "alias [name command]" in captured.out
 
     sh.execute('alias ll "ls -l"')
@@ -389,7 +393,7 @@ def test_general_redirection(tmp_path, capsys):
     # Test append redirection
     sh.execute("echo hello > /tmp/out")
     sh.execute("echo world >> /tmp/out")
-    assert k.fs.read("/tmp/out") == "helloworld"
+    assert k.fs.read("/tmp/out") == "hello\nworld\n"
 
     # Test syntax error for missing redirection target
     capsys.readouterr()
