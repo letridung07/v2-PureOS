@@ -1,6 +1,7 @@
 import importlib
 import inspect
 import pkgutil
+import threading
 from typing import Dict, List, Optional, Sequence, Union, Set
 
 from ..parser import tokenize
@@ -15,6 +16,8 @@ class CommandRegistry:
         self.system_commands: Set[str] = set()
         # Track which commands (and aliases) were loaded from which VFS file
         self.vfs_source_map: Dict[str, List[str]] = {}
+        self._lock = threading.Lock()
+
         self._register_default_commands()
 
         # Mark all initial commands as system commands
@@ -22,89 +25,121 @@ class CommandRegistry:
 
     def load_from_vfs(self, file_path: str) -> bool:
         """Loads and registers commands from a Python file in the VirtualFS."""
-        if not self.kernel.fs.exists(file_path):
-            return False
+        with self._lock:
+            if not self.kernel.fs.exists(file_path):
+                return False
 
-        # If already loaded, unregister first to avoid orphans
-        if file_path in self.vfs_source_map:
-            self.unregister_from_vfs(file_path)
+            # If already loaded, unregister first to avoid orphans
+            if file_path in self.vfs_source_map:
+                self._unregister_from_vfs_unlocked(file_path)
 
-        try:
-            content = self.kernel.fs.read(file_path)
-            module_name = file_path.split("/")[-1].replace(".py", "")
+            try:
+                content = self.kernel.fs.read(file_path)
+                module_name = file_path.split("/")[-1].replace(".py", "")
 
-            namespace = {
-                "Command": Command,
-                "__name__": module_name,
-                "__file__": file_path,
-                "print": print,
-                "len": len,
-                "range": range,
-                "str": str,
-                "int": int,
-                "float": float,
-                "list": list,
-                "dict": dict,
-                "set": set,
-                "bool": bool,
-                "Exception": Exception,
-            }
+                # Strictly restricted namespace
+                namespace = {
+                    "Command": Command,
+                    "__name__": module_name,
+                    "__file__": file_path,
+                    "print": print,
+                    "len": len,
+                    "range": range,
+                    "str": str,
+                    "int": int,
+                    "float": float,
+                    "list": list,
+                    "dict": dict,
+                    "set": set,
+                    "bool": bool,
+                    "Exception": Exception,
+                    "getattr": getattr,
+                    "setattr": setattr,
+                    "hasattr": hasattr,
+                    "isinstance": isinstance,
+                    "issubclass": issubclass,
+                }
 
-            exec(content, namespace)
+                # Filter __builtins__ for safety while allowing class creation
+                if isinstance(__builtins__, dict):
+                    safe_keys = [
+                        "__build_class__",
+                        "__name__",
+                        "__doc__",
+                        "__package__",
+                        "__loader__",
+                        "__spec__",
+                        "__import__",
+                    ]
+                    safe_builtins = {
+                        k: __builtins__[k] for k in safe_keys if k in __builtins__
+                    }
+                else:
+                    safe_builtins = {
+                        "__build_class__": getattr(
+                            __builtins__, "__build_class__", None
+                        )
+                    }
 
-            registered_any = False
-            self.vfs_source_map[file_path] = []
+                namespace["__builtins__"] = safe_builtins
 
-            for name, obj in namespace.items():
-                if (
-                    inspect.isclass(obj)
-                    and issubclass(obj, Command)
-                    and obj is not Command
-                    and not inspect.isabstract(obj)
-                ):
-                    cmd_name = getattr(obj, "name", None)
-                    if cmd_name:
-                        # Safety: Prevent overwriting system commands
-                        if cmd_name in self.system_commands:
-                            print(
-                                "Error: Package cannot overwrite system command "
-                                f"'{cmd_name}'."
-                            )
-                            continue
+                exec(content, namespace)
 
-                        if cmd_name in self.commands:
-                            print(
-                                f"Warning: Package command '{cmd_name}' "
-                                "is overwriting an existing dynamic command."
-                            )
+                registered_any = False
+                self.vfs_source_map[file_path] = []
 
-                        command_instance = obj(self.kernel)
-                        self.register(command_instance)
-
-                        # Track for future unregistration
-                        self.vfs_source_map[file_path].append(cmd_name)
-                        for alias in getattr(command_instance, "aliases", []):
-                            # Also protect system commands from alias overwrites
-                            if alias in self.system_commands:
+                for name, obj in namespace.items():
+                    if (
+                        inspect.isclass(obj)
+                        and issubclass(obj, Command)
+                        and obj is not Command
+                        and not inspect.isabstract(obj)
+                    ):
+                        cmd_name = getattr(obj, "name", None)
+                        if cmd_name:
+                            # Safety: Prevent overwriting system commands
+                            if cmd_name in self.system_commands:
                                 print(
-                                    f"Warning: Alias '{alias}' skipped "
-                                    "(protects system command)."
+                                    "Error: Package cannot overwrite system "
+                                    f"command '{cmd_name}'."
                                 )
                                 continue
-                            self.vfs_source_map[file_path].append(alias)
 
-                        registered_any = True
+                            if cmd_name in self.commands:
+                                print(
+                                    f"Warning: Package command '{cmd_name}' "
+                                    "is overwriting an existing dynamic command."
+                                )
 
-            return registered_any
-        except Exception as e:
-            print(f"Error loading command from VFS {file_path}: {e}")
-            return False
+                            command_instance = obj(self.kernel)
+                            self._register_unlocked(command_instance)
+
+                            # Track for future unregistration
+                            self.vfs_source_map[file_path].append(cmd_name)
+                            for alias in getattr(command_instance, "aliases", []):
+                                if alias in self.system_commands:
+                                    print(
+                                        f"Warning: Alias '{alias}' skipped "
+                                        "(system command)."
+                                    )
+                                    continue
+                                self.vfs_source_map[file_path].append(alias)
+
+                            registered_any = True
+
+                return registered_any
+            except Exception as e:
+                print(f"Error loading command from VFS {file_path}: {e}")
+                return False
 
     def unregister_from_vfs(self, file_path: str):
         """Unregisters all commands that were loaded from the specified VFS file."""
+        with self._lock:
+            self._unregister_from_vfs_unlocked(file_path)
+
+    def _unregister_from_vfs_unlocked(self, file_path: str):
         if file_path in self.vfs_source_map:
             for cmd_name in self.vfs_source_map[file_path]:
-                # Only delete if it's still in the commands dict
                 if cmd_name in self.commands:
                     del self.commands[cmd_name]
             del self.vfs_source_map[file_path]
@@ -129,7 +164,10 @@ class CommandRegistry:
             if parts[0] in ("exit", "quit"):
                 return "exit"
         cmd = parts[0]
-        handler = self.commands.get(cmd)
+
+        with self._lock:
+            handler = self.commands.get(cmd)
+
         if not handler:
             print("Unknown command:", " ".join(parts))
             return False
@@ -163,6 +201,10 @@ class CommandRegistry:
             )
 
     def register(self, command: Command):
+        with self._lock:
+            self._register_unlocked(command)
+
+    def _register_unlocked(self, command: Command):
         self.commands[command.name] = command
         for alias in getattr(command, "aliases", []):
             self.commands[alias] = command
@@ -202,7 +244,7 @@ class CommandRegistry:
                     ):
                         if "name" in obj.__dict__ and obj.name:
                             command_instance = obj(self.kernel)
-                            self.register(command_instance)
+                            self._register_unlocked(command_instance)
 
             except ImportError as e:
                 print(f"Error loading command module {module_name}: {e}")

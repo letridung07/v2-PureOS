@@ -27,6 +27,12 @@ class PkgCommand(Command):
                     "Use alphanumeric characters only."
                 )
                 return False
+
+            # Simple URL scheme validation
+            if not (url.startswith("http://") or url.startswith("https://")):
+                print("Error: URL must start with http:// or https://")
+                return False
+
             return self._install(url, name)
         elif subcommand == "list":
             return self._list()
