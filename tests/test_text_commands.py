@@ -317,6 +317,44 @@ class TestXargs:
 
 
 # ============================================================
+# base64
+# ============================================================
+
+
+class TestBase64:
+    def test_encode_pipeline(self, shell):
+        result = run(shell, "base64", input_data="hello")
+        assert result.strip() == "aGVsbG8="
+
+    def test_decode_pipeline(self, shell):
+        result = run(shell, "base64 -d", input_data="aGVsbG8=")
+        assert result.strip() == "hello"
+
+    def test_round_trip_pipeline(self, shell):
+        # We need to use the shell pipeline execution to verify | works
+        result = shell._execute_pipeline("echo 'hello world' | base64 | base64 -d")
+        assert result is True
+
+    def test_file_input(self, kernel, shell):
+        kernel.fs.write("/tmp/plain", "pureos")
+        result = run(shell, "base64 /tmp/plain")
+        assert result.strip() == "cHVyZW9z"
+
+    def test_decode_file(self, kernel, shell):
+        kernel.fs.write("/tmp/encoded", "cHVyZW9z")
+        result = run(shell, "base64 -d /tmp/encoded")
+        assert result.strip() == "pureos"
+
+    def test_invalid_decode(self, shell):
+        result = run(shell, "base64 -d", input_data="!!!invalid!!!", capture=False)
+        assert result is False
+
+    def test_no_input(self, shell):
+        result = run(shell, "base64", input_data=None, capture=False)
+        assert result is False
+
+
+# ============================================================
 # Pipeline integration tests
 # ============================================================
 

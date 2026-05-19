@@ -7,6 +7,8 @@ All commands are pipeline-aware:
 
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 import shlex
 from typing import List, Optional
@@ -649,6 +651,56 @@ class XargsCommand(Command):
 
 
 # ---------------------------------------------------------------------------
+# base64
+# ---------------------------------------------------------------------------
+
+
+class Base64Command(Command):
+    name = "base64"
+    usage = "base64 [-d] [file]"
+    description = "Encode or decode text using Base64."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        # Parse flags
+        decode = False
+        remaining = [parts[0]]
+        for tok in parts[1:]:
+            if tok == "-d":
+                decode = True
+            elif tok.startswith("-") and "d" in tok:
+                decode = True
+            else:
+                remaining.append(tok)
+
+        text = _read_input(self, remaining, input_data, file_arg_index=1)
+        if text is None:
+            return False
+
+        try:
+            if decode:
+                # Decoding: input is base64 string -> output is plain text
+                # We need to strip whitespace as base64 often has newlines
+                clean_text = text.strip()
+                decoded_bytes = base64.b64decode(clean_text)
+                out = decoded_bytes.decode("utf-8")
+            else:
+                # Encoding: input is plain text -> output is base64 string
+                encoded_bytes = base64.b64encode(text.encode("utf-8"))
+                out = encoded_bytes.decode("utf-8")
+        except (binascii.Error, UnicodeDecodeError) as exc:
+            print(f"base64: {exc}")
+            return False
+
+        return _emit(out, capture_output)
+
+
+# ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
 
@@ -661,3 +713,4 @@ def register_text_commands(registry):
     registry.register(CutCommand(registry.kernel))
     registry.register(TrCommand(registry.kernel))
     registry.register(XargsCommand(registry.kernel))
+    registry.register(Base64Command(registry.kernel))

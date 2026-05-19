@@ -1,6 +1,6 @@
 # Text Pipeline Tools
 
-v2-PureOS ships seven composable text-processing commands that follow the Unix pipeline convention: each command reads from a **file argument** or from **standard input** (the previous pipe stage), and writes its output to standard output so it can be piped further.
+v2-PureOS ships eight composable text-processing commands that follow the Unix pipeline convention: each command reads from a **file argument** or from **standard input** (the previous pipe stage), and writes its output to standard output so it can be piped further.
 
 ---
 
@@ -224,6 +224,32 @@ a
 b
 c
 v2-pureos> cat /tmp/dirs | xargs mkdir
+```
+
+---
+
+## `base64` — Base64 Encode/Decode
+
+```
+base64 [-d] [file]
+```
+
+Encodes or decodes text using Base64. By default, it encodes. Use `-d` to decode.
+
+| Flag | Meaning |
+|------|---------|
+| `-d` | Decode Base64 input into plain text |
+
+### Examples
+
+```text
+v2-pureos> echo "hello" | base64
+aGVsbG8=
+v2-pureos> echo "aGVsbG8=" | base64 -d
+hello
+v2-pureos> write /tmp/plain "pureos"
+v2-pureos> base64 /tmp/plain
+cHVyZW9z
 ```
 
 ---

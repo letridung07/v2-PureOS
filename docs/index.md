@@ -106,6 +106,7 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 - `cut -f <fields> [-d <delim>] [file]` — extract delimited fields (e.g. `-f 1,3 -d :`)
 - `cut -c <range> [file]` — extract character positions (e.g. `-c 1-5`)
 - `tr [-d] [-s] <set1> [set2]` — translate or delete characters; supports `a-z` ranges
+- `base64 [-d] [file]` — encode or decode text using Base64
 - `xargs [-n <max>] <command> [args...]` — build commands from stdin words
 
 ### Processes & Services
