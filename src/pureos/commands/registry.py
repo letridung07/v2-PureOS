@@ -2,6 +2,9 @@ import importlib
 import inspect
 import pkgutil
 import threading
+import json
+import re
+import math
 from typing import Dict, List, Optional, Sequence, Union, Set
 
 from ..parser import tokenize
@@ -22,10 +25,8 @@ class CommandRegistry:
 
         self._register_default_commands()
 
-        # Mark all initial commands as system commands and initialize their stacks
-        for cmd_name, instance in self.commands.items():
-            self.system_commands.add(cmd_name)
-            self.registry_stacks[cmd_name] = [(None, instance)]
+        # Mark all initial commands as system commands
+        self.system_commands = set(self.commands.keys())
 
     def load_from_vfs(self, file_path: str) -> bool:
         """Loads and registers commands from a Python file in the VirtualFS."""
@@ -41,7 +42,7 @@ class CommandRegistry:
                 content = self.kernel.fs.read(file_path)
                 module_name = file_path.split("/")[-1].replace(".py", "")
 
-                # Strictly restricted namespace
+                # Restricted namespace with essential utilities
                 namespace = {
                     "Command": Command,
                     "__name__": module_name,
@@ -62,6 +63,9 @@ class CommandRegistry:
                     "hasattr": hasattr,
                     "isinstance": isinstance,
                     "issubclass": issubclass,
+                    "json": json,
+                    "re": re,
+                    "math": math,
                 }
 
                 # Filter __builtins__ for safety while allowing class creation
@@ -73,7 +77,6 @@ class CommandRegistry:
                         "__package__",
                         "__loader__",
                         "__spec__",
-                        "__import__",
                     ]
                     safe_builtins = {
                         k: __builtins__[k] for k in safe_keys if k in __builtins__
