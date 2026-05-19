@@ -67,6 +67,8 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `alias name command` — define a shorthand command
 - `unalias name` — remove an alias
 - `history` — display the session command history
+- `env` / `printenv` — list all active environment variables
+- `clear` — clear the terminal screen
 
 ### File system
 
@@ -90,6 +92,7 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `source <path>` — read a file and execute each non-comment line as a shell command
 - `head <path> [n]` — display the first `n` lines of a file (default 10)
 - `tail <path> [n]` — display the last `n` lines of a file (default 10)
+- `tar [-c|-x|-t] [-z] [-v] [-C <dir>] -f <archive> [paths...]` — create, extract, or list files in a tar archive
 
 ### Text Pipeline Tools
 
@@ -109,6 +112,7 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 - `ps` — list active processes
 - `spawn <name>` — create a new process with a name
 - `kill <pid>` — terminate a process by PID
+- `wait [pid]...` — wait for specific background processes (or all active background processes if none specified) to complete
 - `services` — list registered services
 - `service start <name>` — start a service
 - `service stop <name>` — stop a service
