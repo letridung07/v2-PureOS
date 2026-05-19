@@ -9,7 +9,7 @@ def run_boot_sequence(kernel):
         kernel.fs.format()
     else:
         _ensure_default_files(kernel.fs)
-    
+
     _load_packages(kernel)
 
 

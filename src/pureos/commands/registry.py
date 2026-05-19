@@ -1,7 +1,6 @@
 import importlib
 import inspect
 import pkgutil
-import types
 from typing import Dict, Optional, Sequence, Union
 
 from ..parser import tokenize
@@ -23,7 +22,7 @@ class CommandRegistry:
             content = self.kernel.fs.read(file_path)
             # Create a namespace that mimics a module
             module_name = file_path.split("/")[-1].replace(".py", "")
-            
+
             # Prepared namespace
             namespace = {
                 "Command": Command,
@@ -48,7 +47,7 @@ class CommandRegistry:
                         command_instance = obj(self.kernel)
                         self.register(command_instance)
                         registered_any = True
-            
+
             return registered_any
         except Exception as e:
             print(f"Error loading command from VFS {file_path}: {e}")

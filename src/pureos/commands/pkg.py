@@ -38,21 +38,24 @@ class PkgCommand(Command):
             print(f"Fetching package from {url}...")
             with urllib.request.urlopen(url) as response:
                 content = response.read().decode("utf-8")
-            
+
             pkg_dir = "/usr/lib/pureos/packages/"
             if not self.kernel.fs.exists(pkg_dir):
                 self.kernel.fs.mkdir(pkg_dir)
-            
+
             file_path = f"{pkg_dir}{name}.py"
             self.kernel.fs.write(file_path, content)
-            
+
             print(f"Installing {name}...")
             success = self.kernel.shell.registry.load_from_vfs(file_path)
             if success:
                 print(f"Successfully installed and registered '{name}'.")
                 return True
             else:
-                print(f"Failed to register commands from '{name}'. Check the script content.")
+                print(
+                    f"Failed to register commands from '{name}'. "
+                    "Check the script content."
+                )
                 return False
         except Exception as e:
             print(f"Error installing package: {e}")
@@ -63,7 +66,7 @@ class PkgCommand(Command):
         if not self.kernel.fs.exists(pkg_dir):
             print("No packages installed.")
             return True
-        
+
         pkgs = self.kernel.fs.list(pkg_dir)
         if not pkgs:
             print("No packages installed.")
@@ -81,7 +84,10 @@ class PkgCommand(Command):
         if not self.kernel.fs.exists(file_path):
             print(f"Package '{name}' not found.")
             return False
-        
+
         self.kernel.fs.delete(file_path)
-        print(f"Package '{name}' removed from VFS. Note: Command will remain registered until restart.")
+        print(
+            f"Package '{name}' removed from VFS. "
+            "Note: Command will remain registered until restart."
+        )
         return True
