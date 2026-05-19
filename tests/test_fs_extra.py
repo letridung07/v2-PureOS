@@ -125,6 +125,7 @@ def test_virtualfs_permissions_and_listing(tmp_path):
 
 def test_grep_advanced_flags(tmp_path):
     from pureos.kernel import Kernel
+
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
     k.initialize()
     sh = k.shell
@@ -137,31 +138,41 @@ def test_grep_advanced_flags(tmp_path):
     assert out == "Apple"
 
     # Test case-insensitive matching (-i)
-    out = sh.registry.execute(["grep", "-i", "apple", "/tmp/grep_test"], capture_output=True)
+    out = sh.registry.execute(
+        ["grep", "-i", "apple", "/tmp/grep_test"], capture_output=True
+    )
     assert "Apple" in out
     assert "apple pie" in out
     assert "Banana" not in out
 
     # Test invert match (-v)
-    out = sh.registry.execute(["grep", "-v", "Apple", "/tmp/grep_test"], capture_output=True)
+    out = sh.registry.execute(
+        ["grep", "-v", "Apple", "/tmp/grep_test"], capture_output=True
+    )
     assert "Banana" in out
     assert "cherry" in out
     assert "apple pie" in out
     assert "Apple" not in out
 
     # Test line numbers (-n)
-    out = sh.registry.execute(["grep", "-n", "Banana", "/tmp/grep_test"], capture_output=True)
+    out = sh.registry.execute(
+        ["grep", "-n", "Banana", "/tmp/grep_test"], capture_output=True
+    )
     assert out == "2:Banana"
 
     # Test combination (-inv)
-    out = sh.registry.execute(["grep", "-inv", "apple", "/tmp/grep_test"], capture_output=True)
+    out = sh.registry.execute(
+        ["grep", "-inv", "apple", "/tmp/grep_test"], capture_output=True
+    )
     assert "2:Banana" in out
     assert "3:cherry" in out
     assert "1:Apple" not in out
     assert "4:apple pie" not in out
 
     # Test stdin / pipe capability
-    out = sh.registry.execute(["grep", "-i", "cherry"], input_data="Cherry\nbanana", capture_output=True)
+    out = sh.registry.execute(
+        ["grep", "-i", "cherry"], input_data="Cherry\nbanana", capture_output=True
+    )
     assert out == "Cherry"
 
     k.shutdown()
@@ -169,6 +180,7 @@ def test_grep_advanced_flags(tmp_path):
 
 def test_which_command(tmp_path):
     from pureos.kernel import Kernel
+
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
     k.initialize()
     sh = k.shell
@@ -193,6 +205,7 @@ def test_which_command(tmp_path):
 def test_sleep_command(tmp_path):
     from pureos.kernel import Kernel
     import time
+
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
     k.initialize()
     sh = k.shell

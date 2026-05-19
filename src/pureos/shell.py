@@ -71,7 +71,9 @@ class Shell:
             return None
         input_data = None
         for index, stage in enumerate(stages):
-            stage, redirect_op, redirect_target, input_op, input_target = split_redirection(stage)
+            stage, redirect_op, redirect_target, input_op, input_target = (
+                split_redirection(stage)
+            )
             if input_op:
                 if not input_target:
                     print("Syntax error: input redirect target not specified")
@@ -283,6 +285,7 @@ class Shell:
                     self.history = lines.copy()
                     try:
                         import readline
+
                         readline.clear_history()
                         for line in lines:
                             readline.add_history(line)

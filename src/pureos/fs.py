@@ -72,12 +72,15 @@ class VirtualFS:
         """Reset filesystem to initial state."""
         self.files.clear()
         self.dirs = {"/", "/etc/"}
-        self.modes = {"/": 0o755, "/etc/": 0o755, "/etc/motd": 0o644, "/etc/pureosrc": 0o644}
+        self.modes = {
+            "/": 0o755,
+            "/etc/": 0o755,
+            "/etc/motd": 0o644,
+            "/etc/pureosrc": 0o644,
+        }
         self.files["/etc/motd"] = "Welcome to v2-PureOS"
         self.files["/etc/pureosrc"] = (
-            "alias ll ls -l\n"
-            "alias la ls\n"
-            "alias grep grep -i\n"
+            "alias ll ls -l\n" "alias la ls\n" "alias grep grep -i\n"
         )
         self._save_if_needed()
 

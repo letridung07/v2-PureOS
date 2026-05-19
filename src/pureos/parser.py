@@ -209,7 +209,8 @@ def split_redirection(
     """Scan the command line to split at unquoted/unescaped redirection operators.
     Supports output redirection (> or >>) and input redirection (<).
 
-    Returns (command_part, output_operator, output_target, input_operator, input_target).
+    Returns (command_part, output_operator, output_target,
+    input_operator, input_target).
     """
     quote = None
     escaped = False

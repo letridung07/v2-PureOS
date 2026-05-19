@@ -545,7 +545,7 @@ def test_shell_startup_script(tmp_path, capsys, monkeypatch):
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
     # Formats on boot, writing default /etc/pureosrc
     k.initialize()
-    
+
     assert k.fs.exists("/etc/pureosrc")
     rc_content = k.fs.read("/etc/pureosrc")
     assert "alias ll ls -l" in rc_content
@@ -553,6 +553,7 @@ def test_shell_startup_script(tmp_path, capsys, monkeypatch):
     # Mock input to raise EOFError immediately to exit run()
     def mock_input(prompt):
         raise EOFError()
+
     monkeypatch.setattr("builtins.input", mock_input)
 
     sh = k.shell

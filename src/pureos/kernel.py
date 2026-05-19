@@ -99,9 +99,7 @@ class Kernel:
                     self.fs.mkdir("/etc/")
                 self.fs.write(
                     "/etc/pureosrc",
-                    "alias ll ls -l\n"
-                    "alias la ls\n"
-                    "alias grep grep -i\n"
+                    "alias ll ls -l\n" "alias la ls\n" "alias grep grep -i\n",
                 )
         print("Kernel: starting core services...")
         auto_start = self.config.auto_start_services
