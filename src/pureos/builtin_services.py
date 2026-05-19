@@ -1,5 +1,6 @@
 """Built-in background services for v2-PureOS."""
 
+import datetime
 import time
 
 
@@ -25,6 +26,130 @@ def _echo_server_service(stop_event=None):
     thread.join()
 
 
+def _field_matches(field_str: str, current_val: int, min_val: int, max_val: int) -> bool:
+    if field_str == "*":
+        return True
+
+    parts = field_str.split(",")
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        step = 1
+        range_part = part
+        if "/" in part:
+            range_part, step_str = part.split("/", 1)
+            try:
+                step = int(step_str)
+            except ValueError:
+                continue
+
+        if range_part == "*":
+            vals = range(min_val, max_val + 1)
+        elif "-" in range_part:
+            start_str, end_str = range_part.split("-", 1)
+            try:
+                start = int(start_str)
+                end = int(end_str)
+            except ValueError:
+                continue
+            vals = range(start, end + 1)
+        else:
+            try:
+                val = int(range_part)
+                vals = [val]
+            except ValueError:
+                continue
+
+        matching_vals = [v for idx, v in enumerate(vals) if idx % step == 0]
+        if current_val in matching_vals:
+            return True
+        if current_val == 0 and 7 in matching_vals:
+            return True
+
+    return False
+
+
+def _cron_service(kernel, stop_event=None):
+    MONTHS = {
+        "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+        "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12
+    }
+    DAYS = {"sun": 0, "mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat": 6}
+
+    def normalize_field(field_str: str, mapping: dict) -> str:
+        s = field_str.lower()
+        for name, num in mapping.items():
+            s = s.replace(name, str(num))
+        return s
+
+    last_run_minute = -1
+
+    while not (stop_event and stop_event.is_set()):
+        now = datetime.datetime.now()
+        current_minute = now.minute
+
+        if current_minute != last_run_minute:
+            last_run_minute = current_minute
+
+            crontab_path = "/etc/crontab"
+            if kernel.fs.exists(crontab_path):
+                try:
+                    content = kernel.fs.read(crontab_path)
+                except Exception:
+                    content = ""
+
+                if content:
+                    min_val = now.minute
+                    hour_val = now.hour
+                    dom_val = now.day
+                    mon_val = now.month
+                    dow_val = (now.weekday() + 1) % 7
+
+                    for line in content.splitlines():
+                        line = line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+
+                        parts = line.split(maxsplit=5)
+                        if len(parts) < 6:
+                            continue
+
+                        if any("=" in f for f in parts[:5]):
+                            continue
+
+                        f_min, f_hour, f_dom, f_mon, f_dow = parts[:5]
+                        command = parts[5]
+
+                        f_mon = normalize_field(f_mon, MONTHS)
+                        f_dow = normalize_field(f_dow, DAYS)
+
+                        try:
+                            match_min = _field_matches(f_min, min_val, 0, 59)
+                            match_hour = _field_matches(f_hour, hour_val, 0, 23)
+                            match_dom = _field_matches(f_dom, dom_val, 1, 31)
+                            match_mon = _field_matches(f_mon, mon_val, 1, 12)
+                            match_dow = _field_matches(f_dow, dow_val, 0, 6)
+                        except Exception:
+                            continue
+
+                        if match_min and match_hour and match_dom and match_mon and match_dow:
+                            def make_target(cmd):
+                                def run_job(stop_event=None):
+                                    from .shell import Shell
+                                    subshell = Shell(kernel)
+                                    subshell.execute(cmd, add_to_history=False)
+                                return run_job
+
+                            kernel.scheduler.spawn(f"cron:{command}", target_func=make_target(command))
+
+        if stop_event:
+            stop_event.wait(1.0)
+        else:
+            time.sleep(1.0)
+
+
 def register_builtin_services(kernel):
     """Register all built-in background services with the kernel."""
     kernel.register_service(
@@ -43,4 +168,13 @@ def register_builtin_services(kernel):
         stoppable=True,
         description="TCP echo server on port 50007",
         auto_start=False,
+    )
+
+    kernel.register_service(
+        "cron",
+        lambda stop_event=None: _cron_service(kernel, stop_event),
+        daemon=True,
+        stoppable=True,
+        description="Cron daemon background service",
+        auto_start=True,
     )

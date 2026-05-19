@@ -342,6 +342,67 @@ class ClearCommand(Command):
         return True
 
 
+class CrontabCommand(Command):
+    name = "crontab"
+    usage = "crontab [-l | -r | <file>]"
+    description = "List, remove, or install a crontab schedule file."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        if len(parts) < 2:
+            print("Usage: crontab [-l | -r | <file>]")
+            return False
+
+        action = parts[1]
+        crontab_path = "/etc/crontab"
+
+        if action == "-l":
+            if not self.kernel.fs.exists(crontab_path):
+                print("crontab: no crontab for current user")
+                return False
+            try:
+                content = self.kernel.fs.read(crontab_path)
+                if capture_output:
+                    return content
+                print(content, end="" if content.endswith("\n") else "\n")
+                return True
+            except Exception as exc:
+                print(f"crontab: error reading crontab: {exc}")
+                return False
+
+        elif action == "-r":
+            if not self.kernel.fs.exists(crontab_path):
+                print("crontab: no crontab to remove")
+                return False
+            try:
+                self.kernel.fs.delete(crontab_path)
+                return True
+            except Exception as exc:
+                print(f"crontab: error removing crontab: {exc}")
+                return False
+
+        else:
+            file_path = self.resolve_path(action)
+            if not self.kernel.fs.exists(file_path):
+                print(f"crontab: {action}: No such file or directory")
+                return False
+            if self.kernel.fs.is_dir(file_path):
+                print(f"crontab: {action}: Is a directory")
+                return False
+            try:
+                content = self.kernel.fs.read(file_path)
+                self.kernel.fs.write(crontab_path, content)
+                return True
+            except Exception as exc:
+                print(f"crontab: error installing crontab: {exc}")
+                return False
+
+
 def register_system_commands(registry):
     registry.register(HelpCommand(registry.kernel))
     registry.register(InfoCommand(registry.kernel))
@@ -357,3 +418,4 @@ def register_system_commands(registry):
     registry.register(WhichCommand(registry.kernel))
     registry.register(EnvCommand(registry.kernel))
     registry.register(ClearCommand(registry.kernel))
+    registry.register(CrontabCommand(registry.kernel))

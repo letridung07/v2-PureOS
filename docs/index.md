@@ -10,6 +10,7 @@ For detailed information about the inner workings of v2-PureOS, please consult t
 - [Virtual Filesystem Architecture](filesystem.md): State-Manager pattern, path resolution, permissions, and persistence.
 - [Shell and Commands](shell_and_commands.md): The shell execution lifecycle, command chaining, piping, redirection, and creating custom commands.
 - [Text Pipeline Tools](text_tools.md): `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`, and `xargs` — composable text processors.
+- [Cron Daemon](cron.md): Scheduled background tasks, syntax format, and `crontab` command.
 
 ---
 
@@ -118,6 +119,7 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 - `service stop <name>` — stop a service
 - `service status <name>` — show service state
 - `service restart <name>` — restart a service
+- `crontab [-l|-r|<file>]` — list, remove, or install a crontab schedule file
 
 ### Example session
 
