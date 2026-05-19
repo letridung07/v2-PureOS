@@ -121,3 +121,94 @@ def test_virtualfs_permissions_and_listing(tmp_path):
         v.write("/foo/bar", "baz")
     with pytest.raises(PermissionError):
         v.mkdir("/foo/sub")
+
+
+def test_grep_advanced_flags(tmp_path):
+    from pureos.kernel import Kernel
+    k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+    k.initialize()
+    sh = k.shell
+
+    # Create file
+    k.fs.write("/tmp/grep_test", "Apple\nBanana\ncherry\napple pie\n")
+
+    # Test basic matching
+    out = sh.registry.execute(["grep", "Apple", "/tmp/grep_test"], capture_output=True)
+    assert out == "Apple"
+
+    # Test case-insensitive matching (-i)
+    out = sh.registry.execute(["grep", "-i", "apple", "/tmp/grep_test"], capture_output=True)
+    assert "Apple" in out
+    assert "apple pie" in out
+    assert "Banana" not in out
+
+    # Test invert match (-v)
+    out = sh.registry.execute(["grep", "-v", "Apple", "/tmp/grep_test"], capture_output=True)
+    assert "Banana" in out
+    assert "cherry" in out
+    assert "apple pie" in out
+    assert "Apple" not in out
+
+    # Test line numbers (-n)
+    out = sh.registry.execute(["grep", "-n", "Banana", "/tmp/grep_test"], capture_output=True)
+    assert out == "2:Banana"
+
+    # Test combination (-inv)
+    out = sh.registry.execute(["grep", "-inv", "apple", "/tmp/grep_test"], capture_output=True)
+    assert "2:Banana" in out
+    assert "3:cherry" in out
+    assert "1:Apple" not in out
+    assert "4:apple pie" not in out
+
+    # Test stdin / pipe capability
+    out = sh.registry.execute(["grep", "-i", "cherry"], input_data="Cherry\nbanana", capture_output=True)
+    assert out == "Cherry"
+
+    k.shutdown()
+
+
+def test_which_command(tmp_path):
+    from pureos.kernel import Kernel
+    k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+    k.initialize()
+    sh = k.shell
+
+    # Test regular command locate
+    out = sh.registry.execute(["which", "ls"], capture_output=True)
+    assert "shell built-in command" in out
+    assert "LsCommand" in out
+
+    # Test alias locate
+    sh.execute("alias fools ls -la")
+    out = sh.registry.execute(["which", "fools"], capture_output=True)
+    assert "aliased to ls -la" in out
+
+    # Test nonexistent command
+    out = sh.registry.execute(["which", "nonexistent"], capture_output=True)
+    assert "not found" in out
+
+    k.shutdown()
+
+
+def test_sleep_command(tmp_path):
+    from pureos.kernel import Kernel
+    import time
+    k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+    k.initialize()
+    sh = k.shell
+
+    # Test that sleep blocks for the given time
+    t0 = time.time()
+    sh.execute("sleep 0.2")
+    duration = time.time() - t0
+    assert duration >= 0.15
+
+    # Test scheduler background sleep / kill responsiveness
+    p = k.scheduler.spawn("sleep 10")
+    assert p.status == "running"
+    time.sleep(0.05)
+    # Kill the sleep process
+    k.scheduler.kill(p.pid)
+    assert p.status == "killed"
+
+    k.shutdown()

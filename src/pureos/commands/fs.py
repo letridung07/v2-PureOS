@@ -15,29 +15,80 @@ class FileCommand(Command):
 
 class GrepCommand(FileCommand):
     name = "grep"
-    usage = "grep <pattern> [path]"
+    usage = "grep [options] <pattern> [path]"
     description = "Search file content for lines containing a pattern."
 
     def execute(
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
-        if len(parts) < 2:
-            print("Usage: grep <pattern> [path]")
+        ignore_case = False
+        invert_match = False
+        line_numbers = False
+
+        args = []
+        for arg in parts[1:]:
+            if arg.startswith("--"):
+                if arg == "--ignore-case":
+                    ignore_case = True
+                elif arg == "--invert-match":
+                    invert_match = True
+                elif arg == "--line-number":
+                    line_numbers = True
+                else:
+                    print(f"grep: invalid option {arg}")
+                    return False
+            elif arg.startswith("-") and len(arg) > 1:
+                for char in arg[1:]:
+                    if char == "i":
+                        ignore_case = True
+                    elif char == "v":
+                        invert_match = True
+                    elif char == "n":
+                        line_numbers = True
+                    else:
+                        print(f"grep: invalid option -- {char}")
+                        return False
+            else:
+                args.append(arg)
+
+        if len(args) < 1:
+            print("Usage: grep [options] <pattern> [path]")
             return False
-        pattern = parts[1]
-        if len(parts) > 2:
-            path = self._resolve_path(parts[2])
+
+        pattern = args[0]
+        path = args[1] if len(args) > 1 else None
+
+        if path is not None:
+            resolved_path = self._resolve_path(path)
             try:
-                content = self.kernel.fs.read(path)
+                content = self.kernel.fs.read(resolved_path)
             except PermissionError as exc:
                 print(str(exc))
                 return False
             if content is None:
-                print(f"{parts[2]}: not found")
+                print(f"grep: {path}: No such file or directory")
                 return False
         else:
             content = input_data or ""
-        matches = [line for line in content.splitlines() if pattern in line]
+
+        matches = []
+        for line_idx, line in enumerate(content.splitlines(), 1):
+            match_pattern = pattern
+            match_line = line
+            if ignore_case:
+                match_pattern = pattern.lower()
+                match_line = line.lower()
+
+            has_match = match_pattern in match_line
+            if invert_match:
+                has_match = not has_match
+
+            if has_match:
+                if line_numbers:
+                    matches.append(f"{line_idx}:{line}")
+                else:
+                    matches.append(line)
+
         output = "\n".join(matches)
         if capture_output:
             return output
@@ -486,7 +537,7 @@ class SourceCommand(FileCommand):
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            result = self.kernel.shell.execute(line)
+            result = self.kernel.shell.execute(line, add_to_history=False)
             if result == "exit":
                 return "exit"
         return True

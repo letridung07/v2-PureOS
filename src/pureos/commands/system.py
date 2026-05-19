@@ -234,6 +234,81 @@ class FreeCommand(Command):
         return True
 
 
+class SleepCommand(Command):
+    name = "sleep"
+    usage = "sleep <seconds>"
+    description = "Delay execution for a specified number of seconds."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) < 2:
+            print("Usage: sleep <seconds>")
+            return False
+        try:
+            seconds = float(parts[1])
+        except ValueError:
+            print("Usage: sleep <seconds>")
+            return False
+
+        import threading
+        import time
+
+        current_name = threading.current_thread().name
+        stop_event = None
+        if current_name.startswith("process-"):
+            try:
+                pid = int(current_name.split("-")[1])
+                stop_event = self.kernel.scheduler._stop_events.get(pid)
+            except (ValueError, IndexError):
+                pass
+
+        start = time.time()
+        while time.time() - start < seconds:
+            if stop_event and stop_event.is_set():
+                break
+            time.sleep(0.05)
+        return True
+
+
+class WhichCommand(Command):
+    name = "which"
+    usage = "which <command>"
+    description = "Locate a command in the shell command registry or active aliases."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) < 2:
+            print("Usage: which <command>")
+            return False
+        cmd_name = parts[1]
+        shell = self.kernel.shell
+
+        # Check aliases first
+        if cmd_name in shell.aliases:
+            out = f"{cmd_name}: aliased to {shell.aliases[cmd_name]}"
+            if capture_output:
+                return out
+            print(out)
+            return True
+
+        # Check commands registry
+        if cmd_name in shell.registry.commands:
+            handler = shell.registry.commands[cmd_name]
+            out = f"{cmd_name}: shell built-in command ({handler.__class__.__name__})"
+            if capture_output:
+                return out
+            print(out)
+            return True
+
+        out = f"{cmd_name}: not found"
+        if capture_output:
+            return out
+        print(out)
+        return False
+
+
 def register_system_commands(registry):
     registry.register(HelpCommand(registry.kernel))
     registry.register(InfoCommand(registry.kernel))
@@ -245,3 +320,5 @@ def register_system_commands(registry):
     registry.register(DateCommand(registry.kernel))
     registry.register(DfCommand(registry.kernel))
     registry.register(FreeCommand(registry.kernel))
+    registry.register(SleepCommand(registry.kernel))
+    registry.register(WhichCommand(registry.kernel))

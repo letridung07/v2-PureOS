@@ -89,9 +89,20 @@ class Kernel:
         if self.config.format_on_boot or not self.fs.has_content():
             print("Kernel: formatting filesystem...")
             self.fs.format()
-        elif "/etc/motd" not in self.fs.files:
-            self.fs.mkdir("/etc/")
-            self.fs.write("/etc/motd", "Welcome to v2-PureOS")
+        else:
+            if "/etc/motd" not in self.fs.files:
+                if not self.fs.exists("/etc/"):
+                    self.fs.mkdir("/etc/")
+                self.fs.write("/etc/motd", "Welcome to v2-PureOS")
+            if "/etc/pureosrc" not in self.fs.files:
+                if not self.fs.exists("/etc/"):
+                    self.fs.mkdir("/etc/")
+                self.fs.write(
+                    "/etc/pureosrc",
+                    "alias ll ls -l\n"
+                    "alias la ls\n"
+                    "alias grep grep -i\n"
+                )
         print("Kernel: starting core services...")
         auto_start = self.config.auto_start_services
         if isinstance(auto_start, list):

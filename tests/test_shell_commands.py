@@ -484,3 +484,81 @@ def test_extra_commands(tmp_path, capsys):
     assert "2 a" in k.fs.read("/tmp/uniq_res_c")
 
     k.shutdown()
+
+
+def test_shell_input_redirection(tmp_path, capsys):
+    k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+    k.initialize()
+    sh = k.shell
+
+    # Create input file
+    k.fs.write("/tmp/input.txt", "line1\nline2\nline3\n")
+
+    # Run cat with input redirection
+    sh.execute("cat < /tmp/input.txt > /tmp/out.txt")
+    assert k.fs.read("/tmp/out.txt") == "line1\nline2\nline3\n"
+
+    # Run wc with input redirection
+    sh.execute("wc -l < /tmp/input.txt > /tmp/wc.txt")
+    assert k.fs.read("/tmp/wc.txt").strip() == "3"
+
+    # Test nonexistent input file redirection
+    capsys.readouterr()
+    res = sh.execute("cat < /tmp/missing.txt")
+    captured = capsys.readouterr()
+    assert "missing.txt: No such file or directory" in captured.out
+    assert res is False
+
+    k.shutdown()
+
+
+def test_shell_persistent_history(tmp_path):
+    k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+    k.initialize()
+    sh = k.shell
+
+    # Execute some commands
+    sh.execute("mkdir /tmp")
+    sh.execute("touch /tmp/abc")
+
+    # Verify history has these commands
+    assert "mkdir /tmp" in sh.history
+    assert "touch /tmp/abc" in sh.history
+
+    # Save history
+    sh.save_history()
+    assert k.fs.exists("/etc/history")
+    history_content = k.fs.read("/etc/history")
+    assert "mkdir /tmp\ntouch /tmp/abc" in history_content
+
+    # Load history in a new shell instance
+    sh2 = k.shell.__class__(k)
+    assert not sh2.history
+    sh2.load_history()
+    assert "mkdir /tmp" in sh2.history
+    assert "touch /tmp/abc" in sh2.history
+
+    k.shutdown()
+
+
+def test_shell_startup_script(tmp_path, capsys, monkeypatch):
+    k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+    # Formats on boot, writing default /etc/pureosrc
+    k.initialize()
+    
+    assert k.fs.exists("/etc/pureosrc")
+    rc_content = k.fs.read("/etc/pureosrc")
+    assert "alias ll ls -l" in rc_content
+
+    # Mock input to raise EOFError immediately to exit run()
+    def mock_input(prompt):
+        raise EOFError()
+    monkeypatch.setattr("builtins.input", mock_input)
+
+    sh = k.shell
+    sh.run()
+
+    assert "ll" in sh.aliases
+    assert sh.aliases["ll"] == "ls -l"
+
+    k.shutdown()

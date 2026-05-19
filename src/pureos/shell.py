@@ -35,11 +35,12 @@ class Shell:
             f"{base}{path}", is_dir=is_dir, allow_dir=allow_dir
         )
 
-    def execute(self, line: str):
+    def execute(self, line: str, add_to_history: bool = True):
         line = line.strip()
         if not line:
             return None
-        self.history.append(line)
+        if add_to_history:
+            self.history.append(line)
         commands = split_command_sequence(line)
         success = True
         next_conditional = None
@@ -70,7 +71,22 @@ class Shell:
             return None
         input_data = None
         for index, stage in enumerate(stages):
-            stage, redirect_op, redirect_target = split_redirection(stage)
+            stage, redirect_op, redirect_target, input_op, input_target = split_redirection(stage)
+            if input_op:
+                if not input_target:
+                    print("Syntax error: input redirect target not specified")
+                    return False
+                in_path = self.resolve_path(input_target)
+                try:
+                    in_content = self.kernel.fs.read(in_path)
+                except PermissionError as exc:
+                    print(str(exc))
+                    return False
+                if in_content is None:
+                    print(f"Error: {input_target}: No such file or directory")
+                    return False
+                input_data = in_content
+
             tokens = self._expand_alias(self._tokenize(stage))
             capture_output = (index < len(stages) - 1) or bool(redirect_op)
             result = self.registry.execute(
@@ -257,8 +273,49 @@ class Shell:
                 matches.append(completed)
         return matches
 
+    def load_history(self):
+        history_path = "/etc/history"
+        if self.kernel.fs.exists(history_path):
+            try:
+                content = self.kernel.fs.read(history_path)
+                if content:
+                    lines = content.splitlines()
+                    self.history = lines.copy()
+                    try:
+                        import readline
+                        readline.clear_history()
+                        for line in lines:
+                            readline.add_history(line)
+                    except (ImportError, AttributeError):
+                        pass
+            except Exception:
+                pass
+
+    def save_history(self):
+        history_path = "/etc/history"
+        try:
+            content = "\n".join(self.history)
+            self.kernel.fs.write(history_path, content)
+        except Exception:
+            pass
+
     def run(self):
         print("Starting v2-PureOS shell (type 'help' for commands)")
+        self.load_history()
+
+        rc_path = "/etc/pureosrc"
+        if self.kernel.fs.exists(rc_path):
+            try:
+                content = self.kernel.fs.read(rc_path)
+                if content:
+                    for line in content.splitlines():
+                        line = line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+                        self.execute(line, add_to_history=False)
+            except Exception:
+                pass
+
         try:
             import readline
 
@@ -277,3 +334,4 @@ class Shell:
             res = self.execute(line)
             if res == "exit":
                 break
+        self.save_history()
