@@ -32,7 +32,8 @@ def _load_packages(kernel):
     """Load dynamically installed packages from the VirtualFS."""
     pkg_dir = "/usr/lib/pureos/packages/"
     if kernel.fs.exists(pkg_dir):
-        pkgs = kernel.fs.list(pkg_dir)
+        # Sort packages alphabetically to ensure deterministic loading order
+        pkgs = sorted(kernel.fs.list(pkg_dir))
         for p in pkgs:
             if p.endswith(".py"):
                 file_path = p

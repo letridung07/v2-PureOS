@@ -165,3 +165,44 @@ class LsCommand(Command):
     from pureos.commands.fs.core import LsCommand
 
     assert isinstance(shell.registry.commands["ls"], LsCommand)
+
+
+def test_pkg_clobber_revert(kernel, shell):
+    pkg_dir = "/usr/lib/pureos/packages/"
+    kernel.fs.mkdir(pkg_dir, parents=True)
+
+    # Package A defines 'foo'
+    kernel.fs.write(
+        f"{pkg_dir}pkgA.py",
+        """
+class FooA(Command):
+    name = "foo"
+    def execute(self, parts, **kwargs):
+        return "A"
+""",
+    )
+    # Package B defines 'foo' (shadows A)
+    kernel.fs.write(
+        f"{pkg_dir}pkgB.py",
+        """
+class FooB(Command):
+    name = "foo"
+    def execute(self, parts, **kwargs):
+        return "B"
+""",
+    )
+
+    shell.registry.load_from_vfs(f"{pkg_dir}pkgA.py")
+    assert shell.registry.execute(["foo"], capture_output=True) == "A"
+
+    shell.registry.load_from_vfs(f"{pkg_dir}pkgB.py")
+    assert shell.registry.execute(["foo"], capture_output=True) == "B"
+
+    # Remove Package B - should revert to Package A
+    shell.execute("pkg remove pkgB")
+    assert "foo" in shell.registry.commands
+    assert shell.registry.execute(["foo"], capture_output=True) == "A"
+
+    # Remove Package A - should be gone
+    shell.execute("pkg remove pkgA")
+    assert "foo" not in shell.registry.commands

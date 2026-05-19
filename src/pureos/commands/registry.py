@@ -16,16 +16,16 @@ class CommandRegistry:
         self.system_commands: Set[str] = set()
         # Track which commands (and aliases) were loaded from which VFS file
         self.vfs_source_map: Dict[str, List[str]] = {}
-        # Track current owner of each command: cmd_name -> file_path (None for system)
-        self.owners: Dict[str, Optional[str]] = {}
+        # Stack of owners for each command name: cmd_name -> [(owner, instance), ...]
+        self.registry_stacks: Dict[str, List[tuple]] = {}
         self._lock = threading.Lock()
 
         self._register_default_commands()
 
-        # Mark all initial commands as system commands
-        for cmd_name in self.commands.keys():
+        # Mark all initial commands as system commands and initialize their stacks
+        for cmd_name, instance in self.commands.items():
             self.system_commands.add(cmd_name)
-            self.owners[cmd_name] = None
+            self.registry_stacks[cmd_name] = [(None, instance)]
 
     def load_from_vfs(self, file_path: str) -> bool:
         """Loads and registers commands from a Python file in the VirtualFS."""
@@ -112,7 +112,7 @@ class CommandRegistry:
                             if cmd_name in self.commands:
                                 print(
                                     f"Warning: Package command '{cmd_name}' "
-                                    "is overwriting an existing dynamic command."
+                                    "is shadowing an existing dynamic command."
                                 )
 
                             command_instance = obj(self.kernel)
@@ -128,7 +128,7 @@ class CommandRegistry:
                                     )
                                     continue
                                 self.vfs_source_map[file_path].append(alias)
-                                self.owners[alias] = file_path
+                                self._push_to_stack(alias, file_path, command_instance)
 
                             registered_any = True
 
@@ -144,14 +144,33 @@ class CommandRegistry:
 
     def _unregister_from_vfs_unlocked(self, file_path: str):
         if file_path in self.vfs_source_map:
-            for cmd_name in self.vfs_source_map[file_path]:
-                # ONLY delete if this file is the current owner
-                if self.owners.get(cmd_name) == file_path:
-                    if cmd_name in self.commands:
-                        del self.commands[cmd_name]
-                    if cmd_name in self.owners:
-                        del self.owners[cmd_name]
+            for name in self.vfs_source_map[file_path]:
+                self._pop_from_stack(name, file_path)
             del self.vfs_source_map[file_path]
+
+    def _push_to_stack(self, name: str, owner: Optional[str], instance: Command):
+        if name not in self.registry_stacks:
+            self.registry_stacks[name] = []
+        self.registry_stacks[name].append((owner, instance))
+        # Update active command to the new top of stack
+        self.commands[name] = instance
+
+    def _pop_from_stack(self, name: str, owner: str):
+        if name in self.registry_stacks:
+            # Filter out entries from this owner
+            self.registry_stacks[name] = [
+                entry for entry in self.registry_stacks[name] if entry[0] != owner
+            ]
+
+            if self.registry_stacks[name]:
+                # Revert to the previous top of stack
+                _, instance = self.registry_stacks[name][-1]
+                self.commands[name] = instance
+            else:
+                # No more owners, delete command
+                if name in self.commands:
+                    del self.commands[name]
+                del self.registry_stacks[name]
 
     def execute(
         self,
@@ -214,11 +233,9 @@ class CommandRegistry:
             self._register_unlocked(command)
 
     def _register_unlocked(self, command: Command, owner: Optional[str] = None):
-        self.commands[command.name] = command
-        self.owners[command.name] = owner
+        self._push_to_stack(command.name, owner, command)
         for alias in getattr(command, "aliases", []):
-            self.commands[alias] = command
-            self.owners[alias] = owner
+            self._push_to_stack(alias, owner, command)
 
     def _register_default_commands(self):
         import pureos.commands
