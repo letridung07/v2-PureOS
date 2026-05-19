@@ -307,6 +307,10 @@ class VirtualFS:
         dst_dir = self._normalize_path(dst, is_dir=True)
         if dst_dir == src_dir:
             return
+        if dst_dir.startswith(src_dir):
+            raise ValueError(
+                f"Cannot rename directory into its own subdirectory: {dst_dir}"
+            )
         self.mkdir(dst_dir, parents=True)
         for directory in sorted(self.dirs):
             if directory.startswith(src_dir):
@@ -327,6 +331,10 @@ class VirtualFS:
         dst_dir = self._normalize_path(dst, is_dir=True)
         if dst_dir == src_dir:
             return
+        if dst_dir.startswith(src_dir):
+            raise ValueError(
+                f"Cannot copy directory into its own subdirectory: {dst_dir}"
+            )
         self.mkdir(dst_dir, parents=True)
         for directory in sorted(self.dirs):
             if directory.startswith(src_dir):

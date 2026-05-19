@@ -41,6 +41,14 @@ def test_virtualfs_directories_and_normalization(tmp_path):
     assert v.is_dir("/tmp/dir")
     assert v.exists("/tmp/dir/")
 
+
+def test_virtualfs_load_ignores_corrupted_backing(tmp_path):
+    backing = tmp_path / "store.json"
+    backing.write_text("{ invalid json")
+    v = VirtualFS(backing_path=str(backing))
+    assert v.has_content() is False
+    assert v.read("/etc/motd") is None
+
     v.write("/tmp/dir/file.txt", "hello")
     assert v.read("/tmp/dir/file.txt") == "hello"
     assert v.is_file("/tmp/dir/file.txt")
@@ -62,7 +70,21 @@ def test_virtualfs_directories_and_normalization(tmp_path):
 
     v2 = VirtualFS(backing_path=str(backing))
     assert v2.exists("/tmp/dir/")
-    assert "/etc/" in v2.list("/")
+    assert "/etc/" not in v2.list("/")
+
+
+def test_virtualfs_copy_rename_subdir_disallowed(tmp_path):
+    backing = tmp_path / "store.json"
+    v = VirtualFS(backing_path=str(backing))
+    v.format()
+    v.mkdir("/tmp")
+    v.write("/tmp/file.txt", "hello")
+
+    with pytest.raises(ValueError):
+        v.rename("/tmp", "/tmp/backup")
+
+    with pytest.raises(ValueError):
+        v.copy("/tmp", "/tmp/backup")
 
 
 def test_virtualfs_permissions_and_listing(tmp_path):
