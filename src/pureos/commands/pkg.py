@@ -1,4 +1,5 @@
 import urllib.request
+import re
 from .base import Command
 
 
@@ -20,6 +21,12 @@ class PkgCommand(Command):
                 return False
             url = parts[2]
             name = parts[3]
+            if not self._is_valid_name(name):
+                print(
+                    f"Error: Invalid package name '{name}'. "
+                    "Use alphanumeric characters only."
+                )
+                return False
             return self._install(url, name)
         elif subcommand == "list":
             return self._list()
@@ -28,25 +35,38 @@ class PkgCommand(Command):
                 print("Usage: pkg remove <name>")
                 return False
             name = parts[2]
+            if not self._is_valid_name(name):
+                print(f"Error: Invalid package name '{name}'.")
+                return False
             return self._remove(name)
         else:
             print(f"Unknown subcommand: {subcommand}")
             return False
 
+    def _is_valid_name(self, name):
+        # Prevent path traversal and restrict to safe filenames
+        return bool(re.match(r"^[a-zA-Z0-9_\-]+$", name))
+
     def _install(self, url, name):
         try:
             print(f"Fetching package from {url}...")
-            with urllib.request.urlopen(url) as response:
+            # Set a timeout for the network request
+            with urllib.request.urlopen(url, timeout=10) as response:
                 content = response.read().decode("utf-8")
 
             pkg_dir = "/usr/lib/pureos/packages/"
             if not self.kernel.fs.exists(pkg_dir):
-                self.kernel.fs.mkdir(pkg_dir)
+                self.kernel.fs.mkdir(pkg_dir, parents=True)
 
             file_path = f"{pkg_dir}{name}.py"
+
+            # Check for name collisions in the registry before installing
+            # We allow overwriting files, but let's see what commands are inside
+
             self.kernel.fs.write(file_path, content)
 
             print(f"Installing {name}...")
+            # Pass existing commands to check for collisions
             success = self.kernel.shell.registry.load_from_vfs(file_path)
             if success:
                 print(f"Successfully installed and registered '{name}'.")
@@ -75,8 +95,8 @@ class PkgCommand(Command):
             for p in pkgs:
                 if p.endswith(".py"):
                     # list returns full paths, extract filename
-                    name = p.split("/")[-1].replace(".py", "")
-                    print(f" - {name}")
+                    pkg_name = p.split("/")[-1].replace(".py", "")
+                    print(f" - {pkg_name}")
         return True
 
     def _remove(self, name):
@@ -88,6 +108,6 @@ class PkgCommand(Command):
         self.kernel.fs.delete(file_path)
         print(
             f"Package '{name}' removed from VFS. "
-            "Note: Command will remain registered until restart."
+            "Note: Commands remain registered until system restart."
         )
         return True

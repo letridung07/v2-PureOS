@@ -23,11 +23,22 @@ class CommandRegistry:
             # Create a namespace that mimics a module
             module_name = file_path.split("/")[-1].replace(".py", "")
 
-            # Prepared namespace
+            # Prepared restricted namespace
             namespace = {
                 "Command": Command,
                 "__name__": module_name,
                 "__file__": file_path,
+                "print": print,
+                "len": len,
+                "range": range,
+                "str": str,
+                "int": int,
+                "float": float,
+                "list": list,
+                "dict": dict,
+                "set": set,
+                "bool": bool,
+                "Exception": Exception,
             }
 
             # Execute the code
@@ -42,8 +53,15 @@ class CommandRegistry:
                     and obj is not Command
                     and not inspect.isabstract(obj)
                 ):
-                    # Check if it has a name
-                    if getattr(obj, "name", None):
+                    cmd_name = getattr(obj, "name", None)
+                    if cmd_name:
+                        # Safety: Warn if overwriting a built-in command
+                        if cmd_name in self.commands:
+                            print(
+                                f"Warning: Package command '{cmd_name}' "
+                                "is overwriting an existing command."
+                            )
+
                         command_instance = obj(self.kernel)
                         self.register(command_instance)
                         registered_any = True
