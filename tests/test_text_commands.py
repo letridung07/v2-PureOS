@@ -530,3 +530,74 @@ class TestEdgeCases:
         """xargs returning False when subcommand fails and capture_output is True."""
         result = run(shell, "xargs nonexistent_command", input_data="hello")
         assert result is False
+
+    # --- grep: literal dot vs regex dot ---
+
+    def test_grep_dot_not_regex_without_E(self, shell):
+        """Without -E, '.' matches a literal dot, not any character."""
+        result = run(shell, "grep -c .", input_data="abc\n1.0")
+        # Only "1.0" contains a literal dot
+        assert result.strip() == "1"
+
+    def test_grep_E_dot_matches_any(self, shell):
+        """With -E, '.' matches any character (all lines match)."""
+        result = run(shell, "grep -Ec .", input_data="a\nb\nc")
+        assert result.strip() == "3"
+
+    # --- sort: negative numbers ---
+
+    def test_sort_n_negatives(self, shell):
+        """sort -n correctly orders negative numbers."""
+        result = run(shell, "sort -n", input_data="-5\n10\n-1\n3")
+        assert result == "-5\n-1\n3\n10"
+
+    # --- tr: Unicode chars outside set are preserved ---
+
+    def test_tr_unicode_outside_set_preserved(self, shell):
+        """tr a-z A-Z leaves non-ASCII chars unchanged."""
+        result = run(shell, "tr a-z A-Z", input_data="héllo")
+        assert result == "HéLLO"
+
+    # --- wc: all counts on empty string ---
+
+    def test_wc_all_counts_empty(self, shell):
+        """wc on empty input returns 0  0  0."""
+        result = run(shell, "wc", input_data="")
+        parts = result.split()
+        assert parts == ["0", "0", "0"]
+
+    # --- xargs: quoted words in stdin stay together ---
+
+    def test_xargs_quoted_stdin_words(self, shell):
+        """xargs respects shell quoting in stdin."""
+        result = run(shell, "xargs echo", input_data="'hello world' foo")
+        # shlex.split produces ["hello world", "foo"]
+        assert "hello world" in result
+        assert "foo" in result
+
+    # --- pipeline: grep failure aborts remaining stages ---
+
+    def test_pipeline_grep_failure_aborts(self, kernel, shell):
+        """A failed grep (no match) returns False and aborts the pipeline."""
+        kernel.fs.write("/tmp/nohit", "no match here\n")
+        result = shell._execute_pipeline("cat /tmp/nohit | grep NOPE | wc -l")
+        assert result is False
+
+    # --- uniq: empty adjacent lines are deduplicated ---
+
+    def test_uniq_adjacent_empty_lines(self, shell):
+        """uniq collapses adjacent empty lines like any other duplicate."""
+        result = run(shell, "uniq", input_data="a\n\n\nb")
+        assert result == "a\n\nb"
+
+    # --- cut: line without delimiter returns full line for field 1 ---
+
+    def test_cut_f1_no_delimiter_in_line(self, shell):
+        """cut -f 1 returns the full line when delimiter is absent."""
+        result = run(shell, "cut -f 1 -d ,", input_data="no_comma_here")
+        assert result == "no_comma_here"
+
+    def test_cut_f2_no_delimiter_empty(self, shell):
+        """cut -f 2 returns empty string when delimiter is absent."""
+        result = run(shell, "cut -f 2 -d ,", input_data="no_comma_here")
+        assert result == ""
