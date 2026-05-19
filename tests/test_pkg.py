@@ -64,6 +64,28 @@ def test_pkg_list_and_remove(kernel, shell):
     assert kernel.fs.exists(f"{pkg_dir}test2.py")
 
 
+def test_pkg_immediate_unregistration(kernel, shell):
+    pkg_dir = "/usr/lib/pureos/packages/"
+    kernel.fs.mkdir(pkg_dir, parents=True)
+    kernel.fs.write(
+        f"{pkg_dir}removable.py",
+        """
+class RemovableCommand(Command):
+    name = "removable"
+    def execute(self, parts, **kwargs):
+        return "I am here"
+""",
+    )
+    shell.registry.load_from_vfs(f"{pkg_dir}removable.py")
+    assert "removable" in shell.registry.commands
+
+    # Remove package
+    shell.execute("pkg remove removable")
+
+    # Verify it is GONE from registry
+    assert "removable" not in shell.registry.commands
+
+
 def test_pkg_persistence(kernel):
     # Setup persistent state
     pkg_dir = "/usr/lib/pureos/packages/"

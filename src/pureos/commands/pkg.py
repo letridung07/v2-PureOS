@@ -59,14 +59,9 @@ class PkgCommand(Command):
                 self.kernel.fs.mkdir(pkg_dir, parents=True)
 
             file_path = f"{pkg_dir}{name}.py"
-
-            # Check for name collisions in the registry before installing
-            # We allow overwriting files, but let's see what commands are inside
-
             self.kernel.fs.write(file_path, content)
 
             print(f"Installing {name}...")
-            # Pass existing commands to check for collisions
             success = self.kernel.shell.registry.load_from_vfs(file_path)
             if success:
                 print(f"Successfully installed and registered '{name}'.")
@@ -94,7 +89,6 @@ class PkgCommand(Command):
             print("Installed packages:")
             for p in pkgs:
                 if p.endswith(".py"):
-                    # list returns full paths, extract filename
                     pkg_name = p.split("/")[-1].replace(".py", "")
                     print(f" - {pkg_name}")
         return True
@@ -105,9 +99,10 @@ class PkgCommand(Command):
             print(f"Package '{name}' not found.")
             return False
 
+        # Deregister commands first
+        self.kernel.shell.registry.unregister_from_vfs(file_path)
+
+        # Then delete the file
         self.kernel.fs.delete(file_path)
-        print(
-            f"Package '{name}' removed from VFS. "
-            "Note: Commands remain registered until system restart."
-        )
+        print(f"Package '{name}' removed successfully.")
         return True

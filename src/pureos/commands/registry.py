@@ -1,7 +1,7 @@
 import importlib
 import inspect
 import pkgutil
-from typing import Dict, Optional, Sequence, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 from ..parser import tokenize
 from .base import Command, CommandResult
@@ -11,6 +11,8 @@ class CommandRegistry:
     def __init__(self, kernel):
         self.kernel = kernel
         self.commands: Dict[str, Command] = {}
+        # Track which commands (and aliases) were loaded from which VFS file
+        self.vfs_source_map: Dict[str, List[str]] = {}
         self._register_default_commands()
 
     def load_from_vfs(self, file_path: str) -> bool:
@@ -18,12 +20,14 @@ class CommandRegistry:
         if not self.kernel.fs.exists(file_path):
             return False
 
+        # If already loaded, unregister first to avoid orphans if names changed
+        if file_path in self.vfs_source_map:
+            self.unregister_from_vfs(file_path)
+
         try:
             content = self.kernel.fs.read(file_path)
-            # Create a namespace that mimics a module
             module_name = file_path.split("/")[-1].replace(".py", "")
 
-            # Prepared restricted namespace
             namespace = {
                 "Command": Command,
                 "__name__": module_name,
@@ -41,11 +45,11 @@ class CommandRegistry:
                 "Exception": Exception,
             }
 
-            # Execute the code
             exec(content, namespace)
 
-            # Discover and register Command subclasses
             registered_any = False
+            self.vfs_source_map[file_path] = []
+
             for name, obj in namespace.items():
                 if (
                     inspect.isclass(obj)
@@ -55,7 +59,6 @@ class CommandRegistry:
                 ):
                     cmd_name = getattr(obj, "name", None)
                     if cmd_name:
-                        # Safety: Warn if overwriting a built-in command
                         if cmd_name in self.commands:
                             print(
                                 f"Warning: Package command '{cmd_name}' "
@@ -64,12 +67,26 @@ class CommandRegistry:
 
                         command_instance = obj(self.kernel)
                         self.register(command_instance)
+
+                        # Track for future unregistration
+                        self.vfs_source_map[file_path].append(cmd_name)
+                        for alias in getattr(command_instance, "aliases", []):
+                            self.vfs_source_map[file_path].append(alias)
+
                         registered_any = True
 
             return registered_any
         except Exception as e:
             print(f"Error loading command from VFS {file_path}: {e}")
             return False
+
+    def unregister_from_vfs(self, file_path: str):
+        """Unregisters all commands that were loaded from the specified VFS file."""
+        if file_path in self.vfs_source_map:
+            for cmd_name in self.vfs_source_map[file_path]:
+                if cmd_name in self.commands:
+                    del self.commands[cmd_name]
+            del self.vfs_source_map[file_path]
 
     def execute(
         self,
@@ -130,7 +147,6 @@ class CommandRegistry:
             self.commands[alias] = command
 
     def _register_default_commands(self):
-        # Dynamically load all modules in the commands package recursively
         import pureos.commands
 
         package = pureos.commands
@@ -147,7 +163,6 @@ class CommandRegistry:
             try:
                 module = importlib.import_module(module_name)
 
-                # Check for explicit register functions first
                 short_name = module_name.split(".")[-1]
                 register_func_name = f"register_{short_name}_commands"
                 if hasattr(module, register_func_name):
@@ -157,7 +172,6 @@ class CommandRegistry:
                     func = getattr(module, "register_commands")
                     func(self)
 
-                # Auto-discover Command subclasses
                 for name, obj in inspect.getmembers(module):
                     if (
                         inspect.isclass(obj)
@@ -165,9 +179,7 @@ class CommandRegistry:
                         and obj is not Command
                         and not inspect.isabstract(obj)
                     ):
-                        # Ensure it has a concrete name explicitly defined on the class
                         if "name" in obj.__dict__ and obj.name:
-                            # Instantiate and register it
                             command_instance = obj(self.kernel)
                             self.register(command_instance)
 
