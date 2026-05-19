@@ -6,6 +6,7 @@ from typing import Dict, Optional, Sequence, Union
 from ..parser import tokenize
 from .base import Command, CommandResult
 
+
 class CommandRegistry:
     def __init__(self, kernel):
         self.kernel = kernel
@@ -90,13 +91,17 @@ class CommandRegistry:
                     func = getattr(module, "register_commands")
                     func(self)
                 else:
-                    # Alternatively, scan for Command subclasses and register them directly
+                    # Scan for Command subclasses and register them directly
                     for name, obj in inspect.getmembers(module):
-                        if inspect.isclass(obj) and issubclass(obj, Command) and obj is not Command:
+                        if (
+                            inspect.isclass(obj)
+                            and issubclass(obj, Command)
+                            and obj is not Command
+                        ):
                             if not inspect.isabstract(obj):
-                                # If the class does not have an explicit name, skip or auto-assign?
-                                # Assuming commands are instantiated later or they need to be registered 
-                                # Let's just warn or ignore if no register function is found.
+                                # Skip or auto-assign if class lacks name.
+                                # Assuming commands are instantiated later.
+                                # Ignore if register function is not found.
                                 pass
             except ImportError as e:
                 print(f"Error loading command module {module_name}: {e}")

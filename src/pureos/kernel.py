@@ -13,9 +13,6 @@ from .boot import run_boot_sequence
 from .builtin_services import register_builtin_services
 
 
-
-
-
 class Kernel:
     def __init__(self, config: Optional[dict] = None):
         self.config = Config.from_dict(config)
