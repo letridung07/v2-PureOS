@@ -288,6 +288,28 @@ def test_shell_quoted_arguments_and_escaped_pipes(tmp_path, capsys):
     captured = capsys.readouterr()
     assert k.fs.read("/tmp/quoted") == "a > b"
 
+    sh.execute('echo a >> /tmp/append')
+    sh.execute('echo b >> /tmp/append')
+    captured = capsys.readouterr()
+    assert k.fs.read("/tmp/append") == "ab"
+
+    sh.execute('echo "foo > bar"')
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "foo > bar"
+
+    sh.execute('echo \'$FOO\'')
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "$FOO"
+
+    sh.execute("export FOO=hello")
+    sh.execute("echo '$FOO'")
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "$FOO"
+
+    sh.execute(r'echo foo\\')
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "foo\\"
+
     sh.execute("help")
     captured = capsys.readouterr()
     assert "echo [text] [> path]" in captured.out

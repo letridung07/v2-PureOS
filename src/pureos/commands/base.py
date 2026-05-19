@@ -21,6 +21,7 @@ class Command(ABC):
         parts: List[str],
         input_data: Optional[str] = None,
         capture_output: bool = False,
+        raw_line: Optional[str] = None,
     ) -> CommandResult:
         ...
 

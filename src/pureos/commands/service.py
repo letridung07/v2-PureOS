@@ -8,7 +8,7 @@ class ServicesCommand(Command):
     usage = "services"
     description = "List registered services."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False):
+    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
         print(", ".join(self.kernel.services.list()))
         return True
 
@@ -18,7 +18,7 @@ class ServiceCommand(Command):
     usage = "service start|stop|status|restart <name>"
     description = "Control a registered service."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False):
+    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
         if len(parts) < 3:
             print("Usage: service start|stop|status|restart <name>")
             return False

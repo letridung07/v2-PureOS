@@ -56,6 +56,8 @@ def split_command_sequence(line: str) -> List[Tuple[str, Optional[str]]]:
             continue
         current.append(char)
         index += 1
+    if escaped:
+        current.append("\\")
     command = "".join(current).strip()
     if command:
         commands.append((command, separator))
@@ -97,6 +99,8 @@ def split_pipeline(line: str) -> List[str]:
             continue
         current.append(char)
         index += 1
+    if escaped:
+        current.append("\\")
     stage = "".join(current).strip()
     if stage:
         stages.append(stage)
@@ -139,6 +143,8 @@ def tokenize(line: str) -> List[str]:
             continue
         current.append(char)
         index += 1
+    if escaped:
+        current.append("\\")
     if current:
         parts.append("".join(current))
     return parts

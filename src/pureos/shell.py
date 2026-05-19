@@ -66,6 +66,7 @@ class Shell:
                 tokens,
                 input_data=input_data,
                 capture_output=capture_output,
+                raw_line=stage,
             )
             if result == "exit":
                 return "exit"
@@ -79,11 +80,64 @@ class Shell:
         return True
 
     def _substitute_env_vars(self, line: str) -> str:
-        def replace(match):
-            name = match.group("braced") or match.group("plain")
-            return str(self.env.get(name, ""))
-
-        return self.VARIABLE_PATTERN.sub(replace, line)
+        result = []
+        quote = None
+        index = 0
+        while index < len(line):
+            char = line[index]
+            if quote is None:
+                if char == "'":
+                    quote = "'"
+                    result.append(char)
+                    index += 1
+                    continue
+                if char == '"':
+                    quote = '"'
+                    result.append(char)
+                    index += 1
+                    continue
+                if char == "\\" and index + 1 < len(line):
+                    result.append(char)
+                    result.append(line[index + 1])
+                    index += 2
+                    continue
+                if char == "$":
+                    match = self.VARIABLE_PATTERN.match(line, index)
+                    if match:
+                        name = match.group("braced") or match.group("plain")
+                        result.append(str(self.env.get(name, "")))
+                        index = match.end()
+                        continue
+                result.append(char)
+                index += 1
+                continue
+            if quote == "'":
+                result.append(char)
+                if char == "'":
+                    quote = None
+                index += 1
+                continue
+            if quote == '"':
+                if char == '"':
+                    quote = None
+                    result.append(char)
+                    index += 1
+                    continue
+                if char == "\\" and index + 1 < len(line):
+                    result.append(line[index + 1])
+                    index += 2
+                    continue
+                if char == "$":
+                    match = self.VARIABLE_PATTERN.match(line, index)
+                    if match:
+                        name = match.group("braced") or match.group("plain")
+                        result.append(str(self.env.get(name, "")))
+                        index = match.end()
+                        continue
+                result.append(char)
+                index += 1
+                continue
+        return "".join(result)
 
     def _tokenize(self, line: str) -> List[str]:
         return tokenize(line)

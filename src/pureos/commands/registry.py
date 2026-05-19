@@ -19,6 +19,7 @@ class CommandRegistry:
         line: Union[str, Sequence[str]],
         input_data: Optional[str] = None,
         capture_output: bool = False,
+        raw_line: Optional[str] = None,
     ) -> CommandResult:
         if isinstance(line, str):
             parts = tokenize(line)
@@ -30,13 +31,18 @@ class CommandRegistry:
             parts = list(line)
             if not parts:
                 return None
+            if parts[0] in ("exit", "quit"):
+                return "exit"
         cmd = parts[0]
         handler = self.commands.get(cmd)
         if not handler:
             print("Unknown command:", " ".join(parts))
             return False
         return handler.execute(
-            parts, input_data=input_data, capture_output=capture_output
+            parts,
+            input_data=input_data,
+            capture_output=capture_output,
+            raw_line=raw_line,
         )
 
     def register(self, command: Command):

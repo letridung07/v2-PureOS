@@ -8,7 +8,7 @@ class HelpCommand(Command):
     description = "Show available commands and usage"
     usage = "help"
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False):
+    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
         seen = set()
         commands = []
         for command in self.kernel.shell.registry.commands.values():
@@ -36,7 +36,7 @@ class InfoCommand(Command):
     usage = "info"
     description = "Show kernel state and loaded components."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False):
+    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
         print("Kernel info:")
         print(f"FS entries: {len(self.kernel.fs.files)}")
         print(f"Processes: {len(self.kernel.scheduler.processes)}")
@@ -49,7 +49,7 @@ class ExportCommand(Command):
     usage = "export [VAR=value]..."
     description = "Set or list shell environment variables."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False):
+    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
         shell = self.kernel.shell
         if len(parts) == 1:
             for name, value in shell.env.items():
@@ -69,7 +69,7 @@ class AliasCommand(Command):
     usage = "alias [name command]"
     description = "Create or list shell command aliases."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False):
+    def execute(self, parts: List[str], input_data=None, capture_output=False, raw_line=None):
         shell = self.kernel.shell
         if len(parts) == 1:
             for name, value in shell.aliases.items():
@@ -80,6 +80,8 @@ class AliasCommand(Command):
             return False
         name = parts[1]
         value = " ".join(parts[2:])
+        if name in shell.registry.commands and name not in shell.aliases:
+            print(f"Warning: alias '{name}' overrides existing command")
         shell.aliases[name] = value
         print(f"Alias {name}='{value}'")
         return True
@@ -90,7 +92,13 @@ class UnaliasCommand(Command):
     usage = "unalias <name>"
     description = "Remove a shell alias."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False):
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
         shell = self.kernel.shell
         if len(parts) != 2:
             print("Usage: unalias name")
@@ -108,7 +116,13 @@ class HistoryCommand(Command):
     usage = "history"
     description = "Show the shell command history."
 
-    def execute(self, parts: List[str], input_data=None, capture_output=False):
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
         shell = self.kernel.shell
         for index, entry in enumerate(shell.history, 1):
             print(f"{index}  {entry}")
