@@ -9,6 +9,8 @@ def run_boot_sequence(kernel):
         kernel.fs.format()
     else:
         _ensure_default_files(kernel.fs)
+    
+    _load_packages(kernel)
 
 
 def _ensure_default_files(fs):
@@ -24,3 +26,14 @@ def _ensure_default_files(fs):
             "/etc/pureosrc",
             "alias ll ls -l\n" "alias la ls\n" "alias grep grep -i\n",
         )
+
+
+def _load_packages(kernel):
+    """Load dynamically installed packages from the VirtualFS."""
+    pkg_dir = "/usr/lib/pureos/packages/"
+    if kernel.fs.exists(pkg_dir):
+        pkgs = kernel.fs.list(pkg_dir)
+        for p in pkgs:
+            if p.endswith(".py"):
+                file_path = p
+                kernel.shell.registry.load_from_vfs(file_path)

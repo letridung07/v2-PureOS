@@ -1,6 +1,7 @@
 import importlib
 import inspect
 import pkgutil
+import types
 from typing import Dict, Optional, Sequence, Union
 
 from ..parser import tokenize
@@ -12,6 +13,46 @@ class CommandRegistry:
         self.kernel = kernel
         self.commands: Dict[str, Command] = {}
         self._register_default_commands()
+
+    def load_from_vfs(self, file_path: str) -> bool:
+        """Loads and registers commands from a Python file in the VirtualFS."""
+        if not self.kernel.fs.exists(file_path):
+            return False
+
+        try:
+            content = self.kernel.fs.read(file_path)
+            # Create a namespace that mimics a module
+            module_name = file_path.split("/")[-1].replace(".py", "")
+            
+            # Prepared namespace
+            namespace = {
+                "Command": Command,
+                "__name__": module_name,
+                "__file__": file_path,
+            }
+
+            # Execute the code
+            exec(content, namespace)
+
+            # Discover and register Command subclasses
+            registered_any = False
+            for name, obj in namespace.items():
+                if (
+                    inspect.isclass(obj)
+                    and issubclass(obj, Command)
+                    and obj is not Command
+                    and not inspect.isabstract(obj)
+                ):
+                    # Check if it has a name
+                    if getattr(obj, "name", None):
+                        command_instance = obj(self.kernel)
+                        self.register(command_instance)
+                        registered_any = True
+            
+            return registered_any
+        except Exception as e:
+            print(f"Error loading command from VFS {file_path}: {e}")
+            return False
 
     def execute(
         self,

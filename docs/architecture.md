@@ -48,3 +48,12 @@ v2-PureOS includes minimal networking utilities to simulate network access.
 ---
 *For details on the filesystem, see [Virtual Filesystem Architecture](filesystem.md).*
 *For details on the shell and CLI, see [Shell and Command Execution](shell_and_commands.md).*
+
+## 6. Package Manager (Dynamic Command Loading)
+
+v2-PureOS supports runtime extension via the `pkg` command. This allows the system to download and register new shell commands dynamically.
+
+**Mechanism:**
+- **Storage**: Packages are stored as Python scripts in the VirtualFS at `/usr/lib/pureos/packages/`.
+- **Loading**: The `CommandRegistry` reads the script content and uses `exec()` with a prepared namespace to instantiate and register `Command` subclasses.
+- **Persistence**: During the boot sequence (`pureos.boot`), the system automatically scans the packages directory and re-registers any previously installed commands.

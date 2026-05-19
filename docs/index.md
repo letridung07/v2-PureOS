@@ -116,6 +116,7 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 - `wait [pid]...` — wait for specific background processes (or all active background processes if none specified) to complete
 - `services` — list registered services
 - `service start <name>` — start a service
+- `pkg [install <url> <name> | list | remove <name>]` — manage dynamic commands downloaded from the web
 - `service stop <name>` — stop a service
 - `service status <name>` — show service state
 - `service restart <name>` — restart a service
