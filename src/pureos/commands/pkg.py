@@ -54,6 +54,7 @@ class PkgCommand(Command):
         return bool(re.match(r"^[a-zA-Z0-9_\-]+$", name))
 
     def _install(self, url, name):
+        file_path = f"/usr/lib/pureos/packages/{name}.py"
         try:
             print(f"Fetching package from {url}...")
             # Set a timeout for the network request
@@ -64,7 +65,6 @@ class PkgCommand(Command):
             if not self.kernel.fs.exists(pkg_dir):
                 self.kernel.fs.mkdir(pkg_dir, parents=True)
 
-            file_path = f"{pkg_dir}{name}.py"
             self.kernel.fs.write(file_path, content)
 
             print(f"Installing {name}...")
@@ -75,11 +75,14 @@ class PkgCommand(Command):
             else:
                 print(
                     f"Failed to register commands from '{name}'. "
-                    "Check the script content."
+                    "Check the script content. Cleaning up..."
                 )
+                self.kernel.fs.delete(file_path)
                 return False
         except Exception as e:
             print(f"Error installing package: {e}")
+            if self.kernel.fs.exists(file_path):
+                self.kernel.fs.delete(file_path)
             return False
 
     def _list(self):

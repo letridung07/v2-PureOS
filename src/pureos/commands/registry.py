@@ -16,12 +16,16 @@ class CommandRegistry:
         self.system_commands: Set[str] = set()
         # Track which commands (and aliases) were loaded from which VFS file
         self.vfs_source_map: Dict[str, List[str]] = {}
+        # Track current owner of each command: cmd_name -> file_path (None for system)
+        self.owners: Dict[str, Optional[str]] = {}
         self._lock = threading.Lock()
 
         self._register_default_commands()
 
         # Mark all initial commands as system commands
-        self.system_commands = set(self.commands.keys())
+        for cmd_name in self.commands.keys():
+            self.system_commands.add(cmd_name)
+            self.owners[cmd_name] = None
 
     def load_from_vfs(self, file_path: str) -> bool:
         """Loads and registers commands from a Python file in the VirtualFS."""
@@ -112,7 +116,7 @@ class CommandRegistry:
                                 )
 
                             command_instance = obj(self.kernel)
-                            self._register_unlocked(command_instance)
+                            self._register_unlocked(command_instance, owner=file_path)
 
                             # Track for future unregistration
                             self.vfs_source_map[file_path].append(cmd_name)
@@ -124,6 +128,7 @@ class CommandRegistry:
                                     )
                                     continue
                                 self.vfs_source_map[file_path].append(alias)
+                                self.owners[alias] = file_path
 
                             registered_any = True
 
@@ -140,8 +145,12 @@ class CommandRegistry:
     def _unregister_from_vfs_unlocked(self, file_path: str):
         if file_path in self.vfs_source_map:
             for cmd_name in self.vfs_source_map[file_path]:
-                if cmd_name in self.commands:
-                    del self.commands[cmd_name]
+                # ONLY delete if this file is the current owner
+                if self.owners.get(cmd_name) == file_path:
+                    if cmd_name in self.commands:
+                        del self.commands[cmd_name]
+                    if cmd_name in self.owners:
+                        del self.owners[cmd_name]
             del self.vfs_source_map[file_path]
 
     def execute(
@@ -204,10 +213,12 @@ class CommandRegistry:
         with self._lock:
             self._register_unlocked(command)
 
-    def _register_unlocked(self, command: Command):
+    def _register_unlocked(self, command: Command, owner: Optional[str] = None):
         self.commands[command.name] = command
+        self.owners[command.name] = owner
         for alias in getattr(command, "aliases", []):
             self.commands[alias] = command
+            self.owners[alias] = owner
 
     def _register_default_commands(self):
         import pureos.commands
