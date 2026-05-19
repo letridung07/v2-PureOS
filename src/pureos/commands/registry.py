@@ -39,11 +39,11 @@ class CommandRegistry:
         if not handler:
             print("Unknown command:", " ".join(parts))
             return False
-        
+
         if capture_output:
             import io
             import contextlib
-            
+
             f = io.StringIO()
             with contextlib.redirect_stdout(f):
                 result = handler.execute(

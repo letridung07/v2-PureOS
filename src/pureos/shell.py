@@ -73,7 +73,7 @@ class Shell:
                 return "exit"
             if result is False:
                 return False
-            
+
             if redirect_op:
                 if not redirect_target:
                     print("Syntax error: redirect target not specified")

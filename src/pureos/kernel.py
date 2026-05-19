@@ -22,6 +22,7 @@ def _noop_service(stop_event=None):
 
 def _echo_server_service(stop_event=None):
     from .network import start_echo_server
+
     port, thread, srv_stop_event = start_echo_server(host="127.0.0.1", port=50007)
     while not (stop_event and stop_event.is_set()):
         if stop_event:

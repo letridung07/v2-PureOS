@@ -150,6 +150,7 @@ class UptimeCommand(Command):
         raw_line=None,
     ):
         import time
+
         uptime_seconds = int(time.time() - self.kernel.boot_time)
         hours = uptime_seconds // 3600
         minutes = (uptime_seconds % 3600) // 60
@@ -174,6 +175,7 @@ class DateCommand(Command):
         raw_line=None,
     ):
         import time
+
         out = time.strftime("%a %b %d %H:%M:%S %Z %Y")
         if capture_output:
             return out

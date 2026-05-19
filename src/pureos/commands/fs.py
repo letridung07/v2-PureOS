@@ -562,7 +562,7 @@ class EditCommand(FileCommand):
             print("Usage: edit <path>")
             return False
         path = self._resolve_path(parts[1])
-        
+
         # Load file content if it exists
         buffer = []
         if self.kernel.fs.exists(path):

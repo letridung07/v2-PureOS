@@ -3,28 +3,29 @@ from unittest.mock import patch
 
 from pureos.kernel import Kernel
 
+
 def test_general_redirection(tmp_path, capsys):
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
     k.initialize()
     sh = k.shell
-    
+
     # Test ls redirection
     sh.execute("mkdir /tmp")
     sh.execute("touch /tmp/a")
     sh.execute("ls /tmp > /tmp/out")
     assert k.fs.read("/tmp/out") == "/tmp/a"
-    
+
     # Test ps redirection
     sh.execute("spawn test_proc")
     sh.execute("ps > /tmp/ps_out")
     ps_content = k.fs.read("/tmp/ps_out")
     assert "test_proc" in ps_content
-    
+
     # Test append redirection
     sh.execute("echo hello > /tmp/out")
     sh.execute("echo world >> /tmp/out")
     assert k.fs.read("/tmp/out") == "helloworld"
-    
+
     # Test syntax error for missing redirection target
     capsys.readouterr()
     res = sh.execute("echo hello >")
@@ -34,6 +35,7 @@ def test_general_redirection(tmp_path, capsys):
 
     # Clean shutdown
     k.shutdown()
+
 
 def test_system_stats(tmp_path):
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
@@ -58,6 +60,7 @@ def test_system_stats(tmp_path):
 
     k.shutdown()
 
+
 def test_editor(tmp_path):
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
     k.initialize()
@@ -71,14 +74,7 @@ def test_editor(tmp_path):
     # 4. :d 1 (delete line 1)
     # 5. :a 1 line 3 (insert line 3 after line 1)
     # 6. :wq (write and quit)
-    mock_inputs = [
-        "line 1",
-        "line 2",
-        ":l",
-        ":d 1",
-        ":a 1 line 3",
-        ":wq"
-    ]
+    mock_inputs = ["line 1", "line 2", ":l", ":d 1", ":a 1 line 3", ":wq"]
     with patch("builtins.input", side_effect=mock_inputs):
         sh.execute("edit /file.txt")
 
@@ -90,16 +86,14 @@ def test_editor(tmp_path):
     assert k.fs.read("/file.txt") == "line 2\nline 3"
 
     # Test quit without saving (:q)
-    mock_inputs_q = [
-        "new line",
-        ":q"
-    ]
+    mock_inputs_q = ["new line", ":q"]
     with patch("builtins.input", side_effect=mock_inputs_q):
         sh.execute("edit /file.txt")
     # Content should remain the same
     assert k.fs.read("/file.txt") == "line 2\nline 3"
 
     k.shutdown()
+
 
 def test_networking(tmp_path, capsys):
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
@@ -128,7 +122,9 @@ def test_networking(tmp_path, capsys):
     assert "Ping successful" in ping_out3
 
     # Test netcat (nc)
-    nc_out = sh.registry.execute(["nc", "127.0.0.1", "50007", "hello OS"], capture_output=True)
+    nc_out = sh.registry.execute(
+        ["nc", "127.0.0.1", "50007", "hello OS"], capture_output=True
+    )
     assert nc_out == "hello OS"
 
     # Test netcat via pipeline
