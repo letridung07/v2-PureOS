@@ -28,6 +28,10 @@ class VirtualFS:
     def modes(self) -> Dict[str, int]:
         return self.state.modes
 
+    @property
+    def symlinks(self) -> Dict[str, str]:
+        return self.state.symlinks
+
     def has_content(self) -> bool:
         return self.state.has_content()
 
@@ -86,3 +90,15 @@ class VirtualFS:
 
     def copy(self, src: str, dst: str):
         self.operations.copy(src, dst)
+
+    def symlink(self, target: str, link_path: str):
+        self.operations.symlink(target, link_path)
+
+    def readlink(self, path: str):
+        return self.operations.readlink(path)
+
+    def resolve_symlink(self, path: str) -> str:
+        return self.operations.resolve_symlink(path)
+
+    def du(self, path: str) -> int:
+        return self.operations.du(path)

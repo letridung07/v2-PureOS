@@ -419,3 +419,109 @@ def register_system_commands(registry):
     registry.register(EnvCommand(registry.kernel))
     registry.register(ClearCommand(registry.kernel))
     registry.register(CrontabCommand(registry.kernel))
+    registry.register(SetCommand(registry.kernel))
+    registry.register(JobsCommand(registry.kernel))
+    registry.register(FgCommand(registry.kernel))
+    registry.register(TimeCommand(registry.kernel))
+
+
+class SetCommand(Command):
+    name = "set"
+    usage = "set [-e] [-x] [+e] [+x]"
+    description = "Set or unset shell options: -e exit-on-error, -x trace commands."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        shell = self.kernel.shell
+        if len(parts) == 1:
+            # Print current flags
+            for flag, val in shell._flags.items():
+                state = "on" if val else "off"
+                print(f"-{flag}: {state}")
+            return True
+        for arg in parts[1:]:
+            if arg.startswith("-") and len(arg) == 2 and arg[1].isalpha():
+                shell.set_flag(arg[1], True)
+            elif arg.startswith("+") and len(arg) == 2 and arg[1].isalpha():
+                shell.set_flag(arg[1], False)
+            else:
+                print(f"set: unknown option: {arg}")
+                return False
+        return True
+
+
+class JobsCommand(Command):
+    name = "jobs"
+    usage = "jobs"
+    description = "List active background processes with their status."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        procs = self.kernel.scheduler.list()
+        if not procs:
+            out = "No background jobs."
+            if capture_output:
+                return out
+            print(out)
+            return True
+        lines = []
+        for proc in procs:
+            lines.append(f"[{proc.pid}] {proc.status:<12} {proc.name}")
+        out = "\n".join(lines)
+        if capture_output:
+            return out
+        print(out)
+        return True
+
+
+class FgCommand(Command):
+    name = "fg"
+    usage = "fg <pid>"
+    description = "Bring a background process to the foreground (wait for it)."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) < 2:
+            print("Usage: fg <pid>")
+            return False
+        try:
+            pid = int(parts[1])
+        except ValueError:
+            print("Usage: fg <pid>")
+            return False
+
+        procs = {p.pid: p for p in self.kernel.scheduler.list()}
+        if pid not in procs:
+            print(f"fg: {pid}: no such job")
+            return False
+        proc = procs[pid]
+        print(f"[{pid}] {proc.name}")
+        proc.thread.join()
+        return proc.status != "failed"
+
+
+class TimeCommand(Command):
+    name = "time"
+    usage = "time <command> [args...]"
+    description = "Measure wall-clock execution time of a shell command."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        import time as _time
+
+        if len(parts) < 2:
+            print("Usage: time <command> [args...]")
+            return False
+        cmd_line = " ".join(parts[1:])
+        start = _time.time()
+        result = self.kernel.shell.execute(cmd_line)
+        elapsed = _time.time() - start
+        timing = f"\nreal\t{elapsed:.3f}s"
+        if capture_output:
+            return timing
+        print(timing)
+        return result is not False

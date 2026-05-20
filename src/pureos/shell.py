@@ -19,6 +19,16 @@ class Shell:
         self.env = {"?": "0"}
         self.aliases = {}
         self.history = []
+        self._last_exit_code = 0
+        # Shell flags: -e (exit-on-error), -x (trace)
+        self._flags: dict = {"e": False, "x": False}
+
+    def set_flag(self, flag: str, value: bool):
+        if flag in self._flags:
+            self._flags[flag] = value
+
+    def get_flag(self, flag: str) -> bool:
+        return self._flags.get(flag, False)
 
     @property
     def prompt(self) -> str:
@@ -30,7 +40,8 @@ class Shell:
             and self.kernel.users.current_user
         ):
             username = self.kernel.users.current_user.username
-        return f"{username}@pureos:{self.cwd}> "
+        exit_suffix = f"[{self._last_exit_code}]" if self._last_exit_code != 0 else ""
+        return f"{username}@pureos:{self.cwd}{exit_suffix}> "
 
     def resolve_path(
         self, path: str, is_dir: bool = False, allow_dir: bool = False
@@ -50,6 +61,34 @@ class Shell:
         line = line.strip()
         if not line:
             return None
+
+        # History recall: !N or !prefix
+        if line.startswith("!") and len(line) > 1:
+            recall = line[1:]
+            recalled = None
+            if recall.isdigit():
+                idx = int(recall) - 1
+                if 0 <= idx < len(self.history):
+                    recalled = self.history[idx]
+                else:
+                    print(f"!{recall}: event not found")
+                    self._last_exit_code = 1
+                    self.env["?"] = "1"
+                    return False
+            else:
+                # Find last command with this prefix
+                for cmd in reversed(self.history):
+                    if cmd.startswith(recall):
+                        recalled = cmd
+                        break
+                if recalled is None:
+                    print(f"!{recall}: event not found")
+                    self._last_exit_code = 1
+                    self.env["?"] = "1"
+                    return False
+            print(recalled)
+            return self.execute(recalled, add_to_history=add_to_history)
+
         if add_to_history:
             self.history.append(line)
         commands = split_command_sequence(line)
@@ -68,11 +107,19 @@ class Shell:
                 success = True
                 self.env["?"] = "0"
             else:
+                # Trace mode: echo command before executing
+                if self._flags.get("x"):
+                    print(f"+ {command}")
                 result = self._execute_pipeline(command)
                 if result == "exit":
                     return "exit"
                 success = result is not False
-                self.env["?"] = "0" if success else "1"
+                code = 0 if success else 1
+                self._last_exit_code = code
+                self.env["?"] = str(code)
+                # Exit-on-error mode
+                if not success and self._flags.get("e"):
+                    return False
 
             next_conditional = separator
         return success

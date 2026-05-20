@@ -14,6 +14,9 @@ class Process:
     status: str = "ready"
     exit_code: Optional[int] = None
     exit_reason: Optional[str] = None
+    nice: int = 0          # process priority (lower = higher priority)
+    start_time: float = 0.0  # epoch seconds when process started
+    thread: Optional[object] = None  # reference to the backing thread
 
 
 class Scheduler:
@@ -42,6 +45,7 @@ class Scheduler:
             status="running",
             exit_code=None,
             exit_reason="started",
+            start_time=time.time(),
         )
         self.processes[pid] = proc
         stop_event = threading.Event()
@@ -77,6 +81,7 @@ class Scheduler:
         )
         thread.start()
         self._threads[pid] = thread
+        proc.thread = thread
         return proc
 
     def list(self):
@@ -92,20 +97,34 @@ class Scheduler:
         thread.join(timeout)
         return not thread.is_alive()
 
-    def kill(self, pid: int) -> bool:
+    def kill(self, pid: int, signal: int = 15) -> bool:
+        """Send a signal to a process.
+
+        signal=15 (SIGTERM): graceful stop via stop_event.
+        signal=9  (SIGKILL): immediate mark as killed, no grace period.
+        """
         p = self.processes.get(pid)
         if not p:
             return False
         if p.status in ("running", "ready"):
             p.status = "killed"
             p.exit_code = 1
-            p.exit_reason = "killed"
+            p.exit_reason = f"killed (signal {signal})"
         event = self._stop_events.get(pid)
         if event:
             event.set()
         thread = self._threads.get(pid)
         if thread and thread.is_alive():
-            thread.join(timeout=1.0)
+            timeout = 0.0 if signal == 9 else 1.0
+            thread.join(timeout=timeout)
+        return True
+
+    def renice(self, pid: int, priority: int) -> bool:
+        """Change the nice value (priority) of a process."""
+        p = self.processes.get(pid)
+        if not p:
+            return False
+        p.nice = priority
         return True
 
     def kill_all(self):

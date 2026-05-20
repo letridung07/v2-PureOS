@@ -27,6 +27,10 @@ class FSPersistence:
                     "modes": {path: mode for path, mode in self.state.modes.items()},
                     "owners": {path: uid for path, uid in self.state.owners.items()},
                     "groups": {path: gid for path, gid in self.state.groups.items()},
+                    "symlinks": self.state.symlinks,
+                    "inodes": self.state.inodes,
+                    "inode_counter": self.state._inode_counter,
+                    "sticky_bits": sorted(self.state.sticky_bits),
                 },
                 f,
                 indent=2,
@@ -92,6 +96,20 @@ class FSPersistence:
                     PathResolver.normalize_path(path, allow_dir=True): gid
                     for path, gid in data.get("groups", {}).items()
                 }
+                # Restore symlinks, inodes, sticky_bits
+                self.state.symlinks = {
+                    PathResolver.normalize_path(p): t
+                    for p, t in data.get("symlinks", {}).items()
+                }
+                self.state.inodes = {
+                    PathResolver.normalize_path(path, allow_dir=True): ino
+                    for path, ino in data.get("inodes", {}).items()
+                }
+                self.state._inode_counter = data.get("inode_counter", 2)
+                self.state.sticky_bits = set(
+                    PathResolver.normalize_path(p, allow_dir=True)
+                    for p in data.get("sticky_bits", [])
+                )
                 for path in self.state.files:
                     PathResolver.ensure_dir_parents(self.state, path)
                     self.state.modes.setdefault(path, 0o644)

@@ -84,8 +84,13 @@ class FSPermissions:
         ) or not self.has_permission(path, 0o100, allow_dir=True):
             raise PermissionError(f"Permission denied: {path}")
 
-    def format_mode(self, mode: int, is_dir: bool) -> str:
-        type_char = "d" if is_dir else "-"
+    def format_mode(self, mode: int, is_dir: bool, is_link: bool = False) -> str:
+        if is_link:
+            type_char = "l"
+        elif is_dir:
+            type_char = "d"
+        else:
+            type_char = "-"
         perms = []
         for bit, char in [
             (0o400, "r"),
@@ -99,4 +104,26 @@ class FSPermissions:
             (0o001, "x"),
         ]:
             perms.append(char if mode & bit else "-")
+        # Sticky bit: replace last 'x'/'–' with 't'/'T'
+        if is_dir:
+            dir_path = type_char  # placeholder to check sticky
+            last = perms[8]
+            if mode & 0o1000:  # sticky bit in mode
+                perms[8] = "t" if last == "x" else "T"
         return type_char + "".join(perms)
+
+    def ensure_chmod_allowed(self, path: str):
+        """Only the owner or root may change a file's mode."""
+        if (
+            not self.kernel
+            or not hasattr(self.kernel, "users")
+            or not self.kernel.users
+        ):
+            return
+        user = self.kernel.users.current_user
+        if not user or user.uid == 0:
+            return  # root always allowed
+        owner_uid = self.state.owners.get(path, 0)
+        if user.uid != owner_uid:
+            raise PermissionError(f"Permission denied: {path}")
+

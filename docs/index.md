@@ -94,6 +94,9 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `head <path> [n]` — display the first `n` lines of a file (default 10)
 - `tail <path> [n]` — display the last `n` lines of a file (default 10)
 - `tar [-c|-x|-t] [-z] [-v] [-C <dir>] -f <archive> [paths...]` — create, extract, or list files in a tar archive
+- `ln [-s] <target> <link>` — create a hard link or symbolic link (`-s`)
+- `readlink <path>` — print the target of a symbolic link
+- `du [-h] [path]` — show disk usage for a file or directory tree
 
 ### Text Pipeline Tools
 
@@ -111,10 +114,16 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 
 ### Processes & Services
 
-- `ps` — list active processes
+- `ps` — list active processes (PID, NAME, STATUS, START, TIME, NI)
 - `spawn <name>` — create a new process with a name
-- `kill <pid>` — terminate a process by PID
+- `kill [-<signal>] <pid>` — terminate a process (default SIGTERM; `-9` for SIGKILL)
 - `wait [pid]...` — wait for specific background processes (or all active background processes if none specified) to complete
+- `top` — one-shot snapshot of processes ranked by elapsed time
+- `renice <priority> <pid>` — change the nice value (priority) of a process
+- `jobs` — list background processes with status
+- `fg <pid>` — bring a background process to the foreground
+- `time <command>` — measure wall-clock execution time of a command
+- `set [-e] [-x] [+e] [+x]` — enable/disable shell options (exit-on-error, trace)
 - `services` — list registered services
 - `service start <name>` — start a service
 - `pkg [install <url> <name> | list | remove <name>]` — manage dynamic commands downloaded from the web
@@ -130,6 +139,12 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 - `nc <host> <port> [message]` — connect to a TCP port, send data, and print response
 - `curl [options] <url>` — transfer data from or to a server using HTTP/HTTPS
 - `wget [options] <url>` — retrieve files over HTTP/HTTPS
+- `host <domain>` — DNS lookup for a domain name
+- `nslookup <domain>` — query DNS (shows nameserver details)
+- `ip <addr|link|route>` — show interface addresses, link info, or routing table
+- `ss` — show mock socket statistics
+- `traceroute <host>` — simulate hop-by-hop route tracing
+- `iptables [-L|-A|-D|-F] [chain] [rule]` — manage simulated firewall rules
 
 ### Example session
 

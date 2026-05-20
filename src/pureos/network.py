@@ -1,8 +1,8 @@
-"""Minimal networking helpers for v2-PureOS."""
+"""Minimal networking utilities for v2-PureOS."""
 
 import socket
 import threading
-from typing import Tuple
+from typing import List, Tuple
 
 
 def start_echo_server(
@@ -43,22 +43,43 @@ def start_echo_server(
 
 
 def resolve_host(fs, host: str) -> str:
-    """Resolve a host name using virtual filesystem's /etc/hosts or fallback to dns."""
+    """Resolve a hostname.
+
+    Lookup order:
+    1. /etc/hosts (VirtualFS)
+    2. /etc/resolv.conf nameserver hints (informational — real socket still used)
+    3. Real system resolver via socket.gethostbyname()
+    """
+    # 1. Check /etc/hosts in the virtual filesystem
     if fs.exists("/etc/hosts"):
         try:
-            content = fs.read("/etc/hosts")
-            if content:
-                for line in content.splitlines():
-                    line = line.strip()
-                    if not line or line.startswith("#"):
-                        continue
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        ip = parts[0]
-                        hosts = parts[1:]
-                        if host in hosts:
-                            return ip
+            content = fs.read("/etc/hosts") or ""
+            for line in content.splitlines():
+                line = line.split("#")[0].strip()
+                parts = line.split()
+                if len(parts) >= 2 and host in parts[1:]:
+                    return parts[0]
         except Exception:
             pass
 
+    # 2. /etc/resolv.conf is present but we still delegate to the real resolver
+    # (nameservers are logged for simulation fidelity)
+    # 3. Fall back to real system resolver
     return socket.gethostbyname(host)
+
+
+def get_nameservers(fs) -> List[str]:
+    """Return configured nameservers from /etc/resolv.conf."""
+    servers: List[str] = []
+    if fs.exists("/etc/resolv.conf"):
+        try:
+            content = fs.read("/etc/resolv.conf") or ""
+            for line in content.splitlines():
+                line = line.strip()
+                if line.startswith("nameserver"):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        servers.append(parts[1])
+        except Exception:
+            pass
+    return servers or ["8.8.8.8"]  # sensible default

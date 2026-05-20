@@ -389,3 +389,228 @@ def register_network_commands(registry):
     registry.register(IfconfigCommand(registry.kernel))
     registry.register(CurlCommand(registry.kernel))
     registry.register(WgetCommand(registry.kernel))
+    registry.register(HostCommand(registry.kernel))
+    registry.register(NslookupCommand(registry.kernel))
+    registry.register(IpCommand(registry.kernel))
+    registry.register(SsCommand(registry.kernel))
+    registry.register(TracerouteCommand(registry.kernel))
+
+
+# ---------------------------------------------------------------------------
+# host — DNS lookup
+# ---------------------------------------------------------------------------
+
+class HostCommand(Command):
+    name = "host"
+    usage = "host <domain>"
+    description = "Perform a DNS lookup for a domain name."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        if len(parts) < 2:
+            print("Usage: host <domain>")
+            return False
+        domain = parts[1]
+        try:
+            ip = resolve_host(self.kernel.fs, domain)
+            out = f"{domain} has address {ip}"
+            if capture_output:
+                return out
+            print(out)
+            return True
+        except Exception as exc:
+            out = f"host: {domain}: {exc}"
+            if capture_output:
+                return out
+            print(out)
+            return False
+
+
+# ---------------------------------------------------------------------------
+# nslookup — interactive-style DNS query
+# ---------------------------------------------------------------------------
+
+class NslookupCommand(Command):
+    name = "nslookup"
+    usage = "nslookup <domain>"
+    description = "Query DNS for a domain name."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        if len(parts) < 2:
+            print("Usage: nslookup <domain>")
+            return False
+        from ..network import get_nameservers
+        domain = parts[1]
+        nameservers = get_nameservers(self.kernel.fs)
+        try:
+            ip = resolve_host(self.kernel.fs, domain)
+            out_lines = [
+                f"Server:\t\t{nameservers[0]}",
+                f"Address:\t{nameservers[0]}#53",
+                "",
+                f"Non-authoritative answer:",
+                f"Name:\t{domain}",
+                f"Address: {ip}",
+            ]
+            out = "\n".join(out_lines)
+            if capture_output:
+                return out
+            print(out)
+            return True
+        except Exception as exc:
+            out = f"nslookup: can't resolve '{domain}': {exc}"
+            if capture_output:
+                return out
+            print(out)
+            return False
+
+
+# ---------------------------------------------------------------------------
+# ip — network interface and route information
+# ---------------------------------------------------------------------------
+
+class IpCommand(Command):
+    name = "ip"
+    usage = "ip <addr|link|route> [show]"
+    description = "Show network interface addresses, link status, or routing table."
+
+    # Simulated routing table stored in VFS at /etc/routes
+    _DEFAULT_ROUTES = (
+        "default via 192.168.1.1 dev eth0\n"
+        "192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.105\n"
+        "127.0.0.0/8 dev lo proto kernel scope link src 127.0.0.1\n"
+    )
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        if len(parts) < 2:
+            print("Usage: ip <addr|link|route> [show]")
+            return False
+        sub = parts[1].lower()
+        if sub in ("addr", "address", "a"):
+            out = (
+                "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16384\n"
+                "    inet 127.0.0.1/8 scope host lo\n"
+                "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500\n"
+                "    inet 192.168.1.105/24 brd 192.168.1.255 scope global eth0\n"
+                "    ether 00:1a:2b:3c:4d:5e"
+            )
+        elif sub in ("link", "l"):
+            out = (
+                "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16384 qdisc noqueue state UNKNOWN\n"
+                "    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00\n"
+                "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP\n"
+                "    link/ether 00:1a:2b:3c:4d:5e brd ff:ff:ff:ff:ff:ff"
+            )
+        elif sub in ("route", "r"):
+            if self.kernel.fs.exists("/etc/routes"):
+                out = (self.kernel.fs.read("/etc/routes") or self._DEFAULT_ROUTES).rstrip()
+            else:
+                out = self._DEFAULT_ROUTES.rstrip()
+        else:
+            print(f"ip: unknown object '{sub}'")
+            return False
+
+        if capture_output:
+            return out
+        print(out)
+        return True
+
+
+# ---------------------------------------------------------------------------
+# ss — socket statistics
+# ---------------------------------------------------------------------------
+
+class SsCommand(Command):
+    name = "ss"
+    aliases = ["route"]
+    usage = "ss [-t] [-u] [-l]"
+    description = "Show mock socket statistics."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        # Simulated — show a static table of connections
+        out_lines = [
+            "Netid  State      Recv-Q  Send-Q  Local Address:Port  Peer Address:Port",
+            "tcp    LISTEN     0       128     0.0.0.0:22           0.0.0.0:*",
+            "tcp    LISTEN     0       128     127.0.0.1:6379       0.0.0.0:*",
+            "tcp    ESTAB      0       0       192.168.1.105:22     192.168.1.10:54321",
+            "udp    UNCONN     0       0       0.0.0.0:68           0.0.0.0:*",
+        ]
+        out = "\n".join(out_lines)
+        if capture_output:
+            return out
+        print(out)
+        return True
+
+
+# ---------------------------------------------------------------------------
+# traceroute — simulated hop-by-hop route tracing
+# ---------------------------------------------------------------------------
+
+class TracerouteCommand(Command):
+    name = "traceroute"
+    aliases = ["tracert"]
+    usage = "traceroute <host>"
+    description = "Simulate hop-by-hop route tracing to a host."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        if len(parts) < 2:
+            print("Usage: traceroute <host>")
+            return False
+        host = parts[1]
+        try:
+            dest_ip = resolve_host(self.kernel.fs, host)
+        except Exception as exc:
+            print(f"traceroute: {host}: {exc}")
+            return False
+
+        # Build a simulated path: gateway → internet hops → destination
+        import random
+        hops = [
+            "192.168.1.1",
+            "10.0.0.1",
+            "72.14.204.1",
+            "209.85.248.1",
+            dest_ip,
+        ]
+        out_lines = [f"traceroute to {host} ({dest_ip}), 30 hops max, 60 byte packets"]
+        for i, hop in enumerate(hops, 1):
+            rtt1 = random.uniform(1.0, 30.0)
+            rtt2 = random.uniform(1.0, 30.0)
+            rtt3 = random.uniform(1.0, 30.0)
+            out_lines.append(
+                f" {i:2}  {hop}  {rtt1:.3f} ms  {rtt2:.3f} ms  {rtt3:.3f} ms"
+            )
+        out = "\n".join(out_lines)
+        if capture_output:
+            return out
+        print(out)
+        return True

@@ -14,12 +14,14 @@ class User:
         gid: int,
         gids: Optional[List[int]] = None,
         password_hash: str = "",
+        locked: bool = False,
     ):
         self.username = username
         self.uid = uid
         self.gid = gid
         self.gids = gids if gids is not None else [gid]
         self.password_hash = password_hash
+        self.locked = locked  # account lock (passwd -l)
 
     def set_password(self, password: str):
         if not password:
@@ -28,6 +30,8 @@ class User:
             self.password_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
 
     def check_password(self, password: str) -> bool:
+        if self.locked:
+            return False
         if not self.password_hash:
             # Empty password means no password required
             return True
@@ -247,6 +251,10 @@ class UserDB:
 
         target_user = self.users[username]
 
+        # Locked accounts cannot be switched to
+        if target_user.locked:
+            return False
+
         # Root user bypasses password checks; empty password hash also bypasses
         if (
             (self.current_user and self.current_user.uid == 0)
@@ -254,6 +262,80 @@ class UserDB:
             or (password is not None and target_user.check_password(password))
         ):
             self.current_user = target_user
+            self.save_login_session(username)
             return True
 
         return False
+
+    def passwd_lock(self, username: str):
+        """Lock a user account (passwd -l)."""
+        if username not in self.users:
+            raise ValueError(f"User {username} does not exist")
+        if username == "root":
+            raise ValueError("Cannot lock root account")
+        self.users[username].locked = True
+        self.save_to_fs()
+
+    def passwd_unlock(self, username: str):
+        """Unlock a user account (passwd -u)."""
+        if username not in self.users:
+            raise ValueError(f"User {username} does not exist")
+        self.users[username].locked = False
+        self.save_to_fs()
+
+    def is_sudoer(self, username: str) -> bool:
+        """Check if a user is allowed to run sudo.
+
+        Checks:
+        1. /etc/sudoers for explicit user grants.
+        2. Membership in the 'sudo' group.
+        """
+        user = self.users.get(username)
+        if not user:
+            return False
+        # Root is always allowed
+        if user.uid == 0:
+            return True
+        # Check /etc/sudoers
+        if self.kernel.fs.exists("/etc/sudoers"):
+            try:
+                content = self.kernel.fs.read("/etc/sudoers") or ""
+                for line in content.splitlines():
+                    line = line.split("#")[0].strip()
+                    if not line:
+                        continue
+                    parts = line.split()
+                    if parts and parts[0] == username:
+                        return True  # User is explicitly listed
+                    if parts and parts[0].startswith("%"):
+                        group_name = parts[0][1:]
+                        if group_name in self.groups:
+                            gid = self.groups[group_name]
+                            if gid in user.gids:
+                                return True
+            except Exception:
+                pass
+        # Fall back to sudo group membership
+        sudo_gid = self.groups.get("sudo", 27)
+        return sudo_gid in user.gids
+
+    def save_login_session(self, username: str):
+        """Append a login entry to /var/log/lastlog."""
+        import time
+        try:
+            timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            entry = f"{username}\t{timestamp}\tpts/0\n"
+            old_user = self.current_user
+            root_user = self.users.get("root")
+            if root_user:
+                self.current_user = root_user
+            try:
+                if self.kernel.fs.exists("/var/log/lastlog"):
+                    self.kernel.fs.append("/var/log/lastlog", entry)
+                else:
+                    self.kernel.fs.mkdir("/var/log", parents=True)
+                    self.kernel.fs.write("/var/log/lastlog", entry)
+            finally:
+                self.current_user = old_user
+        except Exception:
+            pass

@@ -29,11 +29,15 @@ class FSOperations:
     def format(self):
         """Reset filesystem to initial state."""
         self.state.files.clear()
+        self.state.symlinks.clear()
+        self.state.inodes.clear()
+        self.state._inode_counter = 2
+        self.state.sticky_bits = {"/tmp/"}
         self.state.dirs = {"/", "/etc/", "/tmp/"}
         self.state.modes = {
             "/": 0o755,
             "/etc/": 0o755,
-            "/tmp/": 0o777,
+            "/tmp/": 0o1777,  # sticky
             "/etc/motd": 0o644,
             "/etc/pureosrc": 0o644,
             "/etc/passwd": 0o644,
@@ -68,6 +72,10 @@ class FSOperations:
             "/etc/passwd": 0,
             "/etc/group": 0,
         }
+        # Assign inodes to initial entries
+        for path in list(self.state.dirs) + list(self.state.files):
+            self.state.inodes[path] = self.state.next_inode()
+        self.state.inodes["/"] = 1
         self.persistence.save_if_needed()
 
     def mkdir(self, path: str, parents: bool = True):
@@ -79,6 +87,7 @@ class FSOperations:
             PathResolver.ensure_dir_parents(self.state, path)
         self.state.dirs.add(path)
         self.state.modes.setdefault(path, 0o755)
+        self.state.inodes.setdefault(path, self.state.next_inode())
 
         uid, gid = self._get_active_context()
         self.state.owners.setdefault(path, uid)
@@ -86,6 +95,7 @@ class FSOperations:
         for d in self.state.dirs:
             self.state.owners.setdefault(d, uid)
             self.state.groups.setdefault(d, gid)
+            self.state.inodes.setdefault(d, self.state.next_inode())
 
         self.persistence.save_if_needed()
 
@@ -104,6 +114,7 @@ class FSOperations:
         PathResolver.ensure_dir_parents(self.state, normalized)
         self.state.files[normalized] = content
         self.state.modes.setdefault(normalized, 0o644)
+        self.state.inodes.setdefault(normalized, self.state.next_inode())
 
         uid, gid = self._get_active_context()
         self.state.owners.setdefault(normalized, uid)
@@ -111,6 +122,7 @@ class FSOperations:
         for d in self.state.dirs:
             self.state.owners.setdefault(d, uid)
             self.state.groups.setdefault(d, gid)
+            self.state.inodes.setdefault(d, self.state.next_inode())
 
         self.persistence.save_if_needed()
 
@@ -129,6 +141,7 @@ class FSOperations:
         PathResolver.ensure_dir_parents(self.state, normalized)
         self.state.files[normalized] = self.state.files.get(normalized, "") + content
         self.state.modes.setdefault(normalized, 0o644)
+        self.state.inodes.setdefault(normalized, self.state.next_inode())
 
         uid, gid = self._get_active_context()
         self.state.owners.setdefault(normalized, uid)
@@ -136,11 +149,14 @@ class FSOperations:
         for d in self.state.dirs:
             self.state.owners.setdefault(d, uid)
             self.state.groups.setdefault(d, gid)
+            self.state.inodes.setdefault(d, self.state.next_inode())
 
         self.persistence.save_if_needed()
 
     def read(self, path: str) -> Optional[str]:
         normalized = PathResolver.normalize_path(path, allow_dir=True)
+        # Resolve symlink transparently
+        normalized = self.resolve_symlink(normalized)
         if normalized.endswith("/") or normalized + "/" in self.state.dirs:
             return None
         self.permissions.ensure_readable_file(normalized)
@@ -194,10 +210,14 @@ class FSOperations:
 
     def exists(self, path: str) -> bool:
         normalized = PathResolver.normalize_path(path, allow_dir=True)
+        # A symlink entry counts as existing even if its target doesn't
+        if normalized in self.state.symlinks:
+            return True
+        resolved = self.resolve_symlink(normalized)
         return (
-            normalized in self.state.files
-            or normalized in self.state.dirs
-            or normalized + "/" in self.state.dirs
+            resolved in self.state.files
+            or resolved in self.state.dirs
+            or resolved + "/" in self.state.dirs
         )
 
     def is_dir(self, path: str) -> bool:
@@ -210,21 +230,49 @@ class FSOperations:
 
     def stat(self, path: str) -> Optional[Dict[str, object]]:
         normalized = PathResolver.normalize_path(path, allow_dir=True)
-        if normalized in self.state.files:
-            mode = self.state.modes.get(normalized, 0o644)
+        # Check symlink first (stat on the link itself)
+        if normalized in self.state.symlinks:
+            target = self.state.symlinks[normalized]
+            mode = self.state.modes.get(normalized, 0o777)
+            inode = self.state.inodes.get(normalized, 0)
             return {
                 "path": normalized,
+                "type": "symlink",
+                "inode": inode,
+                "link_count": 1,
+                "mode": mode,
+                "mode_str": self.permissions.format_mode(mode, False, is_link=True),
+                "size": len(target),
+                "symlink_target": target,
+            }
+        # Resolve symlink for regular stat
+        resolved = self.resolve_symlink(normalized)
+        if resolved in self.state.files:
+            mode = self.state.modes.get(resolved, 0o644)
+            inode = self.state.inodes.get(resolved, 0)
+            # Hard link count = number of paths sharing this inode
+            link_count = sum(
+                1 for p, i in self.state.inodes.items()
+                if i == inode and p in self.state.files
+            )
+            return {
+                "path": resolved,
                 "type": "file",
+                "inode": inode,
+                "link_count": link_count,
                 "mode": mode,
                 "mode_str": self.permissions.format_mode(mode, False),
-                "size": len(self.state.files[normalized]),
+                "size": len(self.state.files[resolved]),
             }
-        dir_path = normalized if normalized.endswith("/") else normalized + "/"
+        dir_path = resolved if resolved.endswith("/") else resolved + "/"
         if dir_path in self.state.dirs:
             mode = self.state.modes.get(dir_path, 0o755)
+            inode = self.state.inodes.get(dir_path, 0)
             return {
                 "path": dir_path,
                 "type": "dir",
+                "inode": inode,
+                "link_count": 2,
                 "mode": mode,
                 "mode_str": self.permissions.format_mode(mode, True),
                 "size": 0,
@@ -234,12 +282,19 @@ class FSOperations:
     def chmod(self, path: str, mode: int):
         normalized = PathResolver.normalize_path(path, allow_dir=True)
         if normalized in self.state.files:
+            self.permissions.ensure_chmod_allowed(normalized)
             self.state.modes[normalized] = mode
             self.persistence.save_if_needed()
             return
         dir_path = normalized if normalized.endswith("/") else normalized + "/"
         if dir_path in self.state.dirs:
+            self.permissions.ensure_chmod_allowed(dir_path)
             self.state.modes[dir_path] = mode
+            # Sync sticky_bits set with mode
+            if mode & 0o1000:
+                self.state.sticky_bits.add(dir_path)
+            else:
+                self.state.sticky_bits.discard(dir_path)
             self.persistence.save_if_needed()
             return
         raise FileNotFoundError(path)
@@ -412,3 +467,56 @@ class FSOperations:
                 self.state.owners[dst_dir + relative] = uid
                 self.state.groups[dst_dir + relative] = gid
         self.persistence.save_if_needed()
+
+    # ------------------------------------------------------------------
+    # Symlink support
+    # ------------------------------------------------------------------
+
+    def symlink(self, target: str, link_path: str):
+        """Create a symbolic link at link_path pointing to target."""
+        normalized = PathResolver.normalize_path(link_path)
+        if normalized in self.state.files:
+            raise FileExistsError(f"File already exists at {link_path}")
+        if normalized in self.state.dirs or normalized + "/" in self.state.dirs:
+            raise FileExistsError(f"Directory already exists at {link_path}")
+        self.permissions.ensure_parent_writable(normalized)
+        self.state.symlinks[normalized] = target
+        self.state.modes[normalized] = 0o777
+        self.state.inodes.setdefault(normalized, self.state.next_inode())
+        uid, gid = self._get_active_context()
+        self.state.owners.setdefault(normalized, uid)
+        self.state.groups.setdefault(normalized, gid)
+        self.persistence.save_if_needed()
+
+    def readlink(self, path: str) -> Optional[str]:
+        """Return the target of a symbolic link, or None if not a symlink."""
+        normalized = PathResolver.normalize_path(path)
+        return self.state.symlinks.get(normalized)
+
+    def resolve_symlink(self, path: str, _depth: int = 0) -> str:
+        """Resolve a symlink chain, returning the final path. Stops at depth 8."""
+        if _depth > 8:
+            return path  # avoid infinite loops
+        if path in self.state.symlinks:
+            target = self.state.symlinks[path]
+            if not target.startswith("/"):
+                # Relative target: resolve relative to link's directory
+                parent = "/".join(path.rstrip("/").split("/")[:-1]) or "/"
+                target = parent.rstrip("/") + "/" + target
+            target = PathResolver.normalize_path(target, allow_dir=True)
+            return self.resolve_symlink(target, _depth + 1)
+        return path
+
+    def du(self, path: str) -> int:
+        """Return total byte count (disk usage) for a file or directory tree."""
+        normalized = PathResolver.normalize_path(path, allow_dir=True)
+        if normalized in self.state.files:
+            return len(self.state.files[normalized])
+        dir_path = normalized if normalized.endswith("/") else normalized + "/"
+        if dir_path not in self.state.dirs and normalized not in self.state.dirs:
+            return 0
+        total = 0
+        for f_path, content in self.state.files.items():
+            if f_path.startswith(dir_path):
+                total += len(content)
+        return total

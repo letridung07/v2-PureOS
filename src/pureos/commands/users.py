@@ -149,8 +149,8 @@ class UserDelCommand(Command):
 
 class PasswdCommand(Command):
     name = "passwd"
-    description = "Change a user's password"
-    usage = "passwd [username]"
+    description = "Change a user's password, or lock/unlock an account"
+    usage = "passwd [-l|-u] [username]"
 
     def execute(
         self,
@@ -164,12 +164,41 @@ class PasswdCommand(Command):
             print("passwd: User database not initialized")
             return False
 
+        # Check for -l (lock) or -u (unlock) flags
+        lock_flag = "-l" in parts
+        unlock_flag = "-u" in parts
+        filtered = [p for p in parts[1:] if p not in ("-l", "-u")]
+
         current_user = users.current_user
         username = (
-            parts[1]
-            if len(parts) > 1
+            filtered[0]
+            if filtered
             else (current_user.username if current_user else "root")
         )
+
+        if lock_flag:
+            if current_user and current_user.uid != 0:
+                print("passwd: Permission denied")
+                return False
+            try:
+                users.passwd_lock(username)
+                print(f"passwd: account '{username}' locked")
+                return True
+            except ValueError as exc:
+                print(f"passwd: {exc}")
+                return False
+
+        if unlock_flag:
+            if current_user and current_user.uid != 0:
+                print("passwd: Permission denied")
+                return False
+            try:
+                users.passwd_unlock(username)
+                print(f"passwd: account '{username}' unlocked")
+                return True
+            except ValueError as exc:
+                print(f"passwd: {exc}")
+                return False
 
         if current_user and current_user.uid != 0 and current_user.username != username:
             print("passwd: Permission denied")
@@ -378,9 +407,7 @@ class SudoCommand(Command):
 
         # If not root, check permissions
         if current_user.uid != 0:
-            # Check if user is in sudo group (GID 27 or group name 'sudo')
-            sudo_gid = users.groups.get("sudo", 27)
-            if sudo_gid not in current_user.gids:
+            if not users.is_sudoer(current_user.username):
                 print(
                     f"sudo: {current_user.username} is not in the sudoers "
                     "file. This incident will be reported."
@@ -439,3 +466,105 @@ class SudoCommand(Command):
             return result
         finally:
             users.current_user = original_user
+
+
+class LoginCommand(Command):
+    name = "login"
+    description = "Log in as a user interactively"
+    usage = "login [username]"
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        users = self.kernel.users
+        if not users:
+            print("login: User database not initialized")
+            return False
+
+        if len(parts) > 1:
+            username = parts[1]
+        else:
+            try:
+                username = input("Username: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                return False
+
+        if username not in users.users:
+            print(f"login: user '{username}' does not exist")
+            return False
+
+        target_user = users.users[username]
+        if target_user.locked:
+            print(f"login: account '{username}' is locked")
+            return False
+
+        if target_user.password_hash:
+            try:
+                if sys.stdin.isatty():
+                    import getpass
+                    password = getpass.getpass("Password: ")
+                else:
+                    password = input("Password: ")
+            except (EOFError, KeyboardInterrupt):
+                print("\nlogin: Authentication failure")
+                return False
+            if not target_user.check_password(password):
+                print("login: Authentication failure")
+                return False
+
+        users.current_user = target_user
+        users.save_login_session(username)
+        print(f"Welcome, {username}!")
+        return True
+
+
+class LastCommand(Command):
+    name = "last"
+    description = "Show recent login history from /var/log/lastlog"
+    usage = "last [username]"
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        if not self.kernel.fs.exists("/var/log/lastlog"):
+            out = "lastlog: no login records found"
+            if capture_output:
+                return out
+            print(out)
+            return True
+
+        content = self.kernel.fs.read("/var/log/lastlog") or ""
+        filter_user = parts[1] if len(parts) > 1 else None
+        lines = []
+        for line in content.splitlines():
+            if not line.strip():
+                continue
+            if filter_user and not line.startswith(filter_user + "\t"):
+                continue
+            fields = line.split("\t")
+            if len(fields) >= 3:
+                user, ts, tty = fields[0], fields[1], fields[2]
+                lines.append(f"{user:<16} {tty:<8} {ts}")
+            else:
+                lines.append(line)
+
+        if not lines:
+            out = f"last: no records for '{filter_user}'" if filter_user else "last: no records"
+        else:
+            lines.append("")
+            lines.append(f"wtmp begins {lines[0].split()[-1] if lines else 'unknown'}")
+            out = "\n".join(lines)
+
+        if capture_output:
+            return out
+        print(out)
+        return True

@@ -42,7 +42,8 @@ def test_scheduler_kill_sets_exit_status():
     assert s.kill(p.pid)
     assert s.status(p.pid).status == "killed"
     assert s.status(p.pid).exit_code == 1
-    assert s.status(p.pid).exit_reason == "killed"
+    # exit_reason now includes the signal number
+    assert s.status(p.pid).exit_reason.startswith("killed")
 
 
 def test_scheduler_wait_all_timeout_is_global():
