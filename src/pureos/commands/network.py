@@ -1,4 +1,3 @@
-import argparse
 import socket
 import urllib.parse
 import urllib.request
@@ -522,7 +521,7 @@ class SsCommand(Command):
             "tcp    LISTEN     0       128     0.0.0.0:22           0.0.0.0:*",
             "tcp    LISTEN     0       128     127.0.0.1:6379       0.0.0.0:*",
             "tcp    ESTAB      0       0       192.168.1.105:22     192.168.1.10:54321",
-            "udp    UNCONN     0       0       0.0.0.0:68           0.0.0.0:*"
+            "udp    UNCONN     0       0       0.0.0.0:68           0.0.0.0:*",
         ]
         out = "\n".join(out_lines)
         return self.emit(out, capture_output)

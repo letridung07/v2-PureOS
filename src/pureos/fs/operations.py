@@ -554,8 +554,12 @@ class FSOperations:
             target_resolved, 0o644
         )
         self.state.inodes[link_path_resolved] = target_inode
-        self.state.owners[link_path_resolved] = self.state.owners.get(target_resolved, uid)
-        self.state.groups[link_path_resolved] = self.state.groups.get(target_resolved, gid)
+        self.state.owners[link_path_resolved] = self.state.owners.get(
+            target_resolved, uid
+        )
+        self.state.groups[link_path_resolved] = self.state.groups.get(
+            target_resolved, gid
+        )
         self.persistence.save_if_needed()
 
     def symlink(self, target: str, link_path: str):

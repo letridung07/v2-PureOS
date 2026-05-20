@@ -299,14 +299,10 @@ class DuCommand(FileCommand):
                 if f_path.startswith(dir_path):
                     size = len(content)
                     total += size
-            lines.append(
-                format_size(total, human) + "\t" + (args[0] if args else path)
-            )
+            lines.append(format_size(total, human) + "\t" + (args[0] if args else path))
         else:
             total = self.kernel.fs.du(path)
-            lines.append(
-                format_size(total, human) + "\t" + (args[0] if args else path)
-            )
+            lines.append(format_size(total, human) + "\t" + (args[0] if args else path))
 
         out = "\n".join(lines)
         return self.emit(out, capture_output)
