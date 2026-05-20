@@ -230,11 +230,12 @@ class CurlCommand(Command):
 
             method = args.request.upper()
             data_bytes = None
-            if args.data is not None:
+            # Only treat -d "" as POST if explicitly specified (even empty string)
+            if args.data is not None and args.data:
                 data_bytes = args.data.encode("utf-8")
                 if method == "GET":
                     method = "POST"
-            elif input_data is not None:
+            elif input_data is not None and input_data:
                 data_bytes = input_data.encode("utf-8")
                 if method == "GET":
                     method = "POST"
@@ -257,7 +258,11 @@ class CurlCommand(Command):
                         out_parts.append(f"{header_name}: {header_val}")
                     output_str = "\n".join(out_parts)
                 else:
-                    output_str = response.read().decode("utf-8")
+                    raw_bytes = response.read()
+                    try:
+                        output_str = raw_bytes.decode("utf-8")
+                    except UnicodeDecodeError:
+                        output_str = raw_bytes.decode("latin-1")
 
             if args.output:
                 out_path = self.resolve_path(args.output)
@@ -334,7 +339,8 @@ class WgetCommand(Command):
                 if not path or path.endswith("/"):
                     filename = "index.html"
                 else:
-                    filename = path.split("/")[-1]
+                    # Strip query string from filename (e.g. /file.txt?v=1 -> file.txt)
+                    filename = path.split("/")[-1].split("?")[0]
                     if not filename:
                         filename = "index.html"
                 out_path = self.resolve_path(filename)
@@ -360,7 +366,11 @@ class WgetCommand(Command):
                 print(f"Connecting to {hostname} ({resolved_ip})...")
 
             with urllib.request.urlopen(req, timeout=5) as response:
-                content = response.read().decode("utf-8")
+                raw_bytes = response.read()
+                try:
+                    content = raw_bytes.decode("utf-8")
+                except UnicodeDecodeError:
+                    content = raw_bytes.decode("latin-1")
 
             self.kernel.fs.write(out_path, content)
             if not args.quiet:
