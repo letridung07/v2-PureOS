@@ -460,14 +460,15 @@ class JobsCommand(Command):
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
         procs = self.kernel.scheduler.list()
-        if not procs:
+        active_procs = [p for p in procs if p.status in ("running", "ready", "suspended")]
+        if not active_procs:
             out = "No background jobs."
             if capture_output:
                 return out
             print(out)
             return True
         lines = []
-        for proc in procs:
+        for proc in active_procs:
             lines.append(f"[{proc.pid}] {proc.status:<12} {proc.name}")
         out = "\n".join(lines)
         if capture_output:
@@ -498,6 +499,10 @@ class FgCommand(Command):
             print(f"fg: {pid}: no such job")
             return False
         proc = procs[pid]
+
+        if proc.status == "suspended":
+            self.kernel.scheduler.resume(pid)
+
         print(f"[{pid}] {proc.name}")
         proc.thread.join()
         return proc.status != "failed"

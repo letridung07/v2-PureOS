@@ -25,6 +25,7 @@ class Scheduler:
         self.processes = {}
         self._threads = {}
         self._stop_events = {}
+        self._resume_events = {}
 
     def spawn(
         self, name: str, target_func: Optional[Callable] = None, *args, **kwargs
@@ -50,6 +51,9 @@ class Scheduler:
         self.processes[pid] = proc
         stop_event = threading.Event()
         self._stop_events[pid] = stop_event
+        resume_event = threading.Event()
+        resume_event.set()  # Initially running
+        self._resume_events[pid] = resume_event
 
         def target():
             try:
@@ -57,13 +61,18 @@ class Scheduler:
                     import inspect
 
                     sig = inspect.signature(actual_target)
+                    pass_kwargs = kwargs.copy()
                     if "stop_event" in sig.parameters:
-                        actual_target(*args, stop_event=stop_event, **kwargs)
-                    else:
-                        actual_target(*args, **kwargs)
+                        pass_kwargs["stop_event"] = stop_event
+                    if "resume_event" in sig.parameters:
+                        pass_kwargs["resume_event"] = resume_event
+
+                    actual_target(*args, **pass_kwargs)
                 else:
                     start = time.time()
                     while not stop_event.is_set() and time.time() - start < runtime:
+                        if proc.status == "suspended":
+                            resume_event.wait()
                         time.sleep(0.1)
                 if proc.status == "running":
                     proc.status = "completed"
@@ -97,6 +106,28 @@ class Scheduler:
         thread.join(timeout)
         return not thread.is_alive()
 
+    def suspend(self, pid: int) -> bool:
+        """Suspend a process (SIGSTOP simulation)."""
+        p = self.processes.get(pid)
+        if not p or p.status not in ("running", "ready"):
+            return False
+        p.status = "suspended"
+        event = self._resume_events.get(pid)
+        if event:
+            event.clear()
+        return True
+
+    def resume(self, pid: int) -> bool:
+        """Resume a suspended process (SIGCONT simulation)."""
+        p = self.processes.get(pid)
+        if not p or p.status != "suspended":
+            return False
+        p.status = "running"
+        event = self._resume_events.get(pid)
+        if event:
+            event.set()
+        return True
+
     def kill(self, pid: int, signal: int = 15) -> bool:
         """Send a signal to a process.
 
@@ -106,13 +137,20 @@ class Scheduler:
         p = self.processes.get(pid)
         if not p:
             return False
+        
+        # If suspended, we MUST resume it so it can process the stop_event
+        if p.status == "suspended":
+            self.resume(pid)
+
         if p.status in ("running", "ready"):
             p.status = "killed"
             p.exit_code = 1
             p.exit_reason = f"killed (signal {signal})"
+        
         event = self._stop_events.get(pid)
         if event:
             event.set()
+            
         thread = self._threads.get(pid)
         if thread and thread.is_alive():
             timeout = 0.0 if signal == 9 else 1.0

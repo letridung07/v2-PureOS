@@ -59,7 +59,7 @@ class KillCommand(Command):
     name = "kill"
     usage = "kill [-<signal>] <pid>"
     description = (
-        "Terminate a managed process. Use -9 for SIGKILL, -15 for SIGTERM (default)."
+        "Terminate or signal a managed process. Use -STOP to suspend, -CONT to resume."
     )
 
     def execute(
@@ -69,8 +69,21 @@ class KillCommand(Command):
         signal = 15  # default SIGTERM
         pid_args = []
         for arg in args:
-            if arg.startswith("-") and arg[1:].isdigit():
-                signal = int(arg[1:])
+            if arg.startswith("-"):
+                sig_str = arg[1:].upper()
+                if sig_str.isdigit():
+                    signal = int(sig_str)
+                elif sig_str == "STOP":
+                    signal = 19
+                elif sig_str == "CONT":
+                    signal = 18
+                elif sig_str == "KILL":
+                    signal = 9
+                elif sig_str == "TERM":
+                    signal = 15
+                else:
+                    print(f"kill: unknown signal: {arg}")
+                    return False
             else:
                 pid_args.append(arg)
         if not pid_args:
@@ -81,38 +94,51 @@ class KillCommand(Command):
         except ValueError:
             print("Usage: kill [-<signal>] <pid>")
             return False
-        ok = self.kernel.scheduler.kill(pid, signal=signal)
+
+        if signal == 19:  # SIGSTOP
+            ok = self.kernel.scheduler.suspend(pid)
+            sig_name = "SIGSTOP"
+        elif signal == 18:  # SIGCONT
+            ok = self.kernel.scheduler.resume(pid)
+            sig_name = "SIGCONT"
+        else:
+            ok = self.kernel.scheduler.kill(pid, signal=signal)
+            sig_name = f"signal {signal}"
+            if signal == 9:
+                sig_name = "SIGKILL"
+            if signal == 15:
+                sig_name = "SIGTERM"
+
         if ok:
-            sig_name = "SIGKILL" if signal == 9 else f"signal {signal}"
-            print(f"Killed process {pid} ({sig_name})")
+            print(f"Sent {sig_name} to process {pid}")
             return True
         print(f"No such process: {pid}")
         return False
 
 
-class JobsCommand(Command):
-    name = "jobs"
-    usage = "jobs"
-    description = "List active background jobs."
+class BgCommand(Command):
+    name = "bg"
+    usage = "bg <pid>"
+    description = "Resume a suspended process in the background."
 
     def execute(
-        self,
-        parts: List[str],
-        input_data=None,
-        capture_output=False,
-        raw_line=None,
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
-        count = 0
-        for p in self.kernel.scheduler.list():
-            if p.status in ("running", "ready"):
-                out = f"[{p.pid}] {p.status}\t{p.name}"
-                if capture_output:
-                    # Usually jobs prints directly. If capture_output is True,
-                    # we can gather and return the output.
-                    pass
-                print(out)
-                count += 1
-        return True
+        if len(parts) < 2:
+            print("Usage: bg <pid>")
+            return False
+        try:
+            pid = int(parts[1])
+        except ValueError:
+            print("Usage: bg <pid>")
+            return False
+
+        ok = self.kernel.scheduler.resume(pid)
+        if ok:
+            print(f"[{pid}] resumed in background")
+            return True
+        print(f"bg: {pid}: no such job or not suspended")
+        return False
 
 
 class WaitCommand(Command):
@@ -155,7 +181,7 @@ def register_process_commands(registry):
     registry.register(PsCommand(registry.kernel))
     registry.register(SpawnCommand(registry.kernel))
     registry.register(KillCommand(registry.kernel))
-    registry.register(JobsCommand(registry.kernel))
+    registry.register(BgCommand(registry.kernel))
     registry.register(WaitCommand(registry.kernel))
     registry.register(TopCommand(registry.kernel))
     registry.register(ReniceCommand(registry.kernel))
