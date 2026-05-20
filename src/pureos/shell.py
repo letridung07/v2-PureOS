@@ -277,7 +277,9 @@ class Shell:
         subshell.aliases = self.aliases.copy()
 
         def job_runner(stop_event=None, resume_event=None):
-            subshell._execute_pipeline(command, stop_event=stop_event, resume_event=resume_event)
+            subshell._execute_pipeline(
+                command, stop_event=stop_event, resume_event=resume_event
+            )
 
         p = self.kernel.scheduler.spawn(command, target_func=job_runner)
         print(f"[{p.pid}] running: {command}")

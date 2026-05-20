@@ -269,19 +269,19 @@ class SleepCommand(Command):
         while time.time() - start < seconds:
             if stop_event and stop_event.is_set():
                 break
-            
+
             # Suspension support
             proc = None
             if current_name.startswith("process-"):
                 try:
                     pid = int(current_name.split("-")[1])
                     proc = self.kernel.scheduler.status(pid)
-                except:
+                except Exception:
                     pass
-            
+
             if proc and proc.status == "suspended" and resume_event:
                 resume_event.wait()
-                
+
             time.sleep(0.05)
         return True
 
