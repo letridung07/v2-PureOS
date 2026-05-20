@@ -6,6 +6,7 @@ import json
 import re
 import math
 import sys
+import traceback
 from typing import Dict, List, Optional, Sequence, Union, Set
 
 from ..parser import tokenize
@@ -19,7 +20,8 @@ class CommandRegistry:
         # Track which commands are "built-in" and cannot be overwritten
         self.system_commands: Set[str] = set()
         # Track which modules (and their commands) were loaded from which VFS file
-        self.vfs_source_map: Dict[str, List[str]] = {}
+        # file_path -> {"module": str, "commands": List[str]}
+        self.vfs_source_map: Dict[str, dict] = {}
         # Stack of owners for each command name: cmd_name -> [(owner, instance), ...]
         self.registry_stacks: Dict[str, List[tuple]] = {}
         self._lock = threading.Lock()
@@ -62,7 +64,7 @@ class CommandRegistry:
                 module = importlib.import_module(fullname)
 
                 registered_any = False
-                self.vfs_source_map[file_path] = []
+                self.vfs_source_map[file_path] = {"module": fullname, "commands": []}
 
                 for name, obj in inspect.getmembers(module):
                     if (
@@ -85,17 +87,16 @@ class CommandRegistry:
                             self._register_unlocked(command_instance, owner=file_path)
 
                             # Track for future unregistration
-                            self.vfs_source_map[file_path].append(cmd_name)
+                            self.vfs_source_map[file_path]["commands"].append(cmd_name)
                             for alias in getattr(command_instance, "aliases", []):
                                 if alias in self.system_commands:
                                     continue
-                                self.vfs_source_map[file_path].append(alias)
+                                self.vfs_source_map[file_path]["commands"].append(alias)
 
                             registered_any = True
 
                 return registered_any
             except Exception as e:
-                import traceback
                 print(f"Error loading command from VFS {file_path}: {e}")
                 traceback.print_exc()
                 return False
@@ -113,8 +114,15 @@ class CommandRegistry:
 
     def _unregister_from_vfs_unlocked(self, file_path: str):
         if file_path in self.vfs_source_map:
-            for name in self.vfs_source_map[file_path]:
+            source_info = self.vfs_source_map[file_path]
+            for name in source_info["commands"]:
                 self._pop_from_stack(name, file_path)
+            
+            # Clean up sys.modules
+            fullname = source_info.get("module")
+            if fullname and fullname in sys.modules:
+                del sys.modules[fullname]
+                
             del self.vfs_source_map[file_path]
 
     def _push_to_stack(self, name: str, owner: Optional[str], instance: Command):

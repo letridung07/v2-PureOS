@@ -50,8 +50,8 @@ class PkgCommand(Command):
             return False
 
     def _is_valid_name(self, name):
-        # Prevent path traversal and restrict to safe filenames
-        return bool(re.match(r"^[a-zA-Z0-9_\-]+$", name))
+        # Package name must be a valid Python identifier for the module loader
+        return name.isidentifier() and not name.startswith("_")
 
     def _install(self, url, name):
         file_path = f"/usr/lib/pureos/packages/{name}.py"
