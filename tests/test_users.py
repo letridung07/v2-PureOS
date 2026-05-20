@@ -387,4 +387,3 @@ class TestSudoCommand:
         kernel.users.su("root")
         res = run(shell, "sudo", capture=False)
         assert res is False
-

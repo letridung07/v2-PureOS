@@ -381,7 +381,10 @@ class SudoCommand(Command):
             # Check if user is in sudo group (GID 27 or group name 'sudo')
             sudo_gid = users.groups.get("sudo", 27)
             if sudo_gid not in current_user.gids:
-                print(f"sudo: {current_user.username} is not in the sudoers file. This incident will be reported.")
+                print(
+                    f"sudo: {current_user.username} is not in the sudoers "
+                    "file. This incident will be reported."
+                )
                 return False
 
             # Prompt for password if the user has a password set
@@ -389,9 +392,14 @@ class SudoCommand(Command):
                 try:
                     if sys.stdin.isatty():
                         import getpass
-                        password = getpass.getpass(f"[sudo] password for {current_user.username}: ")
+
+                        password = getpass.getpass(
+                            f"[sudo] password for {current_user.username}: "
+                        )
                     else:
-                        password = input(f"[sudo] password for {current_user.username}: ")
+                        password = input(
+                            f"[sudo] password for {current_user.username}: "
+                        )
                 except (EOFError, KeyboardInterrupt):
                     print("\nsudo: Authentication failure")
                     return False
@@ -414,6 +422,7 @@ class SudoCommand(Command):
         target_raw_line = None
         if raw_line:
             import re
+
             match = re.match(r"^\s*sudo\s+(.*)$", raw_line)
             if match:
                 target_raw_line = match.group(1)
@@ -430,4 +439,3 @@ class SudoCommand(Command):
             return result
         finally:
             users.current_user = original_user
-
