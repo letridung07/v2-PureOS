@@ -170,21 +170,29 @@ def test_curl_and_wget(tmp_path):
         sh = k.shell
 
         # Test simple curl
-        res_curl = sh.registry.execute(["curl", f"127.0.0.1:{port}"], capture_output=True)
+        res_curl = sh.registry.execute(
+            ["curl", f"127.0.0.1:{port}"], capture_output=True
+        )
         assert res_curl == "Hello HTTP"
 
         # Test curl output to file
-        res_curl_o = sh.registry.execute(["curl", "-o", "/out.txt", f"127.0.0.1:{port}"])
+        res_curl_o = sh.registry.execute(
+            ["curl", "-o", "/out.txt", f"127.0.0.1:{port}"]
+        )
         assert res_curl_o is True
         assert k.fs.read("/out.txt") == "Hello HTTP"
 
         # Test curl head
-        res_curl_head = sh.registry.execute(["curl", "-I", f"127.0.0.1:{port}"], capture_output=True)
+        res_curl_head = sh.registry.execute(
+            ["curl", "-I", f"127.0.0.1:{port}"], capture_output=True
+        )
         assert "HTTP/1.1 200 OK" in res_curl_head
         assert "Content-Type: text/plain" in res_curl_head
 
         # Test curl POST data
-        res_curl_post = sh.registry.execute(["curl", "-d", "mypostdata", f"127.0.0.1:{port}"], capture_output=True)
+        res_curl_post = sh.registry.execute(
+            ["curl", "-d", "mypostdata", f"127.0.0.1:{port}"], capture_output=True
+        )
         assert res_curl_post == "mypostdata"
 
         # Test curl POST via pipe / stdin
@@ -198,18 +206,21 @@ def test_curl_and_wget(tmp_path):
         assert k.fs.read("/index.html") == "Hello HTTP"
 
         # Test wget with custom filename
-        res_wget_o = sh.registry.execute(["wget", "-O", "/custom.html", f"127.0.0.1:{port}"])
+        res_wget_o = sh.registry.execute(
+            ["wget", "-O", "/custom.html", f"127.0.0.1:{port}"]
+        )
         assert res_wget_o is True
         assert k.fs.read("/custom.html") == "Hello HTTP"
 
         # Test virtual /etc/hosts resolution mapping
         k.fs.mkdir("/etc")
-        k.fs.write("/etc/hosts", f"127.0.0.1 custom.domain")
-        res_hosts_curl = sh.registry.execute(["curl", f"custom.domain:{port}/headers"], capture_output=True)
+        k.fs.write("/etc/hosts", "127.0.0.1 custom.domain")
+        res_hosts_curl = sh.registry.execute(
+            ["curl", f"custom.domain:{port}/headers"], capture_output=True
+        )
         assert f"custom.domain:{port}" in res_hosts_curl
 
     finally:
         server.shutdown()
         thread.join()
         k.shutdown()
-
