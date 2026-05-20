@@ -66,5 +66,5 @@ v2-PureOS supports runtime extension via the `pkg` command. This allows the syst
 
 **Mechanism:**
 - **Storage**: Packages are stored as Python scripts in the VirtualFS at `/usr/lib/pureos/packages/`.
-- **Loading**: The `CommandRegistry` reads the script content and uses `exec()` with a prepared namespace to instantiate and register `Command` subclasses.
+- **Loading**: The `CommandRegistry` uses a custom `VFSImporter` (implementing `importlib`) to import packages from the VirtualFS. This provides proper namespacing (under `pureos_vfs.packages.*`), standard tracebacks, and supports multi-file packages and dependencies.
 - **Persistence**: During the boot sequence (`pureos.boot`), the system automatically scans the packages directory and re-registers any previously installed commands.

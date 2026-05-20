@@ -6,8 +6,10 @@ from typing import Callable, List, Optional
 
 from .config import Config
 from .fs import VirtualFS
+from .fs.importer import VFSImporter
 from .processes import Scheduler
 from .services import ServiceManager
+from .drivers import DriverManager
 from .shell import Shell
 from .boot import run_boot_sequence
 from .builtin_services import register_builtin_services
@@ -19,11 +21,16 @@ class Kernel:
         self.logger = logging.getLogger("pureos")
         self.users = None
         self.fs = VirtualFS(backing_path=self.config.fs_backing, kernel=self)
+        
+        # Register VFS Importer early
+        self.importer = VFSImporter.register(self.fs)
+        
         from .users import UserDB
 
         self.users = UserDB(self)
         self.scheduler = Scheduler()
         self.services = ServiceManager()
+        self.drivers = DriverManager(self)
         self.shell = Shell(self)
         self.boot_time = time.time()
 
@@ -56,6 +63,10 @@ class Kernel:
         run_boot_sequence(self)
         if self.users:
             self.users.initialize()
+        
+        print("Kernel: starting drivers...")
+        self.drivers.start_all()
+
         print("Kernel: starting core services...")
         auto_start = self.config.auto_start_services
         if isinstance(auto_start, list):
@@ -77,10 +88,16 @@ class Kernel:
         return self.services.stop(name, timeout=timeout)
 
     def shutdown(self):
+        print("Kernel: shutting down drivers...")
+        self.drivers.shutdown()
         print("Kernel: shutting down services...")
         self.services.stop_all()
         print("Kernel: shutting down processes...")
         self.scheduler.kill_all()
         if hasattr(self.scheduler, "wait_all"):
             self.scheduler.wait_all()
+        
+        # Unregister VFS Importer
+        VFSImporter.unregister(self.fs)
+        
         print("Kernel: shutdown complete")

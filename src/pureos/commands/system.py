@@ -1,3 +1,4 @@
+import importlib
 from typing import List
 
 from .base import Command
@@ -418,6 +419,62 @@ class CrontabCommand(Command):
                 return False
 
 
+class DriverCommand(Command):
+    name = "driver"
+    usage = "driver [list | load <module> <class> | unload <name>]"
+    description = "Manage system drivers."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) < 2:
+            print(f"Usage: {self.usage}")
+            return False
+
+        subcommand = parts[1]
+        dm = self.kernel.drivers
+
+        if subcommand == "list":
+            if not dm.drivers:
+                print("No drivers loaded.")
+                return True
+            print("Loaded drivers:")
+            for name, driver in dm.drivers.items():
+                desc = getattr(driver, "description", "")
+                print(f"  {name} - {desc}")
+            return True
+
+        elif subcommand == "load":
+            if len(parts) < 4:
+                print("Usage: driver load <module> <class>")
+                return False
+            mod_name = parts[2]
+            cls_name = parts[3]
+
+            try:
+                # First try to load module from VFS if it starts with pureos_vfs
+                # or just use standard importlib
+                module = importlib.import_module(mod_name)
+                driver_class = getattr(module, cls_name)
+                dm.load_driver(driver_class)
+                return True
+            except Exception as e:
+                print(f"Error loading driver: {e}")
+                return False
+
+        elif subcommand == "unload":
+            if len(parts) < 3:
+                print("Usage: driver unload <name>")
+                return False
+            name = parts[2]
+            dm.unload_driver(name)
+            return True
+
+        else:
+            print(f"Unknown subcommand: {subcommand}")
+            return False
+
+
 def register_system_commands(registry):
     registry.register(HelpCommand(registry.kernel))
     registry.register(InfoCommand(registry.kernel))
@@ -438,6 +495,7 @@ def register_system_commands(registry):
     registry.register(JobsCommand(registry.kernel))
     registry.register(FgCommand(registry.kernel))
     registry.register(TimeCommand(registry.kernel))
+    registry.register(DriverCommand(registry.kernel))
 
 
 class SetCommand(Command):

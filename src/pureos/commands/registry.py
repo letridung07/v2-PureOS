@@ -5,6 +5,7 @@ import threading
 import json
 import re
 import math
+import sys
 from typing import Dict, List, Optional, Sequence, Union, Set
 
 from ..parser import tokenize
@@ -17,7 +18,7 @@ class CommandRegistry:
         self.commands: Dict[str, Command] = {}
         # Track which commands are "built-in" and cannot be overwritten
         self.system_commands: Set[str] = set()
-        # Track which commands (and aliases) were loaded from which VFS file
+        # Track which modules (and their commands) were loaded from which VFS file
         self.vfs_source_map: Dict[str, List[str]] = {}
         # Stack of owners for each command name: cmd_name -> [(owner, instance), ...]
         self.registry_stacks: Dict[str, List[tuple]] = {}
@@ -29,7 +30,7 @@ class CommandRegistry:
         self.system_commands = set(self.commands.keys())
 
     def load_from_vfs(self, file_path: str) -> bool:
-        """Loads and registers commands from a Python file in the VirtualFS."""
+        """Loads and registers commands from a Python file in the VirtualFS using the VFSImporter."""
         with self._lock:
             if not self.kernel.fs.exists(file_path):
                 return False
@@ -39,63 +40,31 @@ class CommandRegistry:
                 self._unregister_from_vfs_unlocked(file_path)
 
             try:
-                content = self.kernel.fs.read(file_path)
-                module_name = file_path.split("/")[-1].replace(".py", "")
-
-                # Restricted namespace with essential utilities
-                namespace = {
-                    "Command": Command,
-                    "__name__": module_name,
-                    "__file__": file_path,
-                    "print": print,
-                    "len": len,
-                    "range": range,
-                    "str": str,
-                    "int": int,
-                    "float": float,
-                    "list": list,
-                    "dict": dict,
-                    "set": set,
-                    "bool": bool,
-                    "Exception": Exception,
-                    "getattr": getattr,
-                    "setattr": setattr,
-                    "hasattr": hasattr,
-                    "isinstance": isinstance,
-                    "issubclass": issubclass,
-                    "json": json,
-                    "re": re,
-                    "math": math,
-                }
-
-                # Filter __builtins__ for safety while allowing class creation
-                if isinstance(__builtins__, dict):
-                    safe_keys = [
-                        "__build_class__",
-                        "__name__",
-                        "__doc__",
-                        "__package__",
-                        "__loader__",
-                        "__spec__",
-                    ]
-                    safe_builtins = {
-                        k: __builtins__[k] for k in safe_keys if k in __builtins__
-                    }
+                # Determine the module name based on file path
+                # e.g. /usr/lib/pureos/packages/mycmd.py -> pureos_vfs.packages.mycmd
+                if file_path.startswith("/usr/lib/pureos/packages/"):
+                    rel_path = file_path[len("/usr/lib/pureos/packages/"):]
+                    mod_name = rel_path.replace(".py", "").replace("/", ".")
+                    fullname = f"pureos_vfs.packages.{mod_name}"
+                elif file_path.startswith("/usr/lib/python/"):
+                    rel_path = file_path[len("/usr/lib/python/"):]
+                    mod_name = rel_path.replace(".py", "").replace("/", ".")
+                    fullname = f"pureos_vfs.{mod_name}"
                 else:
-                    safe_builtins = {
-                        "__build_class__": getattr(
-                            __builtins__, "__build_class__", None
-                        )
-                    }
+                    # Fallback or error
+                    print(f"Error: file {file_path} is not in a supported VFS import path.")
+                    return False
 
-                namespace["__builtins__"] = safe_builtins
+                # Force reload if already in sys.modules
+                if fullname in sys.modules:
+                    del sys.modules[fullname]
 
-                exec(content, namespace)
+                module = importlib.import_module(fullname)
 
                 registered_any = False
                 self.vfs_source_map[file_path] = []
 
-                for name, obj in namespace.items():
+                for name, obj in inspect.getmembers(module):
                     if (
                         inspect.isclass(obj)
                         and issubclass(obj, Command)
@@ -112,12 +81,6 @@ class CommandRegistry:
                                 )
                                 continue
 
-                            if cmd_name in self.commands:
-                                print(
-                                    f"Warning: Package command '{cmd_name}' "
-                                    "is shadowing an existing dynamic command."
-                                )
-
                             command_instance = obj(self.kernel)
                             self._register_unlocked(command_instance, owner=file_path)
 
@@ -125,19 +88,16 @@ class CommandRegistry:
                             self.vfs_source_map[file_path].append(cmd_name)
                             for alias in getattr(command_instance, "aliases", []):
                                 if alias in self.system_commands:
-                                    print(
-                                        f"Warning: Alias '{alias}' skipped "
-                                        "(system command)."
-                                    )
                                     continue
                                 self.vfs_source_map[file_path].append(alias)
-                                self._push_to_stack(alias, file_path, command_instance)
 
                             registered_any = True
 
                 return registered_any
             except Exception as e:
+                import traceback
                 print(f"Error loading command from VFS {file_path}: {e}")
+                traceback.print_exc()
                 return False
 
     def unregister_from_vfs(self, file_path: str):
