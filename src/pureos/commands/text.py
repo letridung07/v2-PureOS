@@ -18,63 +18,6 @@ from .base import Command
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _read_input(
-    cmd: Command,
-    parts: List[str],
-    input_data: Optional[str],
-    file_arg_index: int = 1,
-) -> Optional[str]:
-    """Return text to process.
-
-    Priority:
-    1. File path at *file_arg_index* in *parts* (if present and not a flag).
-       Treats '-' as a request for *input_data*.
-    2. *input_data* from a pipeline.
-    Returns None and prints an error when neither is available.
-    """
-    if len(parts) > file_arg_index:
-        path_arg = parts[file_arg_index]
-        # Skip if it's a flag (starts with - and length > 1)
-        # But allow '-' specifically as standard input
-        if path_arg.startswith("-") and len(path_arg) > 1:
-            pass
-        else:
-            if path_arg == "-":
-                if input_data is not None:
-                    return input_data
-                print(f"{parts[0]}: -: Standard input not available")
-                return None
-
-            path = cmd.resolve_path(path_arg)
-        if not cmd.kernel.fs.exists(path):
-            print(f"{parts[0]}: {path_arg}: No such file or directory")
-            return None
-        if cmd.kernel.fs.is_dir(path):
-            print(f"{parts[0]}: {path_arg}: Is a directory")
-            return None
-        try:
-            content = cmd.kernel.fs.read(path)
-        except PermissionError as exc:
-            print(str(exc))
-            return None
-        return content or ""
-    if input_data is not None:
-        return input_data
-    print(f"Usage: {parts[0]} [file]")
-    return None
-
-
-def _emit(text: str, capture_output: bool):
-    """Print or return *text* depending on pipeline context."""
-    if capture_output:
-        return text
-    print(text)
-    return True
-
-
-# ---------------------------------------------------------------------------
 # wc
 # ---------------------------------------------------------------------------
 
@@ -101,7 +44,7 @@ class WcCommand(Command):
             else:
                 remaining.append(tok)
 
-        text = _read_input(self, remaining, input_data, file_arg_index=1)
+        text = self.read_input(remaining, input_data, file_arg_index=1)
         if text is None:
             return False
 
@@ -121,7 +64,7 @@ class WcCommand(Command):
             parts_out.append(str(chars))
 
         out = "  ".join(parts_out)
-        return _emit(out, capture_output)
+        return self.emit(out, capture_output)
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +119,7 @@ class GrepCommand(Command):
             print(f"grep: invalid pattern: {exc}")
             return False
 
-        text = _read_input(self, file_positional, input_data, file_arg_index=1)
+        text = self.read_input(file_positional, input_data, file_arg_index=1)
         if text is None:
             return False
 
@@ -194,13 +137,13 @@ class GrepCommand(Command):
                     matched_lines.append(line)
 
         if count_only:
-            return _emit(str(len(matched_lines)), capture_output)
+            return self.emit(str(len(matched_lines)), capture_output)
 
         if not matched_lines:
             return False
 
         out = "\n".join(matched_lines)
-        return _emit(out, capture_output)
+        return self.emit(out, capture_output)
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +172,7 @@ class SortCommand(Command):
             else:
                 remaining.append(tok)
 
-        text = _read_input(self, remaining, input_data, file_arg_index=1)
+        text = self.read_input(remaining, input_data, file_arg_index=1)
         if text is None:
             return False
 
@@ -261,7 +204,7 @@ class SortCommand(Command):
             lines = deduped
 
         out = "\n".join(lines)
-        return _emit(out, capture_output)
+        return self.emit(out, capture_output)
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +233,7 @@ class UniqCommand(Command):
             else:
                 remaining.append(tok)
 
-        text = _read_input(self, remaining, input_data, file_arg_index=1)
+        text = self.read_input(remaining, input_data, file_arg_index=1)
         if text is None:
             return False
 
@@ -319,7 +262,7 @@ class UniqCommand(Command):
                 result.append(line)
 
         out = "\n".join(result)
-        return _emit(out, capture_output)
+        return self.emit(out, capture_output)
 
 
 # ---------------------------------------------------------------------------
@@ -399,7 +342,7 @@ class CutCommand(Command):
             print("cut: delimiter cannot be empty")
             return False
 
-        text = _read_input(self, file_args, input_data, file_arg_index=1)
+        text = self.read_input(file_args, input_data, file_arg_index=1)
         if text is None:
             return False
 
@@ -417,7 +360,7 @@ class CutCommand(Command):
             result.append(extracted)
 
         out = "\n".join(result)
-        return _emit(out, capture_output)
+        return self.emit(out, capture_output)
 
     @staticmethod
     def _parse_range(spec: str) -> List[int]:
@@ -540,7 +483,7 @@ class TrCommand(Command):
                 prev = c
             text = "".join(result)
 
-        return _emit(text, capture_output)
+        return self.emit(text, capture_output)
 
     @staticmethod
     def _expand_set(spec: str) -> str:
@@ -708,7 +651,7 @@ class Base64Command(Command):
                 remaining.append(tok)
             i += 1
 
-        text = _read_input(self, remaining, input_data, file_arg_index=1)
+        text = self.read_input(remaining, input_data, file_arg_index=1)
         if text is None:
             return False
 
@@ -731,7 +674,7 @@ class Base64Command(Command):
             print(f"base64: {exc}")
             return False
 
-        return _emit(out, capture_output)
+        return self.emit(out, capture_output)
 
 
 # ---------------------------------------------------------------------------

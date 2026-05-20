@@ -18,7 +18,7 @@ class LsCommand(FileCommand):
             elif path_arg is None:
                 path_arg = arg
         if path_arg:
-            prefix = self._resolve_path(path_arg, allow_dir=True)
+            prefix = self.resolve_path(path_arg, allow_dir=True)
         else:
             prefix = self.kernel.shell.cwd
         if not self.kernel.fs.exists(prefix):
@@ -29,6 +29,8 @@ class LsCommand(FileCommand):
         except PermissionError as exc:
             print(str(exc))
             return False
+
+        output = []
         if long_listing:
             if self.kernel.fs.is_file(prefix):
                 entries = [prefix]
@@ -36,11 +38,11 @@ class LsCommand(FileCommand):
                 info = self.kernel.fs.stat(p)
                 if info is None:
                     continue
-                print(f"{info['mode_str']} {info['size']:>5} {info['path']}")
+                output.append(f"{info['mode_str']} {info['size']:>5} {info['path']}")
         else:
-            for p in entries:
-                print(p)
-        return True
+            output = entries
+
+        return self.emit("\n".join(output), capture_output)
 
 
 class PwdCommand(FileCommand):
@@ -51,8 +53,7 @@ class PwdCommand(FileCommand):
     def execute(
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
-        print(self.kernel.shell.cwd)
-        return True
+        return self.emit(self.kernel.shell.cwd, capture_output)
 
 
 class CdCommand(FileCommand):
@@ -66,7 +67,7 @@ class CdCommand(FileCommand):
         if len(parts) < 2:
             print("Usage: cd <path>")
             return False
-        path = self._resolve_path(parts[1], is_dir=True)
+        path = self.resolve_path(parts[1], is_dir=True)
         if not self.kernel.fs.exists(path) or not self.kernel.fs.is_dir(path):
             print(f"{parts[1]}: not found")
             return False
@@ -82,25 +83,10 @@ class CatCommand(FileCommand):
     def execute(
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
-        if len(parts) < 2:
-            if input_data is None:
-                print("Usage: cat <path>")
-                return False
-            content = input_data
-        else:
-            path = self._resolve_path(parts[1])
-            try:
-                content = self.kernel.fs.read(path)
-            except PermissionError as exc:
-                print(str(exc))
-                return False
-            if content is None:
-                print(f"{parts[1]}: not found")
-                return False
-        if capture_output:
-            return content
-        print(content)
-        return True
+        content = self.read_input(parts, input_data)
+        if content is None:
+            return False
+        return self.emit(content, capture_output)
 
 
 class EchoCommand(FileCommand):

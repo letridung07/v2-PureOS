@@ -20,18 +20,18 @@ class HelpCommand(Command):
             seen.add(id(command))
             commands.append(command)
         commands.sort(key=lambda command: command.name)
-        print("Available commands:")
+        out = ["Available commands:"]
         for command in commands:
             alias_text = ""
             if command.aliases:
                 alias_text = f" (aliases: {', '.join(command.aliases)})"
             usage = getattr(command, "usage", command.name) or command.name
             description = getattr(command, "description", "")
-            print(f"  {usage}{alias_text}")
+            out.append(f"  {usage}{alias_text}")
             if description:
-                print(f"    {description}")
-        print("Command chaining: cmd1 ; cmd2 && cmd3 || cmd4")
-        return True
+                out.append(f"    {description}")
+        out.append("Command chaining: cmd1 ; cmd2 && cmd3 || cmd4")
+        return self.emit("\n".join(out), capture_output)
 
 
 class InfoCommand(Command):
@@ -42,11 +42,13 @@ class InfoCommand(Command):
     def execute(
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
-        print("Kernel info:")
-        print(f"FS entries: {len(self.kernel.fs.files)}")
-        print(f"Processes: {len(self.kernel.scheduler.processes)}")
-        print(f"Services: {self.kernel.services.list()}")
-        return True
+        out = (
+            "Kernel info:\n"
+            f"FS entries: {len(self.kernel.fs.files)}\n"
+            f"Processes: {len(self.kernel.scheduler.processes)}\n"
+            f"Services: {self.kernel.services.list()}"
+        )
+        return self.emit(out, capture_output)
 
 
 class ExportCommand(Command):
@@ -59,9 +61,8 @@ class ExportCommand(Command):
     ):
         shell = self.kernel.shell
         if len(parts) == 1:
-            for name, value in shell.env.items():
-                print(f"{name}={value}")
-            return True
+            out = "\n".join(f"{name}={value}" for name, value in shell.env.items())
+            return self.emit(out, capture_output)
         for assignment in parts[1:]:
             if "=" not in assignment:
                 print("Usage: export VAR=value")
@@ -81,9 +82,10 @@ class AliasCommand(Command):
     ):
         shell = self.kernel.shell
         if len(parts) == 1:
-            for name, value in shell.aliases.items():
-                print(f"alias {name}='{value}'")
-            return True
+            out = "\n".join(
+                f"alias {name}='{value}'" for name, value in shell.aliases.items()
+            )
+            return self.emit(out, capture_output)
         if len(parts) < 3:
             print("Usage: alias name command")
             return False
@@ -92,8 +94,7 @@ class AliasCommand(Command):
         if name in shell.registry.commands and name not in shell.aliases:
             print(f"Warning: alias '{name}' overrides existing command")
         shell.aliases[name] = value
-        print(f"Alias {name}='{value}'")
-        return True
+        return self.emit(f"Alias {name}='{value}'", capture_output)
 
 
 class UnaliasCommand(Command):
@@ -133,9 +134,10 @@ class HistoryCommand(Command):
         raw_line=None,
     ):
         shell = self.kernel.shell
-        for index, entry in enumerate(shell.history, 1):
-            print(f"{index}  {entry}")
-        return True
+        out = "\n".join(
+            f"{index}  {entry}" for index, entry in enumerate(shell.history, 1)
+        )
+        return self.emit(out, capture_output)
 
 
 class UptimeCommand(Command):
@@ -157,10 +159,7 @@ class UptimeCommand(Command):
         minutes = (uptime_seconds % 3600) // 60
         seconds = uptime_seconds % 60
         out = f"uptime: {hours:02d}:{minutes:02d}:{seconds:02d} ({uptime_seconds}s)"
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 class DateCommand(Command):
@@ -178,10 +177,7 @@ class DateCommand(Command):
         import time
 
         out = time.strftime("%a %b %d %H:%M:%S %Z %Y")
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 class DfCommand(Command):
@@ -204,10 +200,7 @@ class DfCommand(Command):
             f"Filesystem      Directories       Files        Used (Bytes)\n"
             f"virtualfs       {num_dirs:<17} {num_files:<12} {total_bytes}"
         )
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 class FreeCommand(Command):
@@ -229,10 +222,7 @@ class FreeCommand(Command):
             "0     2048000     6144000\n"
             "Swap:       2048000      512000     1536000"
         )
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 class SleepCommand(Command):
@@ -304,19 +294,13 @@ class WhichCommand(Command):
         # Check aliases first
         if cmd_name in shell.aliases:
             out = f"{cmd_name}: aliased to {shell.aliases[cmd_name]}"
-            if capture_output:
-                return out
-            print(out)
-            return True
+            return self.emit(out, capture_output)
 
         # Check commands registry
         if cmd_name in shell.registry.commands:
             handler = shell.registry.commands[cmd_name]
             out = f"{cmd_name}: shell built-in command ({handler.__class__.__name__})"
-            if capture_output:
-                return out
-            print(out)
-            return True
+            return self.emit(out, capture_output)
 
         out = f"{cmd_name}: not found"
         if capture_output:
@@ -336,11 +320,7 @@ class EnvCommand(Command):
     ):
         shell = self.kernel.shell
         out = "\n".join(f"{name}={value}" for name, value in shell.env.items())
-        if capture_output:
-            return out
-        if out:
-            print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 class ClearCommand(Command):
@@ -383,10 +363,7 @@ class CrontabCommand(Command):
                 return False
             try:
                 content = self.kernel.fs.read(crontab_path)
-                if capture_output:
-                    return content
-                print(content, end="" if content.endswith("\n") else "\n")
-                return True
+                return self.emit(content, capture_output)
             except Exception as exc:
                 print(f"crontab: error reading crontab: {exc}")
                 return False
@@ -436,13 +413,12 @@ class DriverCommand(Command):
 
         if subcommand == "list":
             if not dm.drivers:
-                print("No drivers loaded.")
-                return True
-            print("Loaded drivers:")
+                return self.emit("No drivers loaded.", capture_output)
+            out = ["Loaded drivers:"]
             for name, driver in dm.drivers.items():
                 desc = getattr(driver, "description", "")
-                print(f"  {name} - {desc}")
-            return True
+                out.append(f"  {name} - {desc}")
+            return self.emit("\n".join(out), capture_output)
 
         elif subcommand == "load":
             if len(parts) < 4:
@@ -509,10 +485,11 @@ class SetCommand(Command):
         shell = self.kernel.shell
         if len(parts) == 1:
             # Print current flags
-            for flag, val in shell._flags.items():
-                state = "on" if val else "off"
-                print(f"-{flag}: {state}")
-            return True
+            out = "\n".join(
+                f"-{flag}: {'on' if val else 'off'}"
+                for flag, val in shell._flags.items()
+            )
+            return self.emit(out, capture_output)
         for arg in parts[1:]:
             if arg.startswith("-") and len(arg) == 2 and arg[1].isalpha():
                 shell.set_flag(arg[1], True)
@@ -537,19 +514,11 @@ class JobsCommand(Command):
             p for p in procs if p.status in ("running", "ready", "suspended")
         ]
         if not active_procs:
-            out = "No background jobs."
-            if capture_output:
-                return out
-            print(out)
-            return True
+            return self.emit("No background jobs.", capture_output)
         lines = []
         for proc in active_procs:
             lines.append(f"[{proc.pid}] {proc.status:<12} {proc.name}")
-        out = "\n".join(lines)
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit("\n".join(lines), capture_output)
 
 
 class FgCommand(Command):
@@ -578,7 +547,8 @@ class FgCommand(Command):
         if proc.status == "suspended":
             self.kernel.scheduler.resume(pid)
 
-        print(f"[{pid}] {proc.name}")
+        out = f"[{pid}] {proc.name}"
+        self.emit(out, capture_output)
         proc.thread.join()
         return proc.status != "failed"
 
@@ -601,7 +571,5 @@ class TimeCommand(Command):
         result = self.kernel.shell.execute(cmd_line)
         elapsed = _time.time() - start
         timing = f"\nreal\t{elapsed:.3f}s"
-        if capture_output:
-            return timing
         print(timing)
         return result is not False

@@ -32,10 +32,7 @@ class PsCommand(Command):
                 f"{start_str:<10} {time_str:<8} {p.nice:>4}"
             )
         out = "\n".join(lines)
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 class SpawnCommand(Command):
@@ -211,10 +208,7 @@ class TopCommand(Command):
                 f"{p.pid:<6} {p.nice:>4} {p.status:<12} {time_str:<8} {p.name}"
             )
         out = "\n".join(lines)
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 class ReniceCommand(Command):

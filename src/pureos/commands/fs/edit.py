@@ -13,7 +13,7 @@ class EditCommand(FileCommand):
         if len(parts) < 2:
             print("Usage: edit <path>")
             return False
-        path = self._resolve_path(parts[1])
+        path = self.resolve_path(parts[1])
 
         # Load file content if it exists
         buffer = []

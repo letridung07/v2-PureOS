@@ -37,7 +37,7 @@ class PathResolver:
         return parent + "/"
 
     @staticmethod
-    def ensure_dir_parents(state: FSState, path: str):
+    def ensure_dir_parents(state: FSState, path: str, uid: int = 0, gid: int = 0):
         normalized = PathResolver.normalize_path(path, allow_dir=True)
         if not normalized.endswith("/"):
             normalized = PathResolver.parent_dir(normalized)
@@ -52,6 +52,9 @@ class PathResolver:
                 )
             state.dirs.add(normalized)
             state.modes.setdefault(normalized, 0o755)
+            state.owners.setdefault(normalized, uid)
+            state.groups.setdefault(normalized, gid)
+            state.inodes.setdefault(normalized, state.next_inode())
             if normalized == "/":
                 break
             normalized = PathResolver.parent_dir(normalized)

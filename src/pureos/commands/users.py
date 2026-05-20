@@ -19,13 +19,9 @@ class WhoamiCommand(Command):
         raw_line=None,
     ):
         if not self.kernel.users or not self.kernel.users.current_user:
-            print("root")
-            return True
+            return self.emit("root", capture_output)
         username = self.kernel.users.current_user.username
-        if capture_output:
-            return username
-        print(username)
-        return True
+        return self.emit(username, capture_output)
 
 
 class SuCommand(Command):
@@ -266,10 +262,7 @@ class GroupsCommand(Command):
                 group_names.append(gname)
 
         out = " ".join(group_names)
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 class ChownCommand(Command):
@@ -292,14 +285,13 @@ class ChownCommand(Command):
         path = parts[2]
         users = self.kernel.users
 
-        if not users or (users.current_user and users.current_user.uid != 0):
-            print("chown: Permission denied")
-            return False
-
         owner_uid = None
         if owner.isdigit():
             owner_uid = int(owner)
         else:
+            if not users:
+                print("chown: User database not initialized")
+                return False
             u = users.users.get(owner)
             if u:
                 owner_uid = u.uid
@@ -307,20 +299,12 @@ class ChownCommand(Command):
                 print(f"chown: invalid user: '{owner}'")
                 return False
 
-        resolved_path = self.resolve_path(path, allow_dir=True)
-        if not self.kernel.fs.exists(resolved_path):
-            # Check if directory exists ending in /
-            resolved_path_dir = (
-                resolved_path if resolved_path.endswith("/") else resolved_path + "/"
-            )
-            if not self.kernel.fs.exists(resolved_path_dir):
-                print(f"chown: '{path}': No such file or directory")
-                return False
-            resolved_path = resolved_path_dir
-
-        self.kernel.fs.state.owners[resolved_path] = owner_uid
-        self.kernel.fs.persistence.save_if_needed()
-        return True
+        try:
+            self.kernel.fs.chown(path, owner_uid)
+            return True
+        except (FileNotFoundError, PermissionError) as exc:
+            print(f"chown: {exc}")
+            return False
 
 
 class ChgrpCommand(Command):
@@ -343,23 +327,6 @@ class ChgrpCommand(Command):
         path = parts[2]
         users = self.kernel.users
 
-        resolved_path = self.resolve_path(path, allow_dir=True)
-        if not self.kernel.fs.exists(resolved_path):
-            resolved_path_dir = (
-                resolved_path if resolved_path.endswith("/") else resolved_path + "/"
-            )
-            if not self.kernel.fs.exists(resolved_path_dir):
-                print(f"chgrp: '{path}': No such file or directory")
-                return False
-            resolved_path = resolved_path_dir
-
-        current_user = users.current_user if users else None
-        file_owner = self.kernel.fs.state.owners.get(resolved_path, 0)
-
-        if current_user and current_user.uid != 0 and current_user.uid != file_owner:
-            print("chgrp: Permission denied")
-            return False
-
         group_gid = None
         if group.isdigit():
             group_gid = int(group)
@@ -369,14 +336,12 @@ class ChgrpCommand(Command):
                 return False
             group_gid = users.groups[group]
 
-        if current_user and current_user.uid != 0:
-            if group_gid not in current_user.gids:
-                print("chgrp: Permission denied")
-                return False
-
-        self.kernel.fs.state.groups[resolved_path] = group_gid
-        self.kernel.fs.persistence.save_if_needed()
-        return True
+        try:
+            self.kernel.fs.chgrp(path, group_gid)
+            return True
+        except (FileNotFoundError, PermissionError) as exc:
+            print(f"chgrp: {exc}")
+            return False
 
 
 class SudoCommand(Command):
@@ -538,10 +503,7 @@ class LastCommand(Command):
     ):
         if not self.kernel.fs.exists("/var/log/lastlog"):
             out = "lastlog: no login records found"
-            if capture_output:
-                return out
-            print(out)
-            return True
+            return self.emit(out, capture_output)
 
         content = self.kernel.fs.read("/var/log/lastlog") or ""
         filter_user = parts[1] if len(parts) > 1 else None
@@ -569,7 +531,4 @@ class LastCommand(Command):
             lines.append(f"wtmp begins {lines[0].split()[-1] if lines else 'unknown'}")
             out = "\n".join(lines)
 
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)

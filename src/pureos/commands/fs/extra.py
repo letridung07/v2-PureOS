@@ -23,11 +23,11 @@ class HeadTailCommand(FileCommand):
                 print("Usage: head|tail [-n N] [path]")
                 return False
             if len(parts) > 3:
-                path = self._resolve_path(parts[3])
+                path = self.resolve_path(parts[3])
             else:
                 path = None
         elif len(parts) > 1:
-            path = self._resolve_path(parts[1])
+            path = self.resolve_path(parts[1])
             if len(parts) > 2:
                 try:
                     n = int(parts[2])
@@ -53,11 +53,7 @@ class HeadTailCommand(FileCommand):
                 return False
         sel = lines[:n] if cmd == "head" else lines[-n:]
         output = "\n".join(sel)
-        if capture_output:
-            return output
-        if output:
-            print(output)
-        return True
+        return self.emit(output, capture_output)
 
 
 class StatCommand(FileCommand):
@@ -71,7 +67,7 @@ class StatCommand(FileCommand):
         if len(parts) < 2:
             print("Usage: stat <path>")
             return False
-        path = self._resolve_path(parts[1], allow_dir=True)
+        path = self.resolve_path(parts[1], allow_dir=True)
         info = self.kernel.fs.stat(path)
         if info is None:
             print(f"{parts[1]}: not found")
@@ -85,10 +81,7 @@ class StatCommand(FileCommand):
                 out_lines.append(f"{k}: {v}")
 
         out = "\n".join(out_lines)
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 class SourceCommand(FileCommand):
@@ -102,7 +95,7 @@ class SourceCommand(FileCommand):
         if len(parts) < 2:
             print("Usage: source <path>")
             return False
-        path = self._resolve_path(parts[1])
+        path = self.resolve_path(parts[1])
         content = self.kernel.fs.read(path)
         if content is None:
             print(f"{parts[1]}: not found")

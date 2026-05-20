@@ -1,4 +1,5 @@
 from typing import List
+from pureos.utils import format_size
 from .base import FileCommand
 
 
@@ -13,7 +14,7 @@ class WriteCommand(FileCommand):
         if len(parts) < 3:
             print("Usage: write <path> <content>")
             return False
-        path = self._resolve_path(parts[1])
+        path = self.resolve_path(parts[1])
         content = " ".join(parts[2:])
         try:
             self.kernel.fs.write(path, content)
@@ -35,7 +36,7 @@ class AppendCommand(FileCommand):
         if len(parts) < 3:
             print("Usage: append <path> <content>")
             return False
-        path = self._resolve_path(parts[1])
+        path = self.resolve_path(parts[1])
         content = " ".join(parts[2:])
         try:
             self.kernel.fs.append(path, content)
@@ -57,7 +58,7 @@ class MkdirCommand(FileCommand):
         if len(parts) < 2:
             print("Usage: mkdir <path>")
             return False
-        dirpath = self._resolve_path(parts[1], is_dir=True)
+        dirpath = self.resolve_path(parts[1], is_dir=True)
         try:
             self.kernel.fs.mkdir(dirpath)
             print(f"Created directory {parts[1]}")
@@ -78,7 +79,7 @@ class TouchCommand(FileCommand):
         if len(parts) < 2:
             print("Usage: touch <path>")
             return False
-        path = self._resolve_path(parts[1])
+        path = self.resolve_path(parts[1])
         if not self.kernel.fs.exists(path):
             try:
                 self.kernel.fs.write(path, "")
@@ -102,7 +103,7 @@ class RmCommand(FileCommand):
         if len(parts) < 2:
             print("Usage: rm <path>")
             return False
-        path = self._resolve_path(parts[1], allow_dir=True)
+        path = self.resolve_path(parts[1], allow_dir=True)
         if self.kernel.fs.exists(path):
             try:
                 self.kernel.fs.delete(path)
@@ -126,7 +127,7 @@ class RmdirCommand(FileCommand):
         if len(parts) < 2:
             print("Usage: rmdir <path>")
             return False
-        path = self._resolve_path(parts[1], is_dir=True)
+        path = self.resolve_path(parts[1], is_dir=True)
         if path == "/":
             print("Cannot remove root directory")
             return False
@@ -156,8 +157,8 @@ class MvCommand(FileCommand):
         if len(parts) < 3:
             print("Usage: mv <src> <dst>")
             return False
-        src = self._resolve_path(parts[1], allow_dir=True)
-        dst = self._resolve_path(parts[2], allow_dir=True)
+        src = self.resolve_path(parts[1], allow_dir=True)
+        dst = self.resolve_path(parts[2], allow_dir=True)
         if not self.kernel.fs.exists(src):
             print(f"{parts[1]}: not found")
             return False
@@ -181,8 +182,8 @@ class CpCommand(FileCommand):
         if len(parts) < 3:
             print("Usage: cp <src> <dst>")
             return False
-        src = self._resolve_path(parts[1], allow_dir=True)
-        dst = self._resolve_path(parts[2], allow_dir=True)
+        src = self.resolve_path(parts[1], allow_dir=True)
+        dst = self.resolve_path(parts[2], allow_dir=True)
         if not self.kernel.fs.exists(src):
             print(f"{parts[1]}: not found")
             return False
@@ -211,7 +212,7 @@ class ChmodCommand(FileCommand):
         except ValueError:
             print("Usage: chmod <mode> <path>")
             return False
-        path = self._resolve_path(parts[2], allow_dir=True)
+        path = self.resolve_path(parts[2], allow_dir=True)
         try:
             self.kernel.fs.chmod(path, mode)
             print(f"Mode set to {oct(mode)} for {parts[2]}")
@@ -238,35 +239,17 @@ class LnCommand(FileCommand):
             print("Usage: ln [-s] <target> <link>")
             return False
         target = args[0]
-        link_path = self._resolve_path(args[1])
+        link_path = args[1]
 
-        if symbolic:
-            try:
+        try:
+            if symbolic:
                 self.kernel.fs.symlink(target, link_path)
-                print(f"Symlink created: {args[1]} -> {target}")
-                return True
-            except (FileExistsError, PermissionError) as exc:
-                print(str(exc))
-                return False
-        else:
-            # Hard link: copy inode (same content pointer)
-            target_resolved = self._resolve_path(target)
-            if not self.kernel.fs.is_file(target_resolved):
-                print(f"ln: {target}: not a file or not found")
-                return False
-            if self.kernel.fs.exists(link_path):
-                print(f"ln: failed to create hard link '{args[1]}': File exists")
-                return False
-            try:
-                target_inode = self.kernel.fs.state.inodes.get(target_resolved, 0)
-                self.kernel.fs.write(link_path, self.kernel.fs.read(target_resolved))
-                # Share the same inode number to simulate hard link
-                self.kernel.fs.state.inodes[link_path] = target_inode
-                print(f"Hard link created: {args[1]} -> {target}")
-                return True
-            except (PermissionError, ValueError) as exc:
-                print(str(exc))
-                return False
+            else:
+                self.kernel.fs.link(target, link_path)
+            return True
+        except (ValueError, FileNotFoundError, FileExistsError, PermissionError) as exc:
+            print(f"ln: {exc}")
+            return False
 
 
 class ReadlinkCommand(FileCommand):
@@ -280,15 +263,12 @@ class ReadlinkCommand(FileCommand):
         if len(parts) < 2:
             print("Usage: readlink <path>")
             return False
-        path = self._resolve_path(parts[1])
+        path = self.resolve_path(parts[1])
         target = self.kernel.fs.readlink(path)
         if target is None:
             print(f"readlink: {parts[1]}: not a symbolic link")
             return False
-        if capture_output:
-            return target
-        print(target)
-        return True
+        return self.emit(target, capture_output)
 
 
 class DuCommand(FileCommand):
@@ -301,7 +281,7 @@ class DuCommand(FileCommand):
     ):
         human = "-h" in parts
         args = [p for p in parts[1:] if not p.startswith("-")]
-        path = self._resolve_path(args[0]) if args else self.kernel.shell.cwd
+        path = self.resolve_path(args[0]) if args else self.kernel.shell.cwd
 
         if not self.kernel.fs.exists(path):
             print(f"du: {parts[1] if len(parts) > 1 else path}: not found")
@@ -320,25 +300,13 @@ class DuCommand(FileCommand):
                     size = len(content)
                     total += size
             lines.append(
-                self._format_size(total, human) + "\t" + (args[0] if args else path)
+                format_size(total, human) + "\t" + (args[0] if args else path)
             )
         else:
             total = self.kernel.fs.du(path)
             lines.append(
-                self._format_size(total, human) + "\t" + (args[0] if args else path)
+                format_size(total, human) + "\t" + (args[0] if args else path)
             )
 
         out = "\n".join(lines)
-        if capture_output:
-            return out
-        print(out)
-        return True
-
-    def _format_size(self, size: int, human: bool) -> str:
-        if not human:
-            return str(size)
-        for unit in ["B", "K", "M", "G", "T"]:
-            if size < 1024:
-                return f"{size:.0f}{unit}"
-            size /= 1024
-        return f"{size:.0f}P"
+        return self.emit(out, capture_output)

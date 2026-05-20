@@ -79,12 +79,12 @@ class TarCommand(FileCommand):
             return False
 
         # Resolve archive file path before changing CWD
-        options["file"] = self._resolve_path(options["file"])
+        options["file"] = self.resolve_path(options["file"])
 
         old_cwd = self.kernel.shell.cwd
         try:
             if options["directory"]:
-                target_dir = self._resolve_path(options["directory"], allow_dir=True)
+                target_dir = self.resolve_path(options["directory"], allow_dir=True)
                 if not self.kernel.fs.exists(target_dir) or not self.kernel.fs.is_dir(
                     target_dir
                 ):
@@ -145,7 +145,7 @@ class TarCommand(FileCommand):
         try:
             with tarfile.open(fileobj=bio, mode=mode) as tar:
                 for path in paths:
-                    abs_path = self._resolve_path(path, allow_dir=True)
+                    abs_path = self.resolve_path(path, allow_dir=True)
                     if not self.kernel.fs.exists(abs_path):
                         print(f"tar: {path}: No such file or directory")
                         return False
@@ -160,7 +160,7 @@ class TarCommand(FileCommand):
             print(f"tar: failed to create archive: {exc}")
             return False
 
-        archive_path = self._resolve_path(options["file"])
+        archive_path = self.resolve_path(options["file"])
         try:
             archive_data = bio.getvalue().decode("latin-1")
             self.kernel.fs.write(archive_path, archive_data)
@@ -171,7 +171,7 @@ class TarCommand(FileCommand):
         return True
 
     def _list_archive(self, options):
-        archive_path = self._resolve_path(options["file"])
+        archive_path = self.resolve_path(options["file"])
         if not self.kernel.fs.exists(archive_path):
             print(f"tar: {options['file']}: No such file or directory")
             return False
@@ -192,7 +192,7 @@ class TarCommand(FileCommand):
         return True
 
     def _extract_archive(self, options):
-        archive_path = self._resolve_path(options["file"])
+        archive_path = self.resolve_path(options["file"])
         if not self.kernel.fs.exists(archive_path):
             print(f"tar: {options['file']}: No such file or directory")
             return False
@@ -206,13 +206,16 @@ class TarCommand(FileCommand):
                     # Strip leading slashes to prevent arbitrary path write/traversal
                     name = member.name.lstrip("/")
                     # Resolve destination relative to CWD
-                    dst_path = self._resolve_path(name, allow_dir=member.isdir())
+                    dst_path = self.resolve_path(name, allow_dir=member.isdir())
 
                     if member.isdir():
                         self.kernel.fs.mkdir(dst_path, parents=True)
                         self.kernel.fs.chmod(dst_path, member.mode)
-                        self.kernel.fs.state.owners[dst_path] = member.uid
-                        self.kernel.fs.state.groups[dst_path] = member.gid
+                        try:
+                            self.kernel.fs.chown(dst_path, member.uid)
+                            self.kernel.fs.chgrp(dst_path, member.gid)
+                        except PermissionError:
+                            pass
                         if options["verbose"]:
                             print(name + "/")
                     else:
@@ -222,8 +225,11 @@ class TarCommand(FileCommand):
                             content = content_bytes.decode("latin-1")
                             self.kernel.fs.write(dst_path, content)
                             self.kernel.fs.chmod(dst_path, member.mode)
-                            self.kernel.fs.state.owners[dst_path] = member.uid
-                            self.kernel.fs.state.groups[dst_path] = member.gid
+                            try:
+                                self.kernel.fs.chown(dst_path, member.uid)
+                                self.kernel.fs.chgrp(dst_path, member.gid)
+                            except PermissionError:
+                                pass
                             if options["verbose"]:
                                 print(name)
         except Exception as exc:

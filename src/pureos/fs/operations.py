@@ -26,6 +26,15 @@ class FSOperations:
                 return user.uid, user.gid
         return 0, 0
 
+    def _set_default_metadata(
+        self, path: str, uid: int, gid: int, mode: Optional[int] = None
+    ):
+        self.state.owners.setdefault(path, uid)
+        self.state.groups.setdefault(path, gid)
+        if mode is not None:
+            self.state.modes.setdefault(path, mode)
+        self.state.inodes.setdefault(path, self.state.next_inode())
+
     def format(self):
         """Reset filesystem to initial state."""
         self.state.files.clear()
@@ -83,20 +92,11 @@ class FSOperations:
         if path in self.state.files:
             raise ValueError(f"Cannot create directory, a file exists at {path}")
         self.permissions.ensure_parent_writable(path)
-        if parents:
-            PathResolver.ensure_dir_parents(self.state, path)
-        self.state.dirs.add(path)
-        self.state.modes.setdefault(path, 0o755)
-        self.state.inodes.setdefault(path, self.state.next_inode())
-
         uid, gid = self._get_active_context()
-        self.state.owners.setdefault(path, uid)
-        self.state.groups.setdefault(path, gid)
-        for d in self.state.dirs:
-            self.state.owners.setdefault(d, uid)
-            self.state.groups.setdefault(d, gid)
-            self.state.inodes.setdefault(d, self.state.next_inode())
-
+        if parents:
+            PathResolver.ensure_dir_parents(self.state, path, uid, gid)
+        self.state.dirs.add(path)
+        self._set_default_metadata(path, uid, gid, 0o755)
         self.persistence.save_if_needed()
 
     def write(self, path: str, content: str):
@@ -111,7 +111,9 @@ class FSOperations:
             self.permissions.ensure_writable_file(normalized)
         else:
             self.permissions.ensure_parent_writable(normalized)
-        PathResolver.ensure_dir_parents(self.state, normalized)
+
+        uid, gid = self._get_active_context()
+        PathResolver.ensure_dir_parents(self.state, normalized, uid, gid)
 
         inode = self.state.inodes.get(normalized)
         if inode is None:
@@ -123,14 +125,7 @@ class FSOperations:
                 self.state.files[p] = content
                 self.state.modes.setdefault(p, 0o644)
 
-        uid, gid = self._get_active_context()
-        self.state.owners.setdefault(normalized, uid)
-        self.state.groups.setdefault(normalized, gid)
-        for d in self.state.dirs:
-            self.state.owners.setdefault(d, uid)
-            self.state.groups.setdefault(d, gid)
-            self.state.inodes.setdefault(d, self.state.next_inode())
-
+        self._set_default_metadata(normalized, uid, gid, 0o644)
         self.persistence.save_if_needed()
 
     def append(self, path: str, content: str):
@@ -145,7 +140,9 @@ class FSOperations:
             self.permissions.ensure_writable_file(normalized)
         else:
             self.permissions.ensure_parent_writable(normalized)
-        PathResolver.ensure_dir_parents(self.state, normalized)
+
+        uid, gid = self._get_active_context()
+        PathResolver.ensure_dir_parents(self.state, normalized, uid, gid)
 
         inode = self.state.inodes.get(normalized)
         if inode is None:
@@ -159,14 +156,7 @@ class FSOperations:
                 self.state.files[p] = new_content
                 self.state.modes.setdefault(p, 0o644)
 
-        uid, gid = self._get_active_context()
-        self.state.owners.setdefault(normalized, uid)
-        self.state.groups.setdefault(normalized, gid)
-        for d in self.state.dirs:
-            self.state.owners.setdefault(d, uid)
-            self.state.groups.setdefault(d, gid)
-            self.state.inodes.setdefault(d, self.state.next_inode())
-
+        self._set_default_metadata(normalized, uid, gid, 0o644)
         self.persistence.save_if_needed()
 
     def read(self, path: str) -> Optional[str]:
@@ -321,6 +311,49 @@ class FSOperations:
             self.persistence.save_if_needed()
             return
         raise FileNotFoundError(path)
+
+    def chown(self, path: str, uid: int):
+        normalized = PathResolver.normalize_path(path, allow_dir=True)
+        # Handle directory normalization
+        if not self.exists(normalized) and not self.exists(normalized + "/"):
+            raise FileNotFoundError(f"No such file or directory: '{path}'")
+        if not self.exists(normalized) and self.exists(normalized + "/"):
+            normalized += "/"
+
+        # Only root can change owner
+        current_uid, _ = self._get_active_context()
+        if current_uid != 0:
+            raise PermissionError("Permission denied")
+
+        self.state.owners[normalized] = uid
+        self.persistence.save_if_needed()
+
+    def chgrp(self, path: str, gid: int):
+        normalized = PathResolver.normalize_path(path, allow_dir=True)
+        if not self.exists(normalized) and not self.exists(normalized + "/"):
+            raise FileNotFoundError(f"No such file or directory: '{path}'")
+        if not self.exists(normalized) and self.exists(normalized + "/"):
+            normalized += "/"
+
+        # Check permissions: only root or owner can change group
+        # and if owner, must be a member of the target group
+        uid, active_gid = self._get_active_context()
+        owner = self.state.owners.get(normalized, 0)
+        if uid != 0:
+            if uid != owner:
+                raise PermissionError("Permission denied")
+            # If owner but not root, check if gid is in user's groups
+            if (
+                self.permissions.kernel
+                and hasattr(self.permissions.kernel, "users")
+                and self.permissions.kernel.users
+            ):
+                user = self.permissions.kernel.users.current_user
+                if user and gid not in user.gids:
+                    raise PermissionError("Permission denied")
+
+        self.state.groups[normalized] = gid
+        self.persistence.save_if_needed()
 
     def delete(self, path: str):
         normalized = PathResolver.normalize_path(path, allow_dir=True)
@@ -494,6 +527,36 @@ class FSOperations:
     # ------------------------------------------------------------------
     # Symlink support
     # ------------------------------------------------------------------
+
+    def link(self, target: str, link_path: str):
+        """Create a hard link at link_path pointing to target's inode."""
+        target_resolved = PathResolver.normalize_path(target, allow_dir=True)
+        link_path_resolved = PathResolver.normalize_path(link_path)
+
+        if not self.exists(target_resolved):
+            raise FileNotFoundError(f"No such file or directory: '{target}'")
+        if self.is_dir(target_resolved):
+            raise ValueError("Hard links to directories are not allowed")
+        if self.exists(link_path_resolved):
+            raise FileExistsError(f"File already exists: '{link_path}'")
+
+        self.permissions.ensure_parent_writable(link_path_resolved)
+        uid, gid = self._get_active_context()
+        PathResolver.ensure_dir_parents(self.state, link_path_resolved, uid, gid)
+
+        target_inode = self.state.inodes.get(target_resolved)
+        if target_inode is None:
+            target_inode = self.state.next_inode()
+            self.state.inodes[target_resolved] = target_inode
+
+        self.state.files[link_path_resolved] = self.state.files[target_resolved]
+        self.state.modes[link_path_resolved] = self.state.modes.get(
+            target_resolved, 0o644
+        )
+        self.state.inodes[link_path_resolved] = target_inode
+        self.state.owners[link_path_resolved] = self.state.owners.get(target_resolved, uid)
+        self.state.groups[link_path_resolved] = self.state.groups.get(target_resolved, gid)
+        self.persistence.save_if_needed()
 
     def symlink(self, target: str, link_path: str):
         """Create a symbolic link at link_path pointing to target."""

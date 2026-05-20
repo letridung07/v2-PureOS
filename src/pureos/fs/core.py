@@ -82,6 +82,12 @@ class VirtualFS:
     def chmod(self, path: str, mode: int):
         self.operations.chmod(path, mode)
 
+    def chown(self, path: str, uid: int):
+        self.operations.chown(path, uid)
+
+    def chgrp(self, path: str, gid: int):
+        self.operations.chgrp(path, gid)
+
     def delete(self, path: str):
         self.operations.delete(path)
 
@@ -93,6 +99,9 @@ class VirtualFS:
 
     def symlink(self, target: str, link_path: str):
         self.operations.symlink(target, link_path)
+
+    def link(self, target: str, link_path: str):
+        self.operations.link(target, link_path)
 
     def readlink(self, path: str):
         return self.operations.readlink(path)

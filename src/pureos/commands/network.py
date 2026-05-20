@@ -5,16 +5,7 @@ import urllib.request
 from typing import List
 
 from ..network import resolve_host
-from .base import Command
-
-
-class PureOSArgumentParser(argparse.ArgumentParser):
-    def error(self, message):
-        raise ValueError(message)
-
-    def exit(self, status=0, message=None):
-        if message:
-            raise ValueError(message)
+from .base import Command, PureOSArgumentParser
 
 
 class NetcatCommand(Command):
@@ -53,10 +44,7 @@ class NetcatCommand(Command):
             s.sendall(msg.encode("utf-8"))
             response = s.recv(4096).decode("utf-8")
             s.close()
-            if capture_output:
-                return response
-            print(response)
-            return True
+            return self.emit(response, capture_output)
         except Exception as exc:
             print(f"Connection failed: {exc}")
             return False
@@ -92,29 +80,19 @@ class PingCommand(Command):
                 s = socket.create_connection((resolved_host, port), timeout=2)
                 s.close()
                 out = f"Ping successful: host {host} port {port} is open"
-                if capture_output:
-                    return out
-                print(out)
-                return True
+                return self.emit(out, capture_output)
             except Exception as exc:
                 out = f"Ping failed: cannot connect to {host}:{port} ({exc})"
-                if capture_output:
-                    return out
-                print(out)
+                self.emit(out, capture_output)
                 return False
         else:
             try:
                 ip = resolve_host(self.kernel.fs, host)
                 out = f"Ping successful: host {host} resolved to {ip}"
-                if capture_output:
-                    return out
-                print(out)
-                return True
+                return self.emit(out, capture_output)
             except Exception as exc:
                 out = f"Ping failed: cannot resolve host {host} ({exc})"
-                if capture_output:
-                    return out
-                print(out)
+                self.emit(out, capture_output)
                 return False
 
 
@@ -137,10 +115,7 @@ class IfconfigCommand(Command):
             "     inet 192.168.1.105 netmask 0xffffff00 broadcast 192.168.1.255\n"
             "     ether 00:1a:2b:3c:4d:5e"
         )
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 class CurlCommand(Command):
@@ -167,10 +142,7 @@ class CurlCommand(Command):
                 "  -d, --data <data>      HTTP POST data\n"
                 "  -s, --silent           Silent mode"
             )
-            if capture_output:
-                return help_text
-            print(help_text)
-            return True
+            return self.emit(help_text, capture_output)
 
         parser = PureOSArgumentParser(prog="curl", add_help=False)
         parser.add_argument("url", nargs="?", default=None)
@@ -269,10 +241,7 @@ class CurlCommand(Command):
                 self.kernel.fs.write(out_path, output_str)
                 return True
             else:
-                if capture_output:
-                    return output_str
-                print(output_str)
-                return True
+                return self.emit(output_str, capture_output)
 
         except Exception as e:
             if not args.silent:
@@ -299,10 +268,7 @@ class WgetCommand(Command):
                 "  -O, --output-document <file>  Write documents to <file>\n"
                 "  -q, --quiet                   Quiet mode (no output)"
             )
-            if capture_output:
-                return help_text
-            print(help_text)
-            return True
+            return self.emit(help_text, capture_output)
 
         parser = PureOSArgumentParser(prog="wget", add_help=False)
         parser.add_argument("url", nargs="?", default=None)
@@ -420,10 +386,7 @@ class HostCommand(Command):
         try:
             ip = resolve_host(self.kernel.fs, domain)
             out = f"{domain} has address {ip}"
-            if capture_output:
-                return out
-            print(out)
-            return True
+            return self.emit(out, capture_output)
         except Exception as exc:
             out = f"host: {domain}: {exc}"
             if capture_output:
@@ -467,10 +430,7 @@ class NslookupCommand(Command):
                 f"Address: {ip}",
             ]
             out = "\n".join(out_lines)
-            if capture_output:
-                return out
-            print(out)
-            return True
+            return self.emit(out, capture_output)
         except Exception as exc:
             out = f"nslookup: can't resolve '{domain}': {exc}"
             if capture_output:
@@ -535,10 +495,7 @@ class IpCommand(Command):
             print(f"ip: unknown object '{sub}'")
             return False
 
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 # ---------------------------------------------------------------------------
@@ -565,13 +522,10 @@ class SsCommand(Command):
             "tcp    LISTEN     0       128     0.0.0.0:22           0.0.0.0:*",
             "tcp    LISTEN     0       128     127.0.0.1:6379       0.0.0.0:*",
             "tcp    ESTAB      0       0       192.168.1.105:22     192.168.1.10:54321",
-            "udp    UNCONN     0       0       0.0.0.0:68           0.0.0.0:*",
+            "udp    UNCONN     0       0       0.0.0.0:68           0.0.0.0:*"
         ]
         out = "\n".join(out_lines)
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
 
 
 # ---------------------------------------------------------------------------
@@ -621,7 +575,4 @@ class TracerouteCommand(Command):
                 f" {i:2}  {hop}  {rtt1:.3f} ms  {rtt2:.3f} ms  {rtt3:.3f} ms"
             )
         out = "\n".join(out_lines)
-        if capture_output:
-            return out
-        print(out)
-        return True
+        return self.emit(out, capture_output)
