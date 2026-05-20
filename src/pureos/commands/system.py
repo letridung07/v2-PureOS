@@ -460,7 +460,9 @@ class JobsCommand(Command):
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
         procs = self.kernel.scheduler.list()
-        active_procs = [p for p in procs if p.status in ("running", "ready", "suspended")]
+        active_procs = [
+            p for p in procs if p.status in ("running", "ready", "suspended")
+        ]
         if not active_procs:
             out = "No background jobs."
             if capture_output:

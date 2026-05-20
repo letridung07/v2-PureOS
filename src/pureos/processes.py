@@ -137,7 +137,7 @@ class Scheduler:
         p = self.processes.get(pid)
         if not p:
             return False
-        
+
         # If suspended, we MUST resume it so it can process the stop_event
         if p.status == "suspended":
             self.resume(pid)
@@ -146,11 +146,11 @@ class Scheduler:
             p.status = "killed"
             p.exit_code = 1
             p.exit_reason = f"killed (signal {signal})"
-        
+
         event = self._stop_events.get(pid)
         if event:
             event.set()
-            
+
         thread = self._threads.get(pid)
         if thread and thread.is_alive():
             timeout = 0.0 if signal == 9 else 1.0
