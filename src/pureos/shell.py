@@ -124,13 +124,18 @@ class Shell:
             next_conditional = separator
         return success
 
-    def _execute_pipeline(self, line: str):
+    def _execute_pipeline(self, line: str, stop_event=None, resume_event=None):
         line = self._substitute_env_vars(line)
         stages = split_pipeline(line)
         if not stages:
             return None
         input_data = None
         for index, stage in enumerate(stages):
+            if resume_event:
+                resume_event.wait()
+            if stop_event and stop_event.is_set():
+                return False
+
             stage, redirect_op, redirect_target, input_op, input_target = (
                 split_redirection(stage)
             )
@@ -271,8 +276,8 @@ class Shell:
         subshell.env = self.env.copy()
         subshell.aliases = self.aliases.copy()
 
-        def job_runner(stop_event=None):
-            subshell._execute_pipeline(command)
+        def job_runner(stop_event=None, resume_event=None):
+            subshell._execute_pipeline(command, stop_event=stop_event, resume_event=resume_event)
 
         p = self.kernel.scheduler.spawn(command, target_func=job_runner)
         print(f"[{p.pid}] running: {command}")

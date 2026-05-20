@@ -256,10 +256,12 @@ class SleepCommand(Command):
 
         current_name = threading.current_thread().name
         stop_event = None
+        resume_event = None
         if current_name.startswith("process-"):
             try:
                 pid = int(current_name.split("-")[1])
                 stop_event = self.kernel.scheduler._stop_events.get(pid)
+                resume_event = self.kernel.scheduler._resume_events.get(pid)
             except (ValueError, IndexError):
                 pass
 
@@ -267,6 +269,19 @@ class SleepCommand(Command):
         while time.time() - start < seconds:
             if stop_event and stop_event.is_set():
                 break
+            
+            # Suspension support
+            proc = None
+            if current_name.startswith("process-"):
+                try:
+                    pid = int(current_name.split("-")[1])
+                    proc = self.kernel.scheduler.status(pid)
+                except:
+                    pass
+            
+            if proc and proc.status == "suspended" and resume_event:
+                resume_event.wait()
+                
             time.sleep(0.05)
         return True
 
