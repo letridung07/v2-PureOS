@@ -383,6 +383,16 @@ class TestSudoCommand:
             assert res.strip() == "root"
             assert kernel.users.current_user.username == "alice"
 
+    def test_sudo_permission_elevation_for_commands(self, kernel, shell):
+        kernel.users.su("guest")
+        res = run(shell, "useradd bob", capture=False)
+        assert res is False
+        assert "bob" not in kernel.users.users
+
+        res = run(shell, "sudo useradd bob", capture=False)
+        assert res is True
+        assert "bob" in kernel.users.users
+
     def test_sudo_syntax_error(self, kernel, shell):
         kernel.users.su("root")
         res = run(shell, "sudo", capture=False)
