@@ -1,5 +1,4 @@
 import urllib.request
-import re
 from .base import Command
 
 

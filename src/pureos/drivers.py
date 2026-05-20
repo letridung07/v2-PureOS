@@ -1,5 +1,5 @@
 import threading
-from abc import ABC, abstractmethod
+from abc import ABC
 import logging
 from typing import Dict, Optional, Type
 

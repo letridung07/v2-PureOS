@@ -21,10 +21,10 @@ class Kernel:
         self.logger = logging.getLogger("pureos")
         self.users = None
         self.fs = VirtualFS(backing_path=self.config.fs_backing, kernel=self)
-        
+
         # Register VFS Importer early
         self.importer = VFSImporter.register(self.fs)
-        
+
         from .users import UserDB
 
         self.users = UserDB(self)
@@ -63,7 +63,7 @@ class Kernel:
         run_boot_sequence(self)
         if self.users:
             self.users.initialize()
-        
+
         print("Kernel: starting drivers...")
         self.drivers.start_all()
 
@@ -96,8 +96,8 @@ class Kernel:
         self.scheduler.kill_all()
         if hasattr(self.scheduler, "wait_all"):
             self.scheduler.wait_all()
-        
+
         # Unregister VFS Importer
         VFSImporter.unregister(self.fs)
-        
+
         print("Kernel: shutdown complete")

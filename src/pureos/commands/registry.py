@@ -2,9 +2,6 @@ import importlib
 import inspect
 import pkgutil
 import threading
-import json
-import re
-import math
 import sys
 import traceback
 from typing import Dict, List, Optional, Sequence, Union, Set
@@ -45,16 +42,18 @@ class CommandRegistry:
                 # Determine the module name based on file path
                 # e.g. /usr/lib/pureos/packages/mycmd.py -> pureos_vfs.packages.mycmd
                 if file_path.startswith("/usr/lib/pureos/packages/"):
-                    rel_path = file_path[len("/usr/lib/pureos/packages/"):]
+                    rel_path = file_path[len("/usr/lib/pureos/packages/") :]
                     mod_name = rel_path.replace(".py", "").replace("/", ".")
                     fullname = f"pureos_vfs.packages.{mod_name}"
                 elif file_path.startswith("/usr/lib/python/"):
-                    rel_path = file_path[len("/usr/lib/python/"):]
+                    rel_path = file_path[len("/usr/lib/python/") :]
                     mod_name = rel_path.replace(".py", "").replace("/", ".")
                     fullname = f"pureos_vfs.{mod_name}"
                 else:
                     # Fallback or error
-                    print(f"Error: file {file_path} is not in a supported VFS import path.")
+                    print(
+                        f"Error: file {file_path} is not in a supported VFS import path."
+                    )
                     return False
 
                 # Force reload if already in sys.modules
@@ -117,12 +116,12 @@ class CommandRegistry:
             source_info = self.vfs_source_map[file_path]
             for name in source_info["commands"]:
                 self._pop_from_stack(name, file_path)
-            
+
             # Clean up sys.modules
             fullname = source_info.get("module")
             if fullname and fullname in sys.modules:
                 del sys.modules[fullname]
-                
+
             del self.vfs_source_map[file_path]
 
     def _push_to_stack(self, name: str, owner: Optional[str], instance: Command):

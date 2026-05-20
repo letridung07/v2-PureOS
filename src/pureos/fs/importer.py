@@ -1,8 +1,6 @@
 import sys
 import importlib.abc
 import importlib.util
-import types
-from typing import Optional
 
 
 class VFSImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
@@ -25,9 +23,7 @@ class VFSImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
     def find_spec(self, fullname, path, target=None):
         if fullname == self.prefix:
-            return importlib.util.spec_from_loader(
-                fullname, self, is_package=True
-            )
+            return importlib.util.spec_from_loader(fullname, self, is_package=True)
 
         if not fullname.startswith(self.prefix + "."):
             return None
@@ -37,29 +33,21 @@ class VFSImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         # Check for package (directory with __init__.py)
         init_path = vfs_path + "/__init__.py"
         if self.fs.exists(init_path):
-            return importlib.util.spec_from_loader(
-                fullname, self, is_package=True
-            )
+            return importlib.util.spec_from_loader(fullname, self, is_package=True)
 
         # Check for single file module
         file_path = vfs_path + ".py"
         if self.fs.exists(file_path):
-            return importlib.util.spec_from_loader(
-                fullname, self, is_package=False
-            )
+            return importlib.util.spec_from_loader(fullname, self, is_package=False)
 
         # Check for directory without __init__.py (treat as namespace package)
         if self.fs.exists(vfs_path) and self.fs.is_dir(vfs_path):
-            return importlib.util.spec_from_loader(
-                fullname, self, is_package=True
-            )
+            return importlib.util.spec_from_loader(fullname, self, is_package=True)
 
         # Special case for 'pureos_vfs.packages' if it's being requested but doesn't exist yet
         # (It will be created when we try to list or write to it, but the importer might be called first)
         if fullname == self.prefix + ".packages":
-             return importlib.util.spec_from_loader(
-                fullname, self, is_package=True
-            )
+            return importlib.util.spec_from_loader(fullname, self, is_package=True)
 
         return None
 
@@ -89,7 +77,7 @@ class VFSImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         import json
         import re
         import math
-        
+
         module.__dict__.setdefault("Command", Command)
         module.__dict__.setdefault("json", json)
         module.__dict__.setdefault("re", re)
@@ -106,7 +94,7 @@ class VFSImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         for importer in sys.meta_path:
             if isinstance(importer, cls) and importer.fs == fs:
                 return importer
-        
+
         importer = cls(fs)
         sys.meta_path.insert(0, importer)
         return importer
@@ -117,6 +105,6 @@ class VFSImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         for importer in sys.meta_path:
             if isinstance(importer, cls) and importer.fs == fs:
                 to_remove.append(importer)
-        
+
         for importer in to_remove:
             sys.meta_path.remove(importer)

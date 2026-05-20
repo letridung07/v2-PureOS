@@ -4,7 +4,6 @@ from typing import List
 
 from .base import Command
 
-
 _RULES_PATH = "/etc/iptables/rules"
 _DEFAULT_TABLE = "filter"
 _CHAINS = ("INPUT", "OUTPUT", "FORWARD")
