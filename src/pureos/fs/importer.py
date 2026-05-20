@@ -84,6 +84,17 @@ class VFSImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         if source is None:
             raise ImportError(f"Could not read source from VFS: {source_path}")
 
+        # Inject common utilities for backward compatibility
+        from pureos.commands.base import Command
+        import json
+        import re
+        import math
+        
+        module.__dict__.setdefault("Command", Command)
+        module.__dict__.setdefault("json", json)
+        module.__dict__.setdefault("re", re)
+        module.__dict__.setdefault("math", math)
+
         code = compile(source, f"vfs://{source_path}", "exec")
         # Ensure the module has a __file__ attribute that makes sense
         module.__file__ = f"vfs://{source_path}"
@@ -91,14 +102,21 @@ class VFSImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
     @classmethod
     def register(cls, fs):
+        # Check if already registered for this FS
+        for importer in sys.meta_path:
+            if isinstance(importer, cls) and importer.fs == fs:
+                return importer
+        
         importer = cls(fs)
-        if importer not in sys.meta_path:
-            sys.meta_path.insert(0, importer)
+        sys.meta_path.insert(0, importer)
         return importer
 
     @classmethod
     def unregister(cls, fs):
+        to_remove = []
         for importer in sys.meta_path:
             if isinstance(importer, cls) and importer.fs == fs:
-                sys.meta_path.remove(importer)
-                break
+                to_remove.append(importer)
+        
+        for importer in to_remove:
+            sys.meta_path.remove(importer)
