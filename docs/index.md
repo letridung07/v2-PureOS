@@ -123,6 +123,14 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 - `service restart <name>` — restart a service
 - `crontab [-l|-r|<file>]` — list, remove, or install a crontab schedule file
 
+### Networking
+
+- `ifconfig` — display network interface configuration
+- `ping <host> [port]` — check host or port reachability
+- `nc <host> <port> [message]` — connect to a TCP port, send data, and print response
+- `curl [options] <url>` — transfer data from or to a server using HTTP/HTTPS
+- `wget [options] <url>` — retrieve files over HTTP/HTTPS
+
 ### Example session
 
 ```text

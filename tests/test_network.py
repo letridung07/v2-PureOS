@@ -108,3 +108,108 @@ def test_local_dns(tmp_path):
     # Stop service
     sh.execute("service stop echo_server")
     k.shutdown()
+
+
+def test_curl_and_wget(tmp_path):
+    import http.server
+    import threading
+
+    # Simple mock server to verify HTTP queries
+    class SimpleHTTPHandler(http.server.SimpleHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"Hello HTTP")
+            elif self.path == "/headers":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                # Respond with the value of Host header to check hosts resolution
+                self.wfile.write(self.headers.get("Host", "").encode())
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def do_HEAD(self):
+            if self.path == "/":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+            elif self.path == "/headers":
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def do_POST(self):
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(post_data)
+
+        # Suppress log messages
+        def log_message(self, format, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), SimpleHTTPHandler)
+    port = server.server_port
+    thread = threading.Thread(target=server.serve_forever)
+    thread.daemon = True
+    thread.start()
+
+    try:
+        # Initialize kernel
+        k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+        k.initialize()
+        sh = k.shell
+
+        # Test simple curl
+        res_curl = sh.registry.execute(["curl", f"127.0.0.1:{port}"], capture_output=True)
+        assert res_curl == "Hello HTTP"
+
+        # Test curl output to file
+        res_curl_o = sh.registry.execute(["curl", "-o", "/out.txt", f"127.0.0.1:{port}"])
+        assert res_curl_o is True
+        assert k.fs.read("/out.txt") == "Hello HTTP"
+
+        # Test curl head
+        res_curl_head = sh.registry.execute(["curl", "-I", f"127.0.0.1:{port}"], capture_output=True)
+        assert "HTTP/1.1 200 OK" in res_curl_head
+        assert "Content-Type: text/plain" in res_curl_head
+
+        # Test curl POST data
+        res_curl_post = sh.registry.execute(["curl", "-d", "mypostdata", f"127.0.0.1:{port}"], capture_output=True)
+        assert res_curl_post == "mypostdata"
+
+        # Test curl POST via pipe / stdin
+        sh.execute(f"echo pipe_payload | curl -X POST 127.0.0.1:{port} > /pipe.txt")
+        assert k.fs.read("/pipe.txt") == "pipe_payload\n"
+
+        # Test wget
+        res_wget = sh.registry.execute(["wget", f"127.0.0.1:{port}"])
+        assert res_wget is True
+        assert k.fs.exists("/index.html")
+        assert k.fs.read("/index.html") == "Hello HTTP"
+
+        # Test wget with custom filename
+        res_wget_o = sh.registry.execute(["wget", "-O", "/custom.html", f"127.0.0.1:{port}"])
+        assert res_wget_o is True
+        assert k.fs.read("/custom.html") == "Hello HTTP"
+
+        # Test virtual /etc/hosts resolution mapping
+        k.fs.mkdir("/etc")
+        k.fs.write("/etc/hosts", f"127.0.0.1 custom.domain")
+        res_hosts_curl = sh.registry.execute(["curl", f"custom.domain:{port}/headers"], capture_output=True)
+        assert f"custom.domain:{port}" in res_hosts_curl
+
+    finally:
+        server.shutdown()
+        thread.join()
+        k.shutdown()
+
