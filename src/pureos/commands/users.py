@@ -348,3 +348,86 @@ class ChgrpCommand(Command):
         self.kernel.fs.state.groups[resolved_path] = group_gid
         self.kernel.fs.persistence.save_if_needed()
         return True
+
+
+class SudoCommand(Command):
+    name = "sudo"
+    description = "Execute a command with root privileges"
+    usage = "sudo <command> [args...]"
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        if len(parts) < 2:
+            print("Usage: sudo <command> [args...]")
+            return False
+
+        users = self.kernel.users
+        if not users:
+            print("sudo: User database not initialized")
+            return False
+
+        current_user = users.current_user
+        if not current_user:
+            print("sudo: No active user context")
+            return False
+
+        # If not root, check permissions
+        if current_user.uid != 0:
+            # Check if user is in sudo group (GID 27 or group name 'sudo')
+            sudo_gid = users.groups.get("sudo", 27)
+            if sudo_gid not in current_user.gids:
+                print(f"sudo: {current_user.username} is not in the sudoers file. This incident will be reported.")
+                return False
+
+            # Prompt for password if the user has a password set
+            if current_user.password_hash:
+                try:
+                    if sys.stdin.isatty():
+                        import getpass
+                        password = getpass.getpass(f"[sudo] password for {current_user.username}: ")
+                    else:
+                        password = input(f"[sudo] password for {current_user.username}: ")
+                except (EOFError, KeyboardInterrupt):
+                    print("\nsudo: Authentication failure")
+                    return False
+
+                if not current_user.check_password(password):
+                    print("sudo: password incorrect")
+                    return False
+
+        # Elevate privileges to root (uid 0)
+        root_user = users.users.get("root")
+        if not root_user:
+            print("sudo: root user not found")
+            return False
+
+        original_user = users.current_user
+        users.current_user = root_user
+
+        # Extract sub-command parts and raw line
+        target_parts = parts[1:]
+        target_raw_line = None
+        if raw_line:
+            import re
+            match = re.match(r"^\s*sudo\s+(.*)$", raw_line)
+            if match:
+                target_raw_line = match.group(1)
+            else:
+                target_raw_line = " ".join(target_parts)
+
+        try:
+            result = self.kernel.shell.registry.execute(
+                target_parts,
+                input_data=input_data,
+                capture_output=capture_output,
+                raw_line=target_raw_line,
+            )
+            return result
+        finally:
+            users.current_user = original_user
+

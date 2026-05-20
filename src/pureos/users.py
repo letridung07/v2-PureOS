@@ -69,10 +69,14 @@ class UserDB:
         self.group_members["root"] = ["root"]
 
         # Create guest user and group
-        guest_user = User("guest", uid=1000, gid=1000, password_hash="")
+        guest_user = User("guest", uid=1000, gid=1000, gids=[1000, 27], password_hash="")
         self.users["guest"] = guest_user
         self.groups["guest"] = 1000
         self.group_members["guest"] = ["guest"]
+
+        # Create sudo group
+        self.groups["sudo"] = 27
+        self.group_members["sudo"] = ["guest"]
 
         # Save these to the virtual filesystem
         self.save_to_fs()

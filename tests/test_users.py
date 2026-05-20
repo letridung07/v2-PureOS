@@ -336,3 +336,55 @@ class TestUserEdgeCases:
         res = run(shell, "chgrp groupB /tmp/userAfile", capture=False)
         assert res is False
         assert kernel.fs.state.groups["/tmp/userAfile"] == 6000  # unchanged
+
+
+class TestSudoCommand:
+    def test_sudo_as_root(self, kernel, shell):
+        kernel.users.su("root")
+        res = run(shell, "sudo whoami")
+        assert res.strip() == "root"
+
+    def test_sudo_as_guest_no_password(self, kernel, shell):
+        kernel.users.su("guest")
+        res = run(shell, "sudo whoami")
+        assert res.strip() == "root"
+        assert kernel.users.current_user.username == "guest"
+
+    def test_sudo_unauthorized_user(self, kernel, shell):
+        kernel.users.add_user("unauth")
+        kernel.users.su("unauth")
+        res = run(shell, "sudo whoami", capture=False)
+        assert res is False
+        assert kernel.users.current_user.username == "unauth"
+
+    def test_sudo_with_password(self, kernel, shell):
+        kernel.users.add_user("alice")
+        kernel.users.groups["sudo"] = 27
+        if "sudo" not in kernel.users.group_members:
+            kernel.users.group_members["sudo"] = []
+        if "alice" not in kernel.users.group_members["sudo"]:
+            kernel.users.group_members["sudo"].append("alice")
+        if 27 not in kernel.users.users["alice"].gids:
+            kernel.users.users["alice"].gids.append(27)
+
+        kernel.users.su("root")
+        with patch("builtins.input", side_effect=["alicepwd", "alicepwd"]):
+            run(shell, "passwd alice", capture=False)
+
+        kernel.users.su("alice")
+
+        with patch("builtins.input", return_value="wrongpwd"):
+            res = run(shell, "sudo whoami", capture=False)
+            assert res is False
+            assert kernel.users.current_user.username == "alice"
+
+        with patch("builtins.input", return_value="alicepwd"):
+            res = run(shell, "sudo whoami")
+            assert res.strip() == "root"
+            assert kernel.users.current_user.username == "alice"
+
+    def test_sudo_syntax_error(self, kernel, shell):
+        kernel.users.su("root")
+        res = run(shell, "sudo", capture=False)
+        assert res is False
+

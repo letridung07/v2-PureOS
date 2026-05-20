@@ -47,7 +47,11 @@ class FSOperations:
             "root::0:0:root:/root:/bin/sh\n"
             "guest::1000:1000:guest:/home/guest:/bin/sh\n"
         )
-        self.state.files["/etc/group"] = "root:x:0:root\n" "guest:x:1000:guest\n"
+        self.state.files["/etc/group"] = (
+            "root:x:0:root\n"
+            "guest:x:1000:guest\n"
+            "sudo:x:27:guest\n"
+        )
         self.state.owners = {
             "/": 0,
             "/etc/": 0,
