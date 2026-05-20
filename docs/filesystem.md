@@ -32,3 +32,17 @@ Handles loading and saving the `FSState` to a JSON file. This allows v2-PureOS t
 ## Filesystem Interface (`VirtualFS`)
 
 The `VirtualFS` class (`core.py`) serves as the primary facade for the OS to interact with the filesystem. It composes all the above components together and exposes high-level methods that mirror standard library filesystem interfaces.
+
+## Standard System Files
+
+v2-PureOS uses several standardized files in the `/etc/` directory to manage system state and configuration:
+
+- **/etc/passwd**: Stores user account information (username, UID, GID, password hash).
+- **/etc/group**: Stores group information and memberships.
+- **/etc/hosts**: Local hostname-to-IP mappings for simulated DNS resolution.
+- **/etc/resolv.conf**: Mock DNS configuration, specifying nameserver hints.
+- **/etc/crontab**: The system-wide schedule for the background `cron` service.
+- **/etc/motd**: "Message of the Day" — displayed by the shell upon login.
+- **/etc/pureosrc**: Default shell initialization script (aliases, exports).
+- **/etc/iptables/rules**: Persisted firewall rules for the `iptables` command.
+

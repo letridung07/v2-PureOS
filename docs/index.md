@@ -69,7 +69,18 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `unalias name` — remove an alias
 - `history` — display the session command history
 - `env` / `printenv` — list all active environment variables
+- `which <command>` — locate a command in the path
 - `clear` — clear the terminal screen
+- `exit` — terminate the shell session
+
+### System Information
+
+- `uptime` — show how long the system has been running
+- `date` — display the current date and time
+- `df [-h]` — show disk space usage
+- `free [-h]` — display memory usage (simulated)
+- `sleep <seconds>` — pause for a specified duration
+- `info` — show system and kernel information
 
 ### File system
 
@@ -78,6 +89,7 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `find [path]` — recursively list files and directories under a path
 - `ls [-l] [prefix]` — list directory contents or a file
 - `cat <path>` — display file contents
+- `edit <path>` — interactive line-based text editor
 - `write <path> <content>` — overwrite or create a file
 - `append <path> <content>` — append text to a file
 - `echo [-n] <text> > <path>` — write redirected text to a file
@@ -97,6 +109,20 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `ln [-s] <target> <link>` — create a hard link or symbolic link (`-s`)
 - `readlink <path>` — print the target of a symbolic link
 - `du [-h] [path]` — show disk usage for a file or directory tree
+
+### User Management
+
+- `whoami` — print effective user name
+- `login` — begin a new session as a different user
+- `su [user]` — switch to another user (defaults to root)
+- `sudo <command>` — execute a command with root privileges
+- `passwd [user]` — change user password
+- `useradd <name>` — create a new user account
+- `userdel <name>` — delete a user account
+- `groups [user]` — show group memberships
+- `chown <user>[:<group>] <path>` — change file owner and group
+- `chgrp <group> <path>` — change group ownership
+- `last` — show a list of last logged in users (simulated)
 
 ### Text Pipeline Tools
 

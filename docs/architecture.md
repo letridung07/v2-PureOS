@@ -45,11 +45,22 @@ v2-PureOS includes minimal networking utilities to simulate network access.
 - **Host Resolution**: `resolve_host` simulates DNS resolution. It first checks `/etc/hosts` in the VirtualFS. If not found, it falls back to the real system's `socket.gethostbyname()`.
 - **Background Servers**: Functions like `start_echo_server` demonstrate how networking can integrate with the process and service managers.
 
+## 6. User Management (`pureos.users`)
+
+The `UserDB` provides POSIX-like user and group management, enabling permission-based access control and multi-user simulation.
+
+**Features:**
+- **User Database**: Stores `User` objects with properties like `uid`, `gid`, `password_hash`, and secondary groups.
+- **Persistence**: User and group information is stored in the VirtualFS at `/etc/passwd` and `/etc/group`.
+- **Authentication**: Supports password hashing (SHA-256) and account locking.
+- **Root & Privileges**: Includes a built-in `root` user (UID 0) and support for `sudo` via membership in the `sudo` group.
+- **Session Control**: Manages the `current_user` context, which is used by the filesystem to enforce permission checks.
+
 ---
 *For details on the filesystem, see [Virtual Filesystem Architecture](filesystem.md).*
 *For details on the shell and CLI, see [Shell and Command Execution](shell_and_commands.md).*
 
-## 6. Package Manager (Dynamic Command Loading)
+## 7. Package Manager (Dynamic Command Loading)
 
 v2-PureOS supports runtime extension via the `pkg` command. This allows the system to download and register new shell commands dynamically.
 
