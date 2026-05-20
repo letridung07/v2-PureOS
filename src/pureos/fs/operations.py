@@ -112,9 +112,16 @@ class FSOperations:
         else:
             self.permissions.ensure_parent_writable(normalized)
         PathResolver.ensure_dir_parents(self.state, normalized)
-        self.state.files[normalized] = content
-        self.state.modes.setdefault(normalized, 0o644)
-        self.state.inodes.setdefault(normalized, self.state.next_inode())
+
+        inode = self.state.inodes.get(normalized)
+        if inode is None:
+            inode = self.state.next_inode()
+            self.state.inodes[normalized] = inode
+
+        for p, i in list(self.state.inodes.items()):
+            if i == inode and (p in self.state.files or p == normalized):
+                self.state.files[p] = content
+                self.state.modes.setdefault(p, 0o644)
 
         uid, gid = self._get_active_context()
         self.state.owners.setdefault(normalized, uid)
@@ -139,9 +146,18 @@ class FSOperations:
         else:
             self.permissions.ensure_parent_writable(normalized)
         PathResolver.ensure_dir_parents(self.state, normalized)
-        self.state.files[normalized] = self.state.files.get(normalized, "") + content
-        self.state.modes.setdefault(normalized, 0o644)
-        self.state.inodes.setdefault(normalized, self.state.next_inode())
+
+        inode = self.state.inodes.get(normalized)
+        if inode is None:
+            inode = self.state.next_inode()
+            self.state.inodes[normalized] = inode
+
+        new_content = self.state.files.get(normalized, "") + content
+
+        for p, i in list(self.state.inodes.items()):
+            if i == inode and (p in self.state.files or p == normalized):
+                self.state.files[p] = new_content
+                self.state.modes.setdefault(p, 0o644)
 
         uid, gid = self._get_active_context()
         self.state.owners.setdefault(normalized, uid)
@@ -252,7 +268,8 @@ class FSOperations:
             inode = self.state.inodes.get(resolved, 0)
             # Hard link count = number of paths sharing this inode
             link_count = sum(
-                1 for p, i in self.state.inodes.items()
+                1
+                for p, i in self.state.inodes.items()
                 if i == inode and p in self.state.files
             )
             return {
@@ -283,7 +300,13 @@ class FSOperations:
         normalized = PathResolver.normalize_path(path, allow_dir=True)
         if normalized in self.state.files:
             self.permissions.ensure_chmod_allowed(normalized)
-            self.state.modes[normalized] = mode
+            inode = self.state.inodes.get(normalized)
+            if inode is not None:
+                for p, i in list(self.state.inodes.items()):
+                    if i == inode and p in self.state.files:
+                        self.state.modes[p] = mode
+            else:
+                self.state.modes[normalized] = mode
             self.persistence.save_if_needed()
             return
         dir_path = normalized if normalized.endswith("/") else normalized + "/"

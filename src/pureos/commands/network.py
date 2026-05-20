@@ -400,6 +400,7 @@ def register_network_commands(registry):
 # host — DNS lookup
 # ---------------------------------------------------------------------------
 
+
 class HostCommand(Command):
     name = "host"
     usage = "host <domain>"
@@ -435,6 +436,7 @@ class HostCommand(Command):
 # nslookup — interactive-style DNS query
 # ---------------------------------------------------------------------------
 
+
 class NslookupCommand(Command):
     name = "nslookup"
     usage = "nslookup <domain>"
@@ -451,6 +453,7 @@ class NslookupCommand(Command):
             print("Usage: nslookup <domain>")
             return False
         from ..network import get_nameservers
+
         domain = parts[1]
         nameservers = get_nameservers(self.kernel.fs)
         try:
@@ -459,7 +462,7 @@ class NslookupCommand(Command):
                 f"Server:\t\t{nameservers[0]}",
                 f"Address:\t{nameservers[0]}#53",
                 "",
-                f"Non-authoritative answer:",
+                "Non-authoritative answer:",
                 f"Name:\t{domain}",
                 f"Address: {ip}",
             ]
@@ -479,6 +482,7 @@ class NslookupCommand(Command):
 # ---------------------------------------------------------------------------
 # ip — network interface and route information
 # ---------------------------------------------------------------------------
+
 
 class IpCommand(Command):
     name = "ip"
@@ -513,14 +517,18 @@ class IpCommand(Command):
             )
         elif sub in ("link", "l"):
             out = (
-                "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16384 qdisc noqueue state UNKNOWN\n"
+                "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16384 "
+                "qdisc noqueue state UNKNOWN\n"
                 "    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00\n"
-                "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP\n"
+                "2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 "
+                "qdisc pfifo_fast state UP\n"
                 "    link/ether 00:1a:2b:3c:4d:5e brd ff:ff:ff:ff:ff:ff"
             )
         elif sub in ("route", "r"):
             if self.kernel.fs.exists("/etc/routes"):
-                out = (self.kernel.fs.read("/etc/routes") or self._DEFAULT_ROUTES).rstrip()
+                out = (
+                    self.kernel.fs.read("/etc/routes") or self._DEFAULT_ROUTES
+                ).rstrip()
             else:
                 out = self._DEFAULT_ROUTES.rstrip()
         else:
@@ -536,6 +544,7 @@ class IpCommand(Command):
 # ---------------------------------------------------------------------------
 # ss — socket statistics
 # ---------------------------------------------------------------------------
+
 
 class SsCommand(Command):
     name = "ss"
@@ -569,6 +578,7 @@ class SsCommand(Command):
 # traceroute — simulated hop-by-hop route tracing
 # ---------------------------------------------------------------------------
 
+
 class TracerouteCommand(Command):
     name = "traceroute"
     aliases = ["tracert"]
@@ -594,6 +604,7 @@ class TracerouteCommand(Command):
 
         # Build a simulated path: gateway → internet hops → destination
         import random
+
         hops = [
             "192.168.1.1",
             "10.0.0.1",

@@ -20,6 +20,7 @@ def shell(kernel):
 # Symlinks
 # ---------------------------------------------------------------------------
 
+
 def test_symlink_create_and_readlink(kernel, shell):
     kernel.fs.write("/tmp/original.txt", "hello symlink")
     kernel.fs.symlink("/tmp/original.txt", "/tmp/link.txt")
@@ -86,6 +87,7 @@ def test_ln_hard_link(kernel, shell):
 # Inodes
 # ---------------------------------------------------------------------------
 
+
 def test_inodes_assigned_on_write(kernel):
     kernel.fs.write("/tmp/inode_test.txt", "data")
     inode = kernel.fs.state.inodes.get("/tmp/inode_test.txt")
@@ -110,6 +112,7 @@ def test_stat_shows_link_count(kernel, shell):
 # ---------------------------------------------------------------------------
 # du command
 # ---------------------------------------------------------------------------
+
 
 def test_du_file(kernel, shell):
     kernel.fs.write("/tmp/du_file.txt", "1234567890")
@@ -136,8 +139,10 @@ def test_du_human_readable(kernel, shell):
 # Sticky bit
 # ---------------------------------------------------------------------------
 
+
 def test_sticky_bit_in_format_mode(kernel):
     from pureos.fs.permissions import FSPermissions
+
     perm = FSPermissions(kernel.fs.state)
     mode_str = perm.format_mode(0o1777, is_dir=True)
     assert mode_str[0] == "d"

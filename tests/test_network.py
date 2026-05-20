@@ -49,6 +49,7 @@ def test_networking(tmp_path):
 
     # Test ping (port) — only assert 'Ping failed' if port is actually free
     import socket as _sock
+
     _chk = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
     _port_busy = _chk.connect_ex(("127.0.0.1", 50007)) == 0
     _chk.close()
@@ -90,6 +91,7 @@ def test_local_dns(tmp_path):
 
     # Test ping before server starts — only if port 50007 is free
     import socket as _sock
+
     _chk = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
     _port_busy = _chk.connect_ex(("127.0.0.1", 50007)) == 0
     _chk.close()

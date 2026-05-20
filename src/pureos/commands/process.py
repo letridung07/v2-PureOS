@@ -12,15 +12,24 @@ class PsCommand(Command):
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
         import time as _time
+
         now = _time.time()
-        header = f"{'PID':<6} {'NAME':<20} {'STATUS':<12} {'START':<10} {'TIME':<8} {'NI':>4}"
+        header = (
+            f"{'PID':<6} {'NAME':<20} {'STATUS':<12} "
+            f"{'START':<10} {'TIME':<8} {'NI':>4}"
+        )
         lines = [header]
         for p in self.kernel.scheduler.list():
             elapsed = now - p.start_time if p.start_time else 0
-            start_str = _time.strftime("%H:%M:%S", _time.localtime(p.start_time)) if p.start_time else "--:--:--"
+            start_str = (
+                _time.strftime("%H:%M:%S", _time.localtime(p.start_time))
+                if p.start_time
+                else "--:--:--"
+            )
             time_str = f"{int(elapsed)}s"
             lines.append(
-                f"{p.pid:<6} {p.name:<20} {p.status:<12} {start_str:<10} {time_str:<8} {p.nice:>4}"
+                f"{p.pid:<6} {p.name:<20} {p.status:<12} "
+                f"{start_str:<10} {time_str:<8} {p.nice:>4}"
             )
         out = "\n".join(lines)
         if capture_output:
@@ -49,7 +58,9 @@ class SpawnCommand(Command):
 class KillCommand(Command):
     name = "kill"
     usage = "kill [-<signal>] <pid>"
-    description = "Terminate a managed process. Use -9 for SIGKILL, -15 for SIGTERM (default)."
+    description = (
+        "Terminate a managed process. Use -9 for SIGKILL, -15 for SIGTERM (default)."
+    )
 
     def execute(
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
@@ -159,6 +170,7 @@ class TopCommand(Command):
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
         import time as _time
+
         now = _time.time()
         procs = sorted(
             self.kernel.scheduler.list(),

@@ -507,6 +507,7 @@ class LoginCommand(Command):
             try:
                 if sys.stdin.isatty():
                     import getpass
+
                     password = getpass.getpass("Password: ")
                 else:
                     password = input("Password: ")
@@ -558,7 +559,11 @@ class LastCommand(Command):
                 lines.append(line)
 
         if not lines:
-            out = f"last: no records for '{filter_user}'" if filter_user else "last: no records"
+            out = (
+                f"last: no records for '{filter_user}'"
+                if filter_user
+                else "last: no records"
+            )
         else:
             lines.append("")
             lines.append(f"wtmp begins {lines[0].split()[-1] if lines else 'unknown'}")

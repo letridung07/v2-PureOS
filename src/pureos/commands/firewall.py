@@ -23,7 +23,6 @@ class IptablesCommand(Command):
         if self.kernel.fs.exists(_RULES_PATH):
             content = self.kernel.fs.read(_RULES_PATH) or ""
             current_table = _DEFAULT_TABLE
-            current_chain = "INPUT"
             for line in content.splitlines():
                 line = line.strip()
                 if line.startswith("*"):
@@ -36,7 +35,9 @@ class IptablesCommand(Command):
                     parts = line[3:].split(None, 1)
                     chain = parts[0]
                     rule = parts[1] if len(parts) > 1 else ""
-                    tables.setdefault(current_table, {}).setdefault(chain, []).append(rule)
+                    tables.setdefault(current_table, {}).setdefault(chain, []).append(
+                        rule
+                    )
         if not tables:
             tables[_DEFAULT_TABLE] = {c: [] for c in _CHAINS}
         return tables
@@ -85,12 +86,12 @@ class IptablesCommand(Command):
             elif token in ("-A", "--append") and i + 1 < len(args):
                 action = "append"
                 chain = args[i + 1]
-                rule_parts = args[i + 2:]
+                rule_parts = args[i + 2 :]
                 break
             elif token in ("-D", "--delete") and i + 1 < len(args):
                 action = "delete"
                 chain = args[i + 1]
-                rule_parts = args[i + 2:]
+                rule_parts = args[i + 2 :]
                 break
             elif token in ("-F", "--flush"):
                 action = "flush"

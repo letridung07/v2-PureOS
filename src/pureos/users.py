@@ -322,6 +322,7 @@ class UserDB:
     def save_login_session(self, username: str):
         """Append a login entry to /var/log/lastlog."""
         import time
+
         try:
             timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
             entry = f"{username}\t{timestamp}\tpts/0\n"

@@ -20,6 +20,7 @@ def shell(kernel):
 # History recall
 # ---------------------------------------------------------------------------
 
+
 def test_history_recall_by_number(kernel, shell, capsys):
     shell.execute("echo first")
     shell.execute("echo second")
@@ -59,6 +60,7 @@ def test_history_recall_prefix_not_found(kernel, shell, capsys):
 # Exit code in prompt / env
 # ---------------------------------------------------------------------------
 
+
 def test_exit_code_on_success(kernel, shell):
     shell.execute("echo ok")
     assert shell.env["?"] == "0"
@@ -87,6 +89,7 @@ def test_prompt_no_exit_code_on_success(kernel, shell):
 # ---------------------------------------------------------------------------
 # set command: -e and -x flags
 # ---------------------------------------------------------------------------
+
 
 def test_set_command_enables_trace(kernel, shell, capsys):
     shell.execute("set -x")
@@ -119,6 +122,7 @@ def test_set_command_list(kernel, shell, capsys):
 # jobs command
 # ---------------------------------------------------------------------------
 
+
 def test_jobs_command_empty(kernel, shell):
     out = shell.registry.execute(["jobs"], capture_output=True)
     assert "No background jobs" in out
@@ -134,6 +138,7 @@ def test_jobs_command_shows_processes(kernel, shell):
 # time command
 # ---------------------------------------------------------------------------
 
+
 def test_time_command(kernel, shell):
     out = shell.registry.execute(["time", "echo", "hello"], capture_output=True)
     assert "real" in out
@@ -148,6 +153,7 @@ def test_time_command_no_args(kernel, shell, capsys):
 # ---------------------------------------------------------------------------
 # fg command
 # ---------------------------------------------------------------------------
+
 
 def test_fg_nonexistent(kernel, shell, capsys):
     res = shell.execute("fg 99999")

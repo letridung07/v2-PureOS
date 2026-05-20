@@ -254,6 +254,9 @@ class LnCommand(FileCommand):
             if not self.kernel.fs.is_file(target_resolved):
                 print(f"ln: {target}: not a file or not found")
                 return False
+            if self.kernel.fs.exists(link_path):
+                print(f"ln: failed to create hard link '{args[1]}': File exists")
+                return False
             try:
                 target_inode = self.kernel.fs.state.inodes.get(target_resolved, 0)
                 self.kernel.fs.write(link_path, self.kernel.fs.read(target_resolved))
@@ -309,17 +312,21 @@ class DuCommand(FileCommand):
         total = 0
         if self.kernel.fs.is_dir(path):
             from pureos.fs.path import PathResolver
+
             dir_path = PathResolver.normalize_path(path, is_dir=True)
             # Collect all sub-directories and their usage
-            seen_dirs = set()
             for f_path, content in sorted(self.kernel.fs.files.items()):
                 if f_path.startswith(dir_path):
                     size = len(content)
                     total += size
-            lines.append(self._format_size(total, human) + "\t" + (args[0] if args else path))
+            lines.append(
+                self._format_size(total, human) + "\t" + (args[0] if args else path)
+            )
         else:
             total = self.kernel.fs.du(path)
-            lines.append(self._format_size(total, human) + "\t" + (args[0] if args else path))
+            lines.append(
+                self._format_size(total, human) + "\t" + (args[0] if args else path)
+            )
 
         out = "\n".join(lines)
         if capture_output:

@@ -14,7 +14,7 @@ class Process:
     status: str = "ready"
     exit_code: Optional[int] = None
     exit_reason: Optional[str] = None
-    nice: int = 0          # process priority (lower = higher priority)
+    nice: int = 0  # process priority (lower = higher priority)
     start_time: float = 0.0  # epoch seconds when process started
     thread: Optional[object] = None  # reference to the backing thread
 

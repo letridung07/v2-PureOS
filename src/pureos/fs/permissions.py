@@ -106,7 +106,6 @@ class FSPermissions:
             perms.append(char if mode & bit else "-")
         # Sticky bit: replace last 'x'/'–' with 't'/'T'
         if is_dir:
-            dir_path = type_char  # placeholder to check sticky
             last = perms[8]
             if mode & 0o1000:  # sticky bit in mode
                 perms[8] = "t" if last == "x" else "T"
@@ -126,4 +125,3 @@ class FSPermissions:
         owner_uid = self.state.owners.get(path, 0)
         if user.uid != owner_uid:
             raise PermissionError(f"Permission denied: {path}")
-
