@@ -33,6 +33,13 @@ Handles loading and saving the `FSState` to a JSON file. This allows v2-PureOS t
 
 The `VirtualFS` class (`core.py`) serves as the primary facade for the OS to interact with the filesystem. It composes all the above components together and exposes high-level methods that mirror standard library filesystem interfaces.
 
+### Python Module Import mapping
+The `VirtualFS` supports direct Python module imports via a custom `VFSImporter`. This maps specific VFS directories to the `pureos_vfs` namespace:
+- `/usr/lib/python/` maps to `pureos_vfs.*`
+- `/usr/lib/pureos/packages/` maps to `pureos_vfs.packages.*`
+
+This allows the OS to load drivers and dynamic shell commands using standard Python `import` statements.
+
 ## Standard System Files
 
 v2-PureOS uses several standardized files in the `/etc/` directory to manage system state and configuration:

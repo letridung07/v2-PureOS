@@ -30,26 +30,35 @@ Commands are dynamically registered on startup by scanning the `pureos.commands`
 
 To create a new shell command, create a subclass of `Command` (`pureos.commands.base.Command`).
 
+### Dynamic Commands
+Commands can be installed at runtime using the `pkg install <url> <name>` command. These are stored in `/usr/lib/pureos/packages/` and loaded as Python modules. When loaded via the `pkg` system, common dependencies like `Command`, `json`, `re`, and `math` are automatically injected into the module namespace for convenience.
+
+## Driver System
+
+For more persistent system extensions that require background logic or lifecycle management, v2-PureOS provides a **Driver** system.
+
+### Creating a Driver
+Create a subclass of `Driver` (`pureos.drivers.Driver`) and implement the lifecycle methods:
+
 ```python
-from pureos.commands.base import Command
+from pureos.drivers import Driver
 
-class MyCommand(Command):
-    name = "mycmd"
-    description = "A custom command"
-    usage = "mycmd [args]"
-    aliases = ["mc"]
+class MyDriver(Driver):
+    name = "mydriver"
+    description = "A persistent system driver"
 
-    def execute(self, parts, input_data=None, capture_output=False, raw_line=None):
-        # parts[0] is 'mycmd'
-        # parts[1:] are the arguments
-        
-        output = "Hello from mycmd!"
-        
-        # If capture_output is True, return the string.
-        if capture_output:
-            return output
-            
-        # Otherwise, print it and return True indicating success.
-        print(output)
-        return True
+    def on_load(self):
+        self.logger.info("Driver loaded")
+
+    def start(self):
+        self.logger.info("Driver started")
+
+    def stop(self):
+        self.logger.info("Driver stopped")
 ```
+
+### Managing Drivers
+Drivers can be managed using the `driver` command:
+- `driver list`: List all loaded drivers.
+- `driver load <module> <class>`: Load a driver from a module (e.g., `driver load pureos_vfs.my_mod MyDriver`).
+- `driver unload <name>`: Unload a specific driver.
