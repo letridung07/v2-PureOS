@@ -29,7 +29,10 @@ class CommandRegistry:
         self.system_commands = set(self.commands.keys())
 
     def load_from_vfs(self, file_path: str) -> bool:
-        """Loads and registers commands from a Python file in the VirtualFS using the VFSImporter."""
+        """Loads and registers commands from a Python file in the VirtualFS.
+
+        Uses the VFSImporter to load the file as a module.
+        """
         with self._lock:
             if not self.kernel.fs.exists(file_path):
                 return False
@@ -52,7 +55,8 @@ class CommandRegistry:
                 else:
                     # Fallback or error
                     print(
-                        f"Error: file {file_path} is not in a supported VFS import path."
+                        f"Error: file {file_path} "
+                        "is not in a supported VFS import path."
                     )
                     return False
 

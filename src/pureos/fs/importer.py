@@ -5,8 +5,9 @@ import importlib.util
 
 class VFSImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
     """
-    A custom importer that allows Python modules to be imported directly from the VirtualFS.
-    It hooks into sys.meta_path to resolve modules under 'pureos_vfs.*'.
+    A custom importer that allows Python modules to be imported directly from the
+    VirtualFS. It hooks into sys.meta_path to resolve modules under
+    'pureos_vfs.*'.
     """
 
     def __init__(self, fs):
@@ -44,8 +45,10 @@ class VFSImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         if self.fs.exists(vfs_path) and self.fs.is_dir(vfs_path):
             return importlib.util.spec_from_loader(fullname, self, is_package=True)
 
-        # Special case for 'pureos_vfs.packages' if it's being requested but doesn't exist yet
-        # (It will be created when we try to list or write to it, but the importer might be called first)
+        # Special case for 'pureos_vfs.packages' if it's being requested
+        # but doesn't exist yet.
+        # It will be created when we try to list or write to it, but the
+        # importer might be called first.
         if fullname == self.prefix + ".packages":
             return importlib.util.spec_from_loader(fullname, self, is_package=True)
 
