@@ -38,17 +38,24 @@ class PsCommand(Command):
 
 class SpawnCommand(Command):
     name = "spawn"
-    usage = "spawn <name>"
+    usage = "spawn <name> [runtime]"
     description = "Create a new background process."
 
     def execute(
         self, parts: List[str], input_data=None, capture_output=False, raw_line=None
     ):
         if len(parts) < 2:
-            print("Usage: spawn <name>")
+            print("Usage: spawn <name> [runtime]")
             return False
         name = parts[1]
-        p = self.kernel.scheduler.spawn(name)
+        runtime = 5.0
+        if len(parts) >= 3:
+            try:
+                runtime = float(parts[2])
+            except ValueError:
+                print("Usage: spawn <name> [runtime]")
+                return False
+        p = self.kernel.scheduler.spawn(name, runtime=runtime)
         print(f"Spawned process {p.pid} ({p.name})")
         return True
 

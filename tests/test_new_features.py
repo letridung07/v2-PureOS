@@ -34,7 +34,7 @@ def test_env_and_clear_commands(kernel, shell):
 
 def test_wait_command(kernel, shell):
     # Spawn background job
-    shell.execute("spawn slow_job")
+    shell.execute("spawn slow_job 0.1")
     procs = kernel.scheduler.list()
     assert len(procs) >= 1
     p = procs[0]
@@ -56,8 +56,8 @@ def test_wait_command(kernel, shell):
 
 def test_wait_command_all(kernel, shell):
     # Spawn multiple background jobs
-    shell.execute("spawn job1")
-    shell.execute("spawn job2")
+    shell.execute("spawn job1 0.1")
+    shell.execute("spawn job2 0.1")
 
     procs = kernel.scheduler.list()
     assert len(procs) >= 2
@@ -71,8 +71,8 @@ def test_wait_command_all(kernel, shell):
 
 def test_wait_command_multi(kernel, shell):
     # Spawn multiple background jobs
-    shell.execute("spawn job1")
-    shell.execute("spawn job2")
+    shell.execute("spawn job1 0.1")
+    shell.execute("spawn job2 0.1")
 
     procs = kernel.scheduler.list()
     assert len(procs) >= 2
