@@ -38,9 +38,7 @@ class TestServiceCommand:
 
     def test_service_status_not_registered(self, tmp_path):
         k = self._make_kernel(tmp_path)
-        result = k.shell.registry.execute(
-            ["service", "status", "nonexistent"]
-        )
+        result = k.shell.registry.execute(["service", "status", "nonexistent"])
         assert result is False
         k.shutdown()
 
@@ -59,9 +57,7 @@ class TestServiceCommand:
 
     def test_service_start_not_registered(self, tmp_path):
         k = self._make_kernel(tmp_path)
-        result = k.shell.registry.execute(
-            ["service", "start", "nonexistent"]
-        )
+        result = k.shell.registry.execute(["service", "start", "nonexistent"])
         assert result is False
         k.shutdown()
 
@@ -73,9 +69,7 @@ class TestServiceCommand:
 
     def test_service_unknown_action(self, tmp_path):
         k = self._make_kernel(tmp_path)
-        result = k.shell.registry.execute(
-            ["service", "unknown", "noop"]
-        )
+        result = k.shell.registry.execute(["service", "unknown", "noop"])
         assert result is False
         k.shutdown()
 
@@ -121,7 +115,8 @@ class TestBootSequence:
             "class TestCmd(Command):\n"
             "    name = 'testcmd'\n"
             "    description = 'test'\n"
-            "    def execute(self, parts, input_data=None, capture_output=False, raw_line=None):\n"
+            "    def execute(self, parts, input_data=None,\n"
+            "                capture_output=False, raw_line=None):\n"
             "        return True\n"
             "def register(registry):\n"
             "    registry.register(TestCmd(registry.kernel))\n",

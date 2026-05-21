@@ -1,6 +1,5 @@
 """Shared test fixtures for v2-PureOS."""
 
-import importlib
 import os
 import sys
 
@@ -8,16 +7,10 @@ import pytest
 
 # Ensure pureos is importable
 try:
-    import pureos
     from pureos.kernel import Kernel
-    from pureos.memory import MemoryDriver
-    from pureos.processes import Process, Scheduler
 except Exception:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    import pureos
     from pureos.kernel import Kernel
-    from pureos.memory import MemoryDriver
-    from pureos.processes import Process, Scheduler
 
 
 @pytest.fixture

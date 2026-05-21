@@ -132,7 +132,7 @@ class TestProcessCommands:
 
     def test_wait_all(self, tmp_path):
         k = self._make_kernel(tmp_path)
-        p = k.scheduler.spawn("quick_proc", runtime=0.1)
+        k.scheduler.spawn("quick_proc", runtime=0.1)
         result = k.shell.registry.execute(["wait"])
         assert result is True
         k.shutdown()

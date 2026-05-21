@@ -103,9 +103,7 @@ class TestIptables:
             ["iptables", "-A", "OUTPUT", "-d", "10.0.0.2", "-j", "ACCEPT"],
             capture_output=True,
         )
-        out = k.shell.registry.execute(
-            ["iptables", "-L", "INPUT"], capture_output=True
-        )
+        out = k.shell.registry.execute(["iptables", "-L", "INPUT"], capture_output=True)
         assert "10.0.0.1" in out
         assert "10.0.0.2" not in out
         k.shutdown()
@@ -140,10 +138,11 @@ class TestIptables:
         k = self._make_kernel(tmp_path)
         # Write rules directly to VFS
         k.fs.mkdir("/etc/iptables", parents=True)
-        k.fs.write(
-            "/etc/iptables/rules",
-            "*filter\n:INPUT ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n:FORWARD ACCEPT [0:0]\n-A INPUT -s 192.168.1.1 -j ACCEPT\nCOMMIT\n",
+        rules = (
+            "*filter\n:INPUT ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n"
+            ":FORWARD ACCEPT [0:0]\n-A INPUT -s 192.168.1.1 -j ACCEPT\nCOMMIT\n"
         )
+        k.fs.write("/etc/iptables/rules", rules)
         out = k.shell.registry.execute(["iptables", "-L"], capture_output=True)
         assert "192.168.1.1" in out
         assert "ACCEPT" in out
@@ -159,9 +158,7 @@ class TestIptables:
             ["iptables", "-A", "INPUT", "-s", "10.0.0.2", "-j", "ACCEPT"],
             capture_output=True,
         )
-        out = k.shell.registry.execute(
-            ["iptables", "-L", "INPUT"], capture_output=True
-        )
+        out = k.shell.registry.execute(["iptables", "-L", "INPUT"], capture_output=True)
         assert "10.0.0.1" in out
         assert "10.0.0.2" in out
         k.shutdown()
