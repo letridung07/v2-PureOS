@@ -244,3 +244,210 @@ def test_type_and_value_validations(kernel):
 
     with pytest.raises(TypeError):
         ipc.msgsnd(msqid, 1, 12345)
+
+
+# ------------------------------------------------------------------
+# Shared Memory (SHM) unit and integration tests
+# ------------------------------------------------------------------
+
+
+def test_shmget_creation_and_lookup(kernel):
+    ipc = kernel.ipc
+
+    # Test key without IPC_CREAT raises FileNotFoundError
+    with pytest.raises(FileNotFoundError):
+        ipc.shmget(1234, 1024, 0)
+
+    # Test key with IPC_CREAT creates a segment
+    shmid = ipc.shmget(1234, 1024, IPC_CREAT)
+    assert shmid > 0
+
+    # Test key lookup returns the same segment
+    assert ipc.shmget(1234, 1024, 0) == shmid
+    assert ipc.shmget(1234, 512, IPC_CREAT) == shmid
+
+    # Test requesting size larger than existing raises ValueError
+    with pytest.raises(ValueError):
+        ipc.shmget(1234, 2048, 0)
+
+    # Test IPC_EXCL raising FileExistsError
+    with pytest.raises(FileExistsError):
+        ipc.shmget(1234, 1024, IPC_CREAT | IPC_EXCL)
+
+    # Test IPC_PRIVATE always creates a new unique segment
+    priv_id1 = ipc.shmget(IPC_PRIVATE, 1024)
+    priv_id2 = ipc.shmget(IPC_PRIVATE, 1024)
+    assert priv_id1 != priv_id2
+    assert priv_id1 != shmid
+    assert priv_id2 != shmid
+
+    # Test validations on inputs
+    with pytest.raises(TypeError):
+        ipc.shmget("invalid", 1024, IPC_CREAT)
+    with pytest.raises(TypeError):
+        ipc.shmget(1234, "invalid", IPC_CREAT)
+    with pytest.raises(ValueError):
+        ipc.shmget(1234, -100, IPC_CREAT)
+    with pytest.raises(TypeError):
+        ipc.shmget(1234, 1024, "invalid_flags")
+
+
+def test_shmat_shmdt_operations(kernel):
+    ipc = kernel.ipc
+    shmid = ipc.shmget(1234, 100, IPC_CREAT)
+
+    # Initially attachments count is 0
+    stats = ipc.shmctl(shmid, "IPC_STAT")
+    assert stats["nattch"] == 0
+
+    # Attach to get proxy buffer
+    buf = ipc.shmat(shmid)
+    assert len(buf) == 100
+
+    # Stats should update
+    stats = ipc.shmctl(shmid, "IPC_STAT")
+    assert stats["nattch"] == 1
+    assert stats["last_attach_pid"] == 0
+
+    # Write and read data via SharedMemoryBuffer
+    buf.write(b"Hello World", 0)
+    assert buf.read(0, 11) == b"Hello World"
+
+    # Index operations
+    buf[11] = ord("!")
+    assert buf[11] == ord("!")
+    assert buf.read(0, 12) == b"Hello World!"
+
+    # Out of bounds write
+    with pytest.raises(ValueError):
+        buf.write(b"a" * 100, 10)
+
+    # Detach
+    assert buf.detach() is True
+
+    # Stats should update after detach
+    stats = ipc.shmctl(shmid, "IPC_STAT")
+    assert stats["nattch"] == 0
+    assert stats["last_detach_pid"] == 0
+
+    # Accessing detached buffer raises OSError
+    with pytest.raises(OSError):
+        buf.read(0, 5)
+
+    with pytest.raises(OSError):
+        buf[0] = 1
+
+
+def test_shm_memory_driver_integration(kernel):
+    # Total physical memory: 10240 KB
+    mem = kernel.drivers.drivers.get("memory")
+    assert mem is not None
+
+    initial_used = mem.used_kb
+
+    ipc = kernel.ipc
+    # Create segment of size 2048 bytes (allocates 2 KB)
+    shmid = ipc.shmget(1122, 2048, IPC_CREAT)
+    assert mem.used_kb == initial_used + 2
+
+    # Attach and detach should not affect used memory
+    buf = ipc.shmat(shmid)
+    assert mem.used_kb == initial_used + 2
+    buf.detach()
+    assert mem.used_kb == initial_used + 2
+
+    # Remove segment via IPC_RMID
+    # Since nattch is 0, destruction & memory free happen immediately
+    ipc.shmctl(shmid, "IPC_RMID")
+    assert mem.used_kb == initial_used
+
+
+def test_shm_concurrent_access(kernel):
+    ipc = kernel.ipc
+    shmid = ipc.shmget(3344, 4, IPC_CREAT)
+    buf = ipc.shmat(shmid)
+
+    # Multiple threads writing/reading concurrently
+    errors = []
+
+    def writer(thread_id, byte_val):
+        try:
+            for _ in range(100):
+                buf[thread_id] = byte_val
+                # Read it back and assert
+                assert buf[thread_id] == byte_val
+        except Exception as e:
+            errors.append(e)
+
+    threads = [threading.Thread(target=writer, args=(i, i + 10)) for i in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(errors) == 0
+    for i in range(4):
+        assert buf[i] == i + 10
+
+    buf.detach()
+    ipc.shmctl(shmid, "IPC_RMID")
+
+
+def test_ipcs_ipcrm_shm_commands(kernel):
+    shell = kernel.shell
+    ipc = kernel.ipc
+
+    # Clean state
+    ipc.shm_segments.clear()
+    ipc.shm_key_to_id.clear()
+
+    # Empty ipcs command output
+    out = shell.registry.execute(["ipcs"], capture_output=True)
+    assert "------ Shared Memory Segments ------" in out
+
+    # Create segments
+    shmid1 = ipc.shmget(0x222, 2048, IPC_CREAT)
+    shmid2 = ipc.shmget(IPC_PRIVATE, 4096)
+
+    # Attach to increment nattch
+    buf = ipc.shmat(shmid1)
+
+    # Test basic ipcs command
+    out = shell.registry.execute(["ipcs"], capture_output=True)
+    assert "0x00000222" in out
+    assert str(shmid1) in out
+    assert str(shmid2) in out
+    assert "2048" in out
+    assert "4096" in out
+
+    # Test ipcs -m (shm only)
+    out_m = shell.registry.execute(["ipcs", "-m"], capture_output=True)
+    assert "------ Shared Memory Segments ------" in out_m
+    assert "------ Message Queues ------" not in out_m
+
+    # Test ipcs -t (timestamps)
+    out_t = shell.registry.execute(["ipcs", "-t"], capture_output=True)
+    assert "last-attach" in out_t
+    assert "last-detach" in out_t
+
+    # Test ipcs -p (PIDs)
+    out_p = shell.registry.execute(["ipcs", "-p"], capture_output=True)
+    assert "cpid" in out_p
+    assert "lpid" in out_p
+
+    # Test ipcrm -m (remove by ID)
+    res = shell.execute(f"ipcrm -m {shmid2}")
+    assert res is True
+    assert shmid2 not in ipc.shm_segments
+
+    # Test ipcrm -M (remove by key)
+    res = shell.execute("ipcrm -M 0x222")
+    assert res is True
+    # shmid1 should still be in shm_segments because buf is attached!
+    assert shmid1 in ipc.shm_segments
+    segment = ipc.shm_segments[shmid1]
+    assert segment.removed is True
+
+    # Detaching should finally remove it
+    buf.detach()
+    assert shmid1 not in ipc.shm_segments
