@@ -1,6 +1,7 @@
 """Memory management subsystem — MemoryDriver for v2-PureOS."""
 
 import threading
+import time
 from typing import Dict, Tuple
 
 from .drivers import Driver
@@ -26,6 +27,12 @@ class MemoryDriver(Driver):
         self.swap_total_kb = 0
         self.swap_used_kb = 0
         self._per_process: Dict[int, int] = {}
+        # Keep a short-lived record of recently freed process allocations
+        # so commands that query memory immediately after a process exits
+        # can still display the process briefly (helps avoid race conditions
+        # on fast platforms like Windows where a process may exit before a
+        # monitoring command runs).
+        self._recently_freed: Dict[int, tuple[int, int, float]] = {}
         self._lock = threading.Lock()
 
     # ------------------------------------------------------------------
@@ -146,7 +153,14 @@ class MemoryDriver(Driver):
 
             self._per_process[pid] = allocated - to_free
             if self._per_process[pid] == 0:
+                # Move to recently freed tombstone with timestamp
+                freed_amount = allocated
+                self._recently_freed[pid] = (freed_amount, freed_amount, time.time())
                 del self._per_process[pid]
+
+            # Ensure any tombstone is removed if we re-allocate later
+            if pid in self._recently_freed and self._per_process.get(pid, 0) > 0:
+                del self._recently_freed[pid]
 
             self._sync_process_fields(pid)
             self._update_proc_files()
@@ -160,6 +174,9 @@ class MemoryDriver(Driver):
                 from_swap = min(allocated, self.swap_used_kb)
                 self.swap_used_kb -= from_swap
                 self.used_kb = max(0, self.used_kb - (allocated - from_swap))
+                # Record a short-lived tombstone so monitoring commands can
+                # still show this process for a brief interval after exit.
+                self._recently_freed[pid] = (allocated, allocated, time.time())
                 self._sync_process_fields(pid)
                 self._delete_proc_status(pid)
                 self._write_meminfo()
@@ -184,11 +201,29 @@ class MemoryDriver(Driver):
     def get_all_process_memory(self) -> Dict[int, Tuple[int, int]]:
         """Return ``{pid: (vsize, rss)}`` for processes with active allocations."""
         result: Dict[int, Tuple[int, int]] = {}
+        now = time.time()
+        grace = 0.5
         with self._lock:
+            # Active allocations
             for pid in list(self._per_process):
                 proc = self.kernel.scheduler.processes.get(pid)
                 if proc:
                     result[pid] = (proc.vsize, proc.rss)
+
+            # Recently freed allocations (within a short grace window)
+            stale = []
+            for pid, (vsize, rss, ts) in list(self._recently_freed.items()):
+                if now - ts <= grace:
+                    result[pid] = (vsize, rss)
+                else:
+                    stale.append(pid)
+
+            # Cleanup stale tombstones
+            for pid in stale:
+                try:
+                    del self._recently_freed[pid]
+                except KeyError:
+                    pass
         return result
 
     # ------------------------------------------------------------------
