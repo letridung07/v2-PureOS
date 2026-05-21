@@ -1,7 +1,10 @@
 import importlib
 import os
-import sys
 import socket
+import socketserver
+import struct
+import threading
+import sys
 import time
 
 try:
@@ -120,6 +123,69 @@ def test_local_dns(tmp_path):
     # Stop service
     sh.execute("service stop echo_server")
     k.shutdown()
+
+
+def test_resolv_conf_nameserver(tmp_path):
+    class DNSUDPHandler(socketserver.BaseRequestHandler):
+        def handle(self):
+            data, sock = self.request
+            if len(data) < 12:
+                return
+            transaction_id = data[:2]
+            qdcount = struct.unpack("!H", data[4:6])[0]
+            if qdcount == 0:
+                return
+
+            offset = 12
+            labels = []
+            while offset < len(data):
+                length = data[offset]
+                offset += 1
+                if length == 0:
+                    break
+                labels.append(data[offset : offset + length].decode())
+                offset += length
+
+            if offset + 4 > len(data):
+                return
+            qtype, qclass = struct.unpack("!HH", data[offset : offset + 4])
+            offset += 4
+            domain = ".".join(labels)
+            ip = "127.0.0.2" if domain == "customdns.local" else "127.0.0.1"
+
+            question = data[12:offset]
+            header = transaction_id + b"\x81\x80" + struct.pack("!HHHH", 1, 1, 0, 0)
+            answer = b"\xc0\x0c" + struct.pack("!HHIH", qtype, qclass, 60, 4) + socket.inet_aton(ip)
+            sock.sendto(header + question + answer, self.client_address)
+
+    server = socketserver.ThreadingUDPServer(("127.0.0.1", 0), DNSUDPHandler)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever)
+    thread.daemon = True
+    thread.start()
+
+    try:
+        k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
+        k.initialize()
+        sh = k.shell
+        k.fs.mkdir("/etc")
+        k.fs.write("/etc/resolv.conf", f"nameserver 127.0.0.1#{port}\n")
+
+        ping_out = sh.registry.execute(["ping", "customdns.local"], capture_output=True)
+        assert "Ping successful" in ping_out
+        assert "customdns.local resolved to 127.0.0.2" in ping_out
+
+        host_out = sh.registry.execute(["host", "customdns.local"], capture_output=True)
+        assert "customdns.local has address 127.0.0.2" in host_out
+
+        ns_out = sh.registry.execute(["nslookup", "customdns.local"], capture_output=True)
+        assert f"Server:\t\t127.0.0.1#{port}" in ns_out
+        assert "Address: 127.0.0.2" in ns_out
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+        k.shutdown()
 
 
 def test_curl_and_wget(tmp_path):
