@@ -55,8 +55,7 @@ class SyslogDriver(Driver):
 
         self._handler = SyslogHandler(self)
         formatter = logging.Formatter(
-            "%(asctime)s %(levelname)s [%(name)s] %(message)s",
-            datefmt="%b %d %H:%M:%S"
+            "%(asctime)s %(levelname)s [%(name)s] %(message)s", datefmt="%b %d %H:%M:%S"
         )
         self._handler.setFormatter(formatter)
 
@@ -120,7 +119,7 @@ class SyslogDriver(Driver):
         """Clear the in-memory log buffer and the /var/log/syslog file."""
         with self._lock:
             self.logs.clear()
-        
+
             if getattr(self._local, "writing", False):
                 return
             self._local.writing = True

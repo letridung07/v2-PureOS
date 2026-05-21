@@ -1,4 +1,3 @@
-import logging
 import pytest
 from pureos.kernel import Kernel
 
@@ -25,7 +24,7 @@ def test_syslog_driver_loaded(kernel):
 
 def test_syslog_captures_logs(kernel, shell):
     syslog = kernel.drivers.drivers.get("syslog")
-    
+
     # Generate some logs using kernel logger
     kernel.logger.warning("Test warning message")
     kernel.logger.info("Test info message")
@@ -98,39 +97,39 @@ def test_actual_recursive_logging_append(kernel):
     # Patch kernel.fs.append to log something
     original_append = kernel.fs.append
     log_called = False
-    
+
     def mock_append(path, content):
         nonlocal log_called
         if not log_called:
             log_called = True
             kernel.logger.info("Log message inside append")
         original_append(path, content)
-        
+
     kernel.fs.append = mock_append
-    
+
     # This log should trigger fs.append, which logs "Log message inside append",
     # which should be handled without infinite recursion or deadlock.
     kernel.logger.info("Trigger log")
-    
+
     assert log_called is True
 
 
 def test_actual_recursive_logging_clear(kernel):
     original_write = kernel.fs.write
     log_called = False
-    
+
     def mock_write(path, content):
         nonlocal log_called
         if not log_called and path == "/var/log/syslog":
             log_called = True
             kernel.logger.info("Log message inside write")
         original_write(path, content)
-        
+
     kernel.fs.write = mock_write
-    
+
     syslog = kernel.drivers.drivers.get("syslog")
     syslog.clear()
-    
+
     assert log_called is True
 
 
@@ -140,13 +139,13 @@ def test_syslog_write_by_unprivileged_user(kernel, shell):
     guest = users.users.get("guest")
     assert guest is not None
     users.current_user = guest
-    
+
     # Generate log
     kernel.logger.warning("Log from guest user")
-    
+
     # Switch back to root to verify
     users.current_user = users.users.get("root")
-    
+
     syslog = kernel.drivers.drivers.get("syslog")
     # Verify in memory
     assert any("Log from guest user" in log["message"] for log in syslog.logs)
