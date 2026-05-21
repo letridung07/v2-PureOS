@@ -27,6 +27,9 @@ v2-PureOS is a minimal OS-like system built with Python 3.8+. The package includ
 - `pureos.services` — lightweight service management
 - `pureos.processes` — simple process scheduler and lifecycle control
 - `pureos.memory` — memory management subsystem (allocation, swap, /proc filesystem)
+- `pureos.drivers` — system driver manager and base driver class
+- `pureos.syslog` — system logging driver subsystem
+- `pureos.users` — POSIX-like user and group database
 - `pureos.shell` — interactive shell loop and command parsing
 
 ## Quickstart: Running the shell
@@ -212,6 +215,11 @@ pytest
   - `memory.py` — memory management subsystem
   - `processes.py` — process scheduler
   - `pkg.py` — package manager subsystem
+  - `drivers.py` — system driver manager and base class
+  - `syslog.py` — system logging driver
+  - `users.py` — POSIX-like user and group database
+  - `services.py` — service manager subsystem
+  - `network.py` — simulated networking
   - `fs/` — virtual filesystem
   - `commands/` — interactive shell commands
 - `tests` — unit and integration tests

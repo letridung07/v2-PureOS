@@ -81,3 +81,12 @@ v2-PureOS supports runtime extension via the `PackageManager` subsystem and the 
 - **Storage**: Packages are stored as Python scripts in the VirtualFS at `/usr/lib/pureos/packages/`.
 - **Loading**: The `PackageManager` uses the centralized `CommandRegistry` (now managed by the `Kernel` as `kernel.registry` to unify command lookup) and a custom `VFSImporter` (implementing `importlib`) to import packages from the VirtualFS. This provides proper namespacing (under `pureos_vfs.packages.*`), standard tracebacks, and supports multi-file packages and dependencies.
 - **Persistence**: During the boot sequence (`pureos.boot`), the `PackageManager` automatically scans the packages directory and re-registers any previously installed commands.
+
+## 9. System Logging (`pureos.syslog`)
+
+The `SyslogDriver` provides a centralized logging subsystem that implements standard Python `logging.Handler` interfaces, capturing records logged to the `pureos` logger and storing them in `/var/log/syslog` within the virtual filesystem.
+
+**Features:**
+- **Re-entrancy Guard**: Implements thread-local re-entrancy prevention (`emit_active` and `writing` flags) to avoid infinite recursion when filesystem operations (such as appending to `/var/log/syslog`) generate log messages themselves.
+- **Buffer & File Writing**: Limits the in-memory buffer to 500 records while maintaining a persistent text log at `/var/log/syslog`.
+- **Context Elevation**: Temporarily elevates the current active user context to `root` when writing or clearing syslog files to avoid permission errors from regular user sessions.
