@@ -34,25 +34,33 @@ class IpcsCommand(Command):
         lines = []
         if show_queues:
             lines.append("------ Message Queues ------")
+            
+            # Thread-safe copy under the IPCManager lock
+            with self.kernel.ipc._lock:
+                queues = list(self.kernel.ipc.queues.values())
+
             if show_times:
                 lines.append(f"{'key':<12} {'msqid':<8} {'last-send':<20} {'last-recv':<20}")
-                for q in self.kernel.ipc.queues.values():
-                    send_time = _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(q.last_snd_time)) if q.last_snd_time else "no-entry"
-                    recv_time = _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(q.last_rcv_time)) if q.last_rcv_time else "no-entry"
-                    key_str = f"0x{q.key:08x}" if q.key >= 0 else str(q.key)
-                    lines.append(f"{key_str:<12} {q.msqid:<8} {send_time:<20} {recv_time:<20}")
+                for q in queues:
+                    with q.lock:
+                        send_time = _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(q.last_snd_time)) if q.last_snd_time else "no-entry"
+                        recv_time = _time.strftime("%Y-%m-%d %H:%M:%S", _time.localtime(q.last_rcv_time)) if q.last_rcv_time else "no-entry"
+                        key_str = f"0x{q.key:08x}" if q.key >= 0 else str(q.key)
+                        lines.append(f"{key_str:<12} {q.msqid:<8} {send_time:<20} {recv_time:<20}")
             elif show_pids:
                 lines.append(f"{'key':<12} {'msqid':<8} {'owner':<8} {'lspid':<8} {'lrpid':<8}")
-                for q in self.kernel.ipc.queues.values():
-                    key_str = f"0x{q.key:08x}" if q.key >= 0 else str(q.key)
-                    lines.append(f"{key_str:<12} {q.msqid:<8} {q.creator_pid:<8} {q.last_snd_pid:<8} {q.last_rcv_pid:<8}")
+                for q in queues:
+                    with q.lock:
+                        key_str = f"0x{q.key:08x}" if q.key >= 0 else str(q.key)
+                        lines.append(f"{key_str:<12} {q.msqid:<8} {q.creator_pid:<8} {q.last_snd_pid:<8} {q.last_rcv_pid:<8}")
             else:
                 lines.append(f"{'key':<12} {'msqid':<8} {'owner':<8} {'messages':<10} {'bytes':<10}")
-                for q in self.kernel.ipc.queues.values():
-                    key_str = f"0x{q.key:08x}" if q.key >= 0 else str(q.key)
-                    msg_count = len(q.messages)
-                    msg_bytes = sum(len(msg.text) for msg in q.messages)
-                    lines.append(f"{key_str:<12} {q.msqid:<8} {q.creator_pid:<8} {msg_count:<10} {msg_bytes:<10}")
+                for q in queues:
+                    with q.lock:
+                        key_str = f"0x{q.key:08x}" if q.key >= 0 else str(q.key)
+                        msg_count = len(q.messages)
+                        msg_bytes = sum(len(msg.text) for msg in q.messages)
+                        lines.append(f"{key_str:<12} {q.msqid:<8} {q.creator_pid:<8} {msg_count:<10} {msg_bytes:<10}")
 
         out = "\n".join(lines)
         return self.emit(out, capture_output)
@@ -80,7 +88,12 @@ class IpcrmCommand(Command):
             except ValueError:
                 print(f"ipcrm: invalid message queue ID: {arg}")
                 return False
-            ok = self.kernel.ipc.msgctl(msqid, "IPC_RMID")
+            
+            try:
+                ok = self.kernel.ipc.msgctl(msqid, "IPC_RMID")
+            except KeyError:
+                ok = False
+                
             if ok:
                 print(f"Message queue ID {msqid} removed.")
                 return True
@@ -98,14 +111,19 @@ class IpcrmCommand(Command):
                 print(f"ipcrm: invalid message queue key: {arg}")
                 return False
 
-            msqid = self.kernel.ipc.key_to_id.get(key)
-            if msqid is None:
-                for q in self.kernel.ipc.queues.values():
-                    if q.key == key:
-                        msqid = q.msqid
-                        break
+            with self.kernel.ipc._lock:
+                msqid = self.kernel.ipc.key_to_id.get(key)
+                if msqid is None:
+                    for q in self.kernel.ipc.queues.values():
+                        if q.key == key:
+                            msqid = q.msqid
+                            break
+                            
             if msqid is not None:
-                ok = self.kernel.ipc.msgctl(msqid, "IPC_RMID")
+                try:
+                    ok = self.kernel.ipc.msgctl(msqid, "IPC_RMID")
+                except KeyError:
+                    ok = False
                 if ok:
                     print(f"Message queue with key {arg} removed.")
                     return True

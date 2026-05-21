@@ -178,3 +178,68 @@ def test_ipc_blocking_synchronization(kernel):
     kernel.scheduler.wait(p.pid, timeout=2.0)
 
     assert "woken_up" in received_payload
+
+
+def test_removed_queue_unblocks_receiver(kernel):
+    ipc = kernel.ipc
+    msqid = ipc.msgget(777, IPC_CREAT)
+
+    raised = []
+    def receiver():
+        try:
+            ipc.msgrcv(msqid, msg_type=0, block=True)
+        except OSError as e:
+            raised.append(e)
+
+    t = threading.Thread(target=receiver, daemon=True)
+    t.start()
+
+    time.sleep(0.1)
+
+    # Remove queue while thread is blocked on msgrcv
+    ipc.msgctl(msqid, "IPC_RMID")
+    t.join(timeout=1.0)
+
+    assert not t.is_alive()
+    assert len(raised) == 1
+    assert "removed" in str(raised[0])
+
+
+def test_queue_capacity_limit(kernel):
+    ipc = kernel.ipc
+    msqid = ipc.msgget(888, IPC_CREAT)
+    queue = ipc.queues[msqid]
+    # Set maximum queue bytes capacity to 10 bytes
+    queue.max_bytes = 10
+
+    # Send 8 bytes - should succeed
+    assert ipc.msgsnd(msqid, 1, "12345678", block=False) is True
+
+    # Send 5 more bytes - should raise BlockingIOError (8 + 5 = 13 > 10)
+    with pytest.raises(BlockingIOError):
+        ipc.msgsnd(msqid, 1, "12345", block=False)
+
+    # Receive first message to free space
+    res = ipc.msgrcv(msqid, 0, block=False)
+    assert res is not None
+
+    # Send 5 bytes now - should succeed
+    assert ipc.msgsnd(msqid, 1, "12345", block=False) is True
+
+
+def test_type_and_value_validations(kernel):
+    ipc = kernel.ipc
+
+    with pytest.raises(TypeError):
+        ipc.msgget("invalid_key", IPC_CREAT)
+
+    msqid = ipc.msgget(999, IPC_CREAT)
+
+    with pytest.raises(TypeError):
+        ipc.msgsnd(msqid, "invalid_type", "text")
+
+    with pytest.raises(ValueError):
+        ipc.msgsnd(msqid, -5, "text")
+
+    with pytest.raises(TypeError):
+        ipc.msgsnd(msqid, 1, 12345)

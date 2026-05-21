@@ -36,14 +36,16 @@ class Message:
 
 
 class MessageQueue:
-    """Thread-safe simulated System V message queue."""
-    def __init__(self, msqid: int, key: int, creator_pid: int):
+    """Thread-safe simulated System V message queue with capacity limits."""
+    def __init__(self, msqid: int, key: int, creator_pid: int, max_bytes: int = 16384):
         self.msqid = msqid
         self.key = key
         self.creator_pid = creator_pid
         self.messages: List[Message] = []
         self.lock = threading.RLock()
         self.condition = threading.Condition(self.lock)
+        self.max_bytes = max_bytes
+        self.removed = False
         
         # Statistics
         self.last_snd_pid = 0
@@ -52,11 +54,29 @@ class MessageQueue:
         self.last_rcv_time = 0.0
 
     def send(self, msg_type: int, text: str, sender_pid: int, block: bool = True) -> bool:
-        """Send a message of msg_type to the queue."""
+        """Send a message of msg_type to the queue. Blocks if the queue is full."""
+        if not isinstance(msg_type, int):
+            raise TypeError("Message type must be an integer")
         if msg_type <= 0:
             raise ValueError("Message type must be a positive integer (> 0)")
+        if not isinstance(text, str):
+            raise TypeError("Message text must be a string")
             
         with self.lock:
+            while True:
+                if self.removed:
+                    raise OSError("Message queue was removed.")
+                
+                # Calculate currently used bytes
+                current_bytes = sum(len(msg.text) for msg in self.messages)
+                if current_bytes + len(text) <= self.max_bytes:
+                    break
+                
+                if not block:
+                    raise BlockingIOError("Message queue is full.")
+                
+                self.condition.wait()
+
             msg = Message(msg_type, text, sender_pid)
             self.messages.append(msg)
             self.last_snd_pid = sender_pid
@@ -72,6 +92,9 @@ class MessageQueue:
             >0: receive first message of type msg_type.
             <0: receive first message of lowest type <= abs(msg_type).
         """
+        if not isinstance(msg_type, int):
+            raise TypeError("Message type must be an integer")
+
         with self.lock:
             def find_msg():
                 for idx, msg in enumerate(self.messages):
@@ -92,11 +115,15 @@ class MessageQueue:
             if block:
                 start_time = time.time()
                 while True:
+                    if self.removed:
+                        raise OSError("Message queue was removed.")
+                    
                     idx, msg = find_msg()
                     if msg is not None:
                         self.messages.pop(idx)
                         self.last_rcv_pid = get_current_pid()
                         self.last_rcv_time = time.time()
+                        self.condition.notify_all()  # Wake up blocked senders
                         return msg
                     if timeout is not None:
                         elapsed = time.time() - start_time
@@ -107,11 +134,14 @@ class MessageQueue:
                     else:
                         self.condition.wait()
             else:
+                if self.removed:
+                    raise OSError("Message queue was removed.")
                 idx, msg = find_msg()
                 if msg is not None:
                     self.messages.pop(idx)
                     self.last_rcv_pid = get_current_pid()
                     self.last_rcv_time = time.time()
+                    self.condition.notify_all()  # Wake up blocked senders
                     return msg
                 return None
 
@@ -127,6 +157,11 @@ class IPCManager:
 
     def msgget(self, key: int, msgflg: int = 0) -> int:
         """Get or create a message queue ID."""
+        if not isinstance(key, int):
+            raise TypeError("Queue key must be an integer")
+        if not isinstance(msgflg, int):
+            raise TypeError("Message flags must be an integer")
+
         current_pid = get_current_pid()
         with self._lock:
             if key == IPC_PRIVATE:
@@ -171,31 +206,33 @@ class IPCManager:
     def msgctl(self, msqid: int, cmd: str) -> Any:
         """Control message queue behavior (e.g. remove queue or query status)."""
         with self._lock:
-            if cmd == "IPC_RMID":
-                queue = self.queues.pop(msqid, None)
-                if queue:
-                    if queue.key != IPC_PRIVATE:
-                        self.key_to_id.pop(queue.key, None)
-                    # Notify all blocking waiters so they wake up/fail gracefully
-                    with queue.lock:
-                        queue.condition.notify_all()
-                    return True
-                return False
-            elif cmd == "IPC_STAT":
-                queue = self.queues.get(msqid)
-                if not queue:
-                    raise KeyError(f"Invalid message queue ID: {msqid}")
-                with queue.lock:
-                    return {
-                        "msqid": queue.msqid,
-                        "key": queue.key,
-                        "creator_pid": queue.creator_pid,
-                        "msg_qnum": len(queue.messages),
-                        "msg_bytes": sum(len(msg.text) for msg in queue.messages),
-                        "last_snd_pid": queue.last_snd_pid,
-                        "last_rcv_pid": queue.last_rcv_pid,
-                        "last_snd_time": queue.last_snd_time,
-                        "last_rcv_time": queue.last_rcv_time,
-                    }
-            else:
-                raise ValueError(f"Unknown msgctl command: {cmd}")
+            queue = self.queues.get(msqid)
+            
+        if not queue:
+            raise KeyError(f"Invalid message queue ID: {msqid}")
+
+        if cmd == "IPC_RMID":
+            with self._lock:
+                self.queues.pop(msqid, None)
+                if queue.key != IPC_PRIVATE:
+                    self.key_to_id.pop(queue.key, None)
+            with queue.lock:
+                queue.removed = True
+                queue.condition.notify_all()
+            return True
+        elif cmd == "IPC_STAT":
+            with queue.lock:
+                return {
+                    "msqid": queue.msqid,
+                    "key": queue.key,
+                    "creator_pid": queue.creator_pid,
+                    "msg_qnum": len(queue.messages),
+                    "msg_bytes": sum(len(msg.text) for msg in queue.messages),
+                    "msg_qbytes": queue.max_bytes,
+                    "last_snd_pid": queue.last_snd_pid,
+                    "last_rcv_pid": queue.last_rcv_pid,
+                    "last_snd_time": queue.last_snd_time,
+                    "last_rcv_time": queue.last_rcv_time,
+                }
+        else:
+            raise ValueError(f"Unknown msgctl command: {cmd}")
