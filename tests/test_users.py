@@ -409,4 +409,3 @@ class TestSudoCommand:
         # Run sudo whoami with capture_output=True
         res = shell.registry.execute("sudo whoami", capture_output=True)
         assert res.strip() == "root"
-
