@@ -32,6 +32,8 @@ class Kernel:
         self.scheduler = Scheduler()
         self.services = ServiceManager()
         self.drivers = DriverManager(self)
+        from .ipc import IPCManager
+        self.ipc = IPCManager(self)
         from .commands import CommandRegistry
 
         self.registry = CommandRegistry(self)
