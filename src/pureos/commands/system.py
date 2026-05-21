@@ -644,14 +644,21 @@ class DmesgCommand(Command):
             try:
                 while True:
                     with syslog._lock:
-                        if len(syslog.logs) > last_idx:
+                        num_logs = len(syslog.logs)
+                        if num_logs < last_idx:
+                            # Logs were cleared, reset pointer
+                            last_idx = 0
+                            print("dmesg: log buffer cleared")
+                        
+                        if num_logs > last_idx:
                             new_logs = syslog.logs[last_idx:]
                             for entry in new_logs:
                                 if not filter_level or entry["levelname"] == filter_level:
                                     print(entry["formatted"])
-                            last_idx = len(syslog.logs)
+                            last_idx = num_logs
                     time.sleep(0.1)
             except KeyboardInterrupt:
+                print() # Clean newline after ^C
                 return True
 
         with syslog._lock:

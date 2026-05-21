@@ -180,6 +180,14 @@ class Scheduler:
         if thread and thread.is_alive():
             timeout = 0.0 if signal == 9 else 1.0
             thread.join(timeout=timeout)
+        
+        # Clean up tracking structures if the thread is finished
+        if thread and not thread.is_alive():
+            self._threads.pop(pid, None)
+            self._stop_events.pop(pid, None)
+            self._resume_events.pop(pid, None)
+            # We keep the process in self.processes so its exit status can be queried,
+            # but we remove the thread/event resources.
         return True
 
     def renice(self, pid: int, priority: int) -> bool:
