@@ -100,7 +100,8 @@ class MemoryDriver(Driver):
                 )
                 if size_kb > total_free:
                     self.logger.error(
-                        "Out of memory: process %s requested %s KB, but only %s KB free",
+                        "Out of memory: process %s requested %s KB, "
+                        "but only %s KB free",
                         pid,
                         size_kb,
                         total_free,

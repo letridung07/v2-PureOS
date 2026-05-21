@@ -628,10 +628,10 @@ class DmesgCommand(Command):
             if capture_output:
                 print("dmesg: -f not supported in pipes")
                 return False
-            
+
             print("dmesg: starting follow mode (Ctrl+C to stop)")
             last_idx = len(syslog.logs)
-            
+
             # Print existing logs first
             with syslog._lock:
                 logs = list(syslog.logs)
@@ -641,6 +641,7 @@ class DmesgCommand(Command):
                     print(entry["formatted"])
 
             import time
+
             try:
                 while True:
                     with syslog._lock:
@@ -649,16 +650,19 @@ class DmesgCommand(Command):
                             # Logs were cleared, reset pointer
                             last_idx = 0
                             print("dmesg: log buffer cleared")
-                        
+
                         if num_logs > last_idx:
                             new_logs = syslog.logs[last_idx:]
                             for entry in new_logs:
-                                if not filter_level or entry["levelname"] == filter_level:
+                                if (
+                                    not filter_level
+                                    or entry["levelname"] == filter_level
+                                ):
                                     print(entry["formatted"])
                             last_idx = num_logs
                     time.sleep(0.1)
             except KeyboardInterrupt:
-                print() # Clean newline after ^C
+                print()  # Clean newline after ^C
                 return True
 
         with syslog._lock:

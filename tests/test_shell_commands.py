@@ -96,8 +96,9 @@ def test_shell_fs_and_processes_and_services(tmp_path, capsys):
 
     # spawn and kill
     sh.execute("spawn worker")
-    assert len(k.scheduler.list()) >= 1
-    pid = k.scheduler.list()[0].pid
+    procs = [p for p in k.scheduler.list() if p.name == "worker"]
+    assert len(procs) == 1
+    pid = procs[0].pid
     sh.execute(f"kill {pid}")
     assert k.scheduler.processes[pid].status == "killed"
 

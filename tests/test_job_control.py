@@ -119,8 +119,8 @@ def test_jobs_shows_suspended(shell, kernel):
 
 
 def test_shell_sigint_simulation(shell, kernel):
-    """Test that we can kill a foreground process via Scheduler.kill (Ctrl+C simulation)."""
-    # In reality, Ctrl+C is caught by input() in Shell.run() and sends KeyboardInterrupt.
+    """Test kill of foreground process via Scheduler.kill (Ctrl+C simulation)."""
+    # In reality, Ctrl+C is caught by input() in Shell.run() and sends SIGINT.
     # We test the kill logic here.
     p = kernel.scheduler.spawn("foreground", runtime=60.0, is_foreground=True)
     assert p.status == "running"

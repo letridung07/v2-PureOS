@@ -180,7 +180,7 @@ class Scheduler:
         if thread and thread.is_alive():
             timeout = 0.0 if signal == 9 else 1.0
             thread.join(timeout=timeout)
-        
+
         # Clean up tracking structures if the thread is finished
         if thread and not thread.is_alive():
             self._threads.pop(pid, None)
@@ -203,15 +203,18 @@ class Scheduler:
             self.kill(pid)
 
     def wait_all(self, timeout: Optional[float] = None) -> bool:
+        current_thread = threading.current_thread()
+        threads = [t for t in self._threads.values() if t != current_thread]
+
         if timeout is None:
-            for thread in self._threads.values():
+            for thread in threads:
                 thread.join()
-            return all(not thread.is_alive() for thread in self._threads.values())
+            return all(not thread.is_alive() for thread in threads)
 
         deadline = time.time() + timeout
-        for thread in self._threads.values():
+        for thread in threads:
             remaining = deadline - time.time()
             if remaining <= 0:
                 break
             thread.join(remaining)
-        return all(not thread.is_alive() for thread in self._threads.values())
+        return all(not thread.is_alive() for thread in threads)

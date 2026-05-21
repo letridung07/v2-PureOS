@@ -20,6 +20,8 @@ class PsCommand(Command):
         )
         lines = [header]
         for p in self.kernel.scheduler.list():
+            if p.is_foreground:
+                continue
             elapsed = now - p.start_time if p.start_time else 0
             start_str = (
                 _time.strftime("%H:%M:%S", _time.localtime(p.start_time))
@@ -210,6 +212,8 @@ class TopCommand(Command):
         header = f"{'PID':<6} {'NI':>4} {'STATUS':<12} {'TIME':<8} {'RSS':>7} NAME"
         lines = [f"Tasks: {len(procs)} total", header]
         for p in procs:
+            if p.is_foreground:
+                continue
             elapsed = now - p.start_time if p.start_time else 0
             time_str = f"{elapsed:.1f}s"
             lines.append(

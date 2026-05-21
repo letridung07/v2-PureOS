@@ -263,14 +263,14 @@ class TestMemoryDriver:
             }
         )
         k.initialize()
-        
+
         # Scheduler.spawn uses 1024KB by default
         p1 = k.scheduler.spawn("proc1", runtime=10.0)
         assert p1.pid > 0
-        
+
         p2 = k.scheduler.spawn("proc2", runtime=10.0)
         assert p2.pid > 0
-        
+
         # Third spawn should fail as 1024 * 3 > 2048
         with pytest.raises(MemoryError):
             k.scheduler.spawn("proc3", runtime=10.0)

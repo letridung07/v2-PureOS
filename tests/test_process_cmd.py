@@ -44,7 +44,7 @@ class TestProcessCommands:
     def test_kill_terminates_process(self, tmp_path):
         k = self._make_kernel(tmp_path)
         k.shell.registry.execute(["spawn", "killme"])
-        procs = k.scheduler.list()
+        procs = [p for p in k.scheduler.list() if p.name == "killme"]
         pid = procs[0].pid
         result = k.shell.registry.execute(["kill", str(pid)])
         assert result is True
@@ -71,7 +71,7 @@ class TestProcessCommands:
     def test_kill_with_signals(self, tmp_path):
         k = self._make_kernel(tmp_path)
         k.shell.registry.execute(["spawn", "sigtest"])
-        procs = k.scheduler.list()
+        procs = [p for p in k.scheduler.list() if p.name == "sigtest"]
         pid = procs[0].pid
 
         # SIGSTOP
@@ -96,7 +96,7 @@ class TestProcessCommands:
     def test_kill_unknown_signal(self, tmp_path):
         k = self._make_kernel(tmp_path)
         k.shell.registry.execute(["spawn", "bad_sig"])
-        procs = k.scheduler.list()
+        procs = [p for p in k.scheduler.list() if p.name == "bad_sig"]
         pid = procs[0].pid
         result = k.shell.registry.execute(["kill", "-BOGUS", str(pid)])
         assert result is False
@@ -105,7 +105,7 @@ class TestProcessCommands:
     def test_bg_resumes_suspended(self, tmp_path):
         k = self._make_kernel(tmp_path)
         k.shell.registry.execute(["spawn", "bgtest"])
-        procs = k.scheduler.list()
+        procs = [p for p in k.scheduler.list() if p.name == "bgtest"]
         pid = procs[0].pid
         k.scheduler.suspend(pid)
         result = k.shell.registry.execute(["bg", str(pid)])
@@ -196,12 +196,13 @@ class TestProcessCommands:
         shell = k.shell
         # Spawn background job
         shell.execute("spawn slow_job 0.1")
-        procs = k.scheduler.list()
-        assert len(procs) >= 1
+        # Find the process by name
+        procs = [p for p in k.scheduler.list() if p.name == "slow_job"]
+        assert len(procs) == 1
         p = procs[0]
 
-        # Status should be running
-        assert p.status == "running"
+        # Status should be running (or completed if it was very fast)
+        assert p.status in ("running", "completed")
 
         # Wait for this process
         res = shell.execute(f"wait {p.pid}")
@@ -239,13 +240,14 @@ class TestProcessCommands:
         shell.execute("spawn job1 0.1")
         shell.execute("spawn job2 0.1")
 
-        procs = k.scheduler.list()
-        assert len(procs) >= 2
-        pids = [p.pid for p in procs]
+        # Find the specific processes
+        job1 = [p for p in k.scheduler.list() if p.name == "job1"][0]
+        job2 = [p for p in k.scheduler.list() if p.name == "job2"][0]
 
         # Wait for both specific PIDs
-        res = shell.execute(f"wait {pids[0]} {pids[1]}")
+        res = shell.execute(f"wait {job1.pid} {job2.pid}")
         assert res is True
 
-        assert all(p.status == "completed" for p in procs)
+        assert job1.status == "completed"
+        assert job2.status == "completed"
         k.shutdown()

@@ -147,9 +147,13 @@ class Shell:
         # If we are in the main shell loop (not a background subshell),
         # wrap the pipeline in a foreground process for SIGINT simulation.
         import threading
+
         if threading.current_thread().name == "MainThread" and not stop_event:
+
             def pipeline_runner(stop_event=None, resume_event=None):
-                self._execute_pipeline_core(stages, stop_event, resume_event)
+                res = self._execute_pipeline_core(stages, stop_event, resume_event)
+                if res is False:
+                    raise RuntimeError("Pipeline failed")
 
             p = self.kernel.scheduler.spawn(
                 line, target_func=pipeline_runner, is_foreground=True
@@ -162,7 +166,7 @@ class Shell:
                 self._last_exit_code = 130
                 self.env["?"] = "130"
                 return False
-            
+
             success = p.status == "completed"
             self._last_exit_code = 0 if success else 1
             self.env["?"] = str(self._last_exit_code)
