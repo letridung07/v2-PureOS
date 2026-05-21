@@ -78,7 +78,9 @@ def test_main_version(capsys):
 
 
 def test_run_entrypoint_initializes_kernel():
-    kernel = pureos_mod.run(shell=False, config={"format_on_boot": True, "auto_start_services": False})
+    kernel = pureos_mod.run(
+        shell=False, config={"format_on_boot": True, "auto_start_services": False}
+    )
     assert kernel is not None
     assert hasattr(kernel, "shutdown")
     kernel.shutdown()
