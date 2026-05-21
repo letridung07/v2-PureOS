@@ -60,7 +60,19 @@ The `UserDB` provides POSIX-like user and group management, enabling permission-
 *For details on the filesystem, see [Virtual Filesystem Architecture](filesystem.md).*
 *For details on the shell and CLI, see [Shell and Command Execution](shell_and_commands.md).*
 
-## 7. Package Manager (Dynamic Command Loading)
+## 7. Memory Manager (`pureos.memory`)
+
+The `MemoryDriver` tracks global and per-process memory usage across physical RAM and swap space. It is loaded as a kernel driver and integrates with the scheduler on process spawn/exit.
+
+**Features:**
+- **Physical + Swap Model**: Allocations draw from physical RAM first, with spill to swap when physical is exhausted. The driver tracks `used_kb`, `cached_kb`, `swap_used_kb`, and `swap_total_kb`.
+- **Per-Process Accounting**: Each allocation updates the Process dataclass fields `vsize` (virtual size) and `rss` (resident set size) in KB.
+- **Capacity Checks**: Before allocating, the driver verifies that total (physical + swap) free space is sufficient. Physical-free-first allocation is enforced when `total_kb > 0`; unlimited mode is entered when `total_kb == 0`.
+- **LIFO Free**: Frees drain swap first, then physical, matching the reverse of allocation order.
+- **`/proc` Virtual Filesystem**: The driver writes `/proc/meminfo` (global stats) and `/proc/<pid>/status` (per-process VmSize/VmRSS) into the kernel VirtualFS on every alloc/free, making memory stats readable via standard commands like `cat /proc/meminfo`.
+- **Startup Cleanup**: On `on_load`, stale `/proc/<pid>/` directories from previous sessions are purged. On process exit, `free_all` deletes the per-pid `/proc/<pid>/` directory tree.
+
+## 8. Package Manager (Dynamic Command Loading)
 
 v2-PureOS supports runtime extension via the `pkg` command. This allows the system to download and register new shell commands dynamically.
 

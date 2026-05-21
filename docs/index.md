@@ -6,7 +6,7 @@ Welcome to the documentation for v2-PureOS. This guide provides a reference for 
 
 For detailed information about the inner workings of v2-PureOS, please consult the following specialized documentation files:
 
-- [v2-PureOS Architecture](architecture.md): Kernel, Boot Sequence, Process Scheduler, Service Manager, and Networking.
+- [v2-PureOS Architecture](architecture.md): Kernel, Boot Sequence, Process Scheduler, Service Manager, Memory Manager, and Networking.
 - [Virtual Filesystem Architecture](filesystem.md): State-Manager pattern, path resolution, permissions, and persistence.
 - [Shell and Commands](shell_and_commands.md): The shell execution lifecycle, command chaining, piping, redirection, and creating custom commands.
 - [Text Pipeline Tools](text_tools.md): `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`, and `xargs` — composable text processors.
@@ -25,6 +25,7 @@ v2-PureOS is a minimal OS-like system built with Python 3.8+. The package includ
 - `pureos.commands` — interactive shell command registry and modular commands
 - `pureos.services` — lightweight service management
 - `pureos.processes` — simple process scheduler and lifecycle control
+- `pureos.memory` — memory management subsystem (allocation, swap, /proc filesystem)
 - `pureos.shell` — interactive shell loop and command parsing
 
 ## Quickstart: Running the shell
@@ -78,9 +79,10 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `uptime` — show how long the system has been running
 - `date` — display the current date and time
 - `df [-h]` — show disk space usage
-- `free [-h]` — display memory usage (simulated)
+- `free [-h]` — display memory usage
+- `mem [pid]` — show memory statistics and per-process memory usage
 - `sleep <seconds>` — pause for a specified duration
-- `info` — show system and kernel information
+- `info` — show system and kernel information (includes memory stats)
 
 ### File system
 
@@ -140,11 +142,11 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 
 ### Processes & Services
 
-- `ps` — list active processes (PID, NAME, STATUS, START, TIME, NI)
+- `ps` — list active processes (PID, NAME, STATUS, START, TIME, NI, VSZ, RSS)
 - `spawn <name>` — create a new process with a name
 - `kill [-<signal>] <pid>` — terminate a process (default SIGTERM; `-9` for SIGKILL)
 - `wait [pid]...` — wait for specific background processes (or all active background processes if none specified) to complete
-- `top` — one-shot snapshot of processes ranked by elapsed time
+- `top` — one-shot snapshot of processes ranked by elapsed time, including RSS
 - `renice <priority> <pid>` — change the nice value (priority) of a process
 - `jobs` — list background processes with status
 - `fg <pid>` — bring a background process to the foreground
@@ -181,6 +183,7 @@ v2-pureos> cat /tmp/hello
 v2-pureos> chmod 600 /tmp/hello
 v2-pureos> service status noop
 v2-pureos> spawn worker
+v2-pureos> mem
 v2-pureos> ps
 v2-pureos> exit
 ```
@@ -192,7 +195,7 @@ v2-pureos> exit
 Run the test suite from the repository root:
 
 ```bash
-python3 -m pip install -q pytest pytest-cov
+python3 -m pip install -q pytest pytest-cov pytest-xdist
 pytest
 ```
 
@@ -200,6 +203,11 @@ pytest
 
 - `main.py` — executable launcher script
 - `src/pureos` — main Python package
+  - `kernel.py` — kernel orchestrator
+  - `memory.py` — memory management subsystem
+  - `processes.py` — process scheduler
+  - `fs/` — virtual filesystem
+  - `commands/` — interactive shell commands
 - `tests` — unit and integration tests
 - `docs/` — comprehensive documentation
   - `index.md` — landing page and command reference

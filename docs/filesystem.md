@@ -52,4 +52,6 @@ v2-PureOS uses several standardized files in the `/etc/` directory to manage sys
 - **/etc/motd**: "Message of the Day" — displayed by the shell upon login.
 - **/etc/pureosrc**: Default shell initialization script (aliases, exports).
 - **/etc/iptables/rules**: Persisted firewall rules for the `iptables` command.
+- **/proc/meminfo**: Global memory statistics (MemTotal, MemFree, MemAvailable, Cached, SwapTotal, SwapFree), updated by the MemoryDriver on every memory operation.
+- **/proc/<pid>/status**: Per-process memory and status information (Name, Pid, State, VmSize, VmRSS), maintained for each process with active memory allocations.
 

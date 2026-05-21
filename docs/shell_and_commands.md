@@ -57,8 +57,34 @@ class MyDriver(Driver):
         self.logger.info("Driver stopped")
 ```
 
-### Managing Drivers
+### Driver Management
 Drivers can be managed using the `driver` command:
 - `driver list`: List all loaded drivers.
 - `driver load <module> <class>`: Load a driver from a module (e.g., `driver load pureos_vfs.my_mod MyDriver`).
 - `driver unload <name>`: Unload a specific driver.
+
+## Memory Commands
+
+The memory management subsystem provides several commands for inspecting system and per-process memory usage. All commands read live data from the `MemoryDriver`.
+
+### `mem` — Memory Statistics
+```text
+mem [pid]
+```
+
+Without arguments, displays global memory statistics (Total, Used, Free, Cached, Available, Swap Total/Used) followed by a per-process table showing VSZ, RSS, and `%MEM` for every process with active allocations.
+
+With a `pid`, shows detailed memory info for that specific process (Status, VSZ, RSS, %MEM, Nice value).
+
+### `free` — Memory Usage Display
+```text
+free [-h]
+```
+
+Displays a human-readable table of memory usage (Mem: total, used, free, buff/cache, available; Swap: total, used, free). The `-h` flag formats values as human-readable sizes (GiB, MiB, KiB).
+
+### `ps` — Enhanced Process Listing
+The `ps` command now includes `VSZ` and `RSS` columns alongside the existing PID, NAME, STATUS, START, TIME, and NI columns.
+
+### `top` — One-Shot Process Snapshot
+The `top` command now includes an `RSS` column showing resident memory per process alongside elapsed time and CPU utilization.
