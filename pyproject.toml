@@ -13,7 +13,9 @@ authors = [{name = "Dung Le", email = "abcd@example.com"}]
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "pytest-xdist"
+    "pytest-cov",
+    "pytest-xdist",
+    "pre-commit",
 ]
 
 [tool.ruff]
