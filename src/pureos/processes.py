@@ -17,6 +17,8 @@ class Process:
     nice: int = 0  # process priority (lower = higher priority)
     start_time: float = 0.0  # epoch seconds when process started
     thread: Optional[object] = None  # reference to the backing thread
+    vsize: int = 0  # virtual memory size in KB
+    rss: int = 0  # resident set size in KB
 
 
 class Scheduler:
@@ -26,6 +28,7 @@ class Scheduler:
         self._threads = {}
         self._stop_events = {}
         self._resume_events = {}
+        self.memory: Optional["MemoryDriver"] = None  # type: ignore[name-defined]
 
     def spawn(
         self, name: str, target_func: Optional[Callable] = None, *args, **kwargs
@@ -55,6 +58,9 @@ class Scheduler:
         resume_event.set()  # Initially running
         self._resume_events[pid] = resume_event
 
+        if self.memory:
+            self.memory.alloc(pid, 1024)
+
         def target():
             try:
                 if actual_target:
@@ -82,6 +88,9 @@ class Scheduler:
                 proc.status = "failed"
                 proc.exit_code = 1
                 proc.exit_reason = str(exc)
+            finally:
+                if self.memory:
+                    self.memory.free_all(pid)
 
         thread = threading.Thread(
             target=target,
@@ -146,6 +155,9 @@ class Scheduler:
             p.status = "killed"
             p.exit_code = 1
             p.exit_reason = f"killed (signal {signal})"
+
+        if self.memory:
+            self.memory.free_all(pid)
 
         event = self._stop_events.get(pid)
         if event:

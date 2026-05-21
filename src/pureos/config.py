@@ -10,6 +10,8 @@ class Config:
     format_on_boot: bool = False
     auto_start_services: Optional[List[str]] = field(default_factory=lambda: ["noop"])
     fs_backing: Optional[str] = None
+    memory_total_kb: int = 8388608
+    memory_swap_kb: int = 2097152
 
     @classmethod
     def from_dict(cls, config: Optional[Dict[str, Any]] = None):
@@ -21,6 +23,8 @@ class Config:
             "format_on_boot",
             "auto_start_services",
             "fs_backing",
+            "memory_total_kb",
+            "memory_swap_kb",
         ):
             if field_name in config:
                 kwargs[field_name] = config[field_name]

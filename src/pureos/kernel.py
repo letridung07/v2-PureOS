@@ -64,6 +64,12 @@ class Kernel:
         if self.users:
             self.users.initialize()
 
+        from .memory import MemoryDriver
+
+        mem_driver = self.drivers.load_driver(MemoryDriver)
+        if mem_driver:
+            self.scheduler.memory = mem_driver
+
         print("Kernel: starting drivers...")
         self.drivers.start_all()
 

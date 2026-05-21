@@ -16,7 +16,7 @@ class PsCommand(Command):
         now = _time.time()
         header = (
             f"{'PID':<6} {'NAME':<20} {'STATUS':<12} "
-            f"{'START':<10} {'TIME':<8} {'NI':>4}"
+            f"{'START':<10} {'TIME':<8} {'NI':>4} {'VSZ':>7} {'RSS':>7}"
         )
         lines = [header]
         for p in self.kernel.scheduler.list():
@@ -29,7 +29,8 @@ class PsCommand(Command):
             time_str = f"{int(elapsed)}s"
             lines.append(
                 f"{p.pid:<6} {p.name:<20} {p.status:<12} "
-                f"{start_str:<10} {time_str:<8} {p.nice:>4}"
+                f"{start_str:<10} {time_str:<8} {p.nice:>4} "
+                f"{p.vsize:>6}K {p.rss:>6}K"
             )
         out = "\n".join(lines)
         return self.emit(out, capture_output)
@@ -199,13 +200,14 @@ class TopCommand(Command):
             self.kernel.scheduler.list(),
             key=lambda p: (p.start_time or now),
         )
-        header = f"{'PID':<6} {'NI':>4} {'STATUS':<12} {'TIME':<8} NAME"
+        header = f"{'PID':<6} {'NI':>4} {'STATUS':<12} {'TIME':<8} {'RSS':>7} NAME"
         lines = [f"Tasks: {len(procs)} total", header]
         for p in procs:
             elapsed = now - p.start_time if p.start_time else 0
             time_str = f"{elapsed:.1f}s"
             lines.append(
-                f"{p.pid:<6} {p.nice:>4} {p.status:<12} {time_str:<8} {p.name}"
+                f"{p.pid:<6} {p.nice:>4} {p.status:<12} {time_str:<8} "
+                f"{p.rss:>6}K {p.name}"
             )
         out = "\n".join(lines)
         return self.emit(out, capture_output)

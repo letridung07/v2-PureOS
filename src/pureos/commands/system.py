@@ -48,6 +48,13 @@ class InfoCommand(Command):
             f"Processes: {len(self.kernel.scheduler.processes)}\n"
             f"Services: {self.kernel.services.list()}"
         )
+        mem = self.kernel.drivers.drivers.get("memory")
+        if mem:
+            s = mem.get_stats()
+            out += (
+                f"\nMemory: {s['used']}K used / {s['total']}K total "
+                f"({s['free']}K free)"
+            )
         return self.emit(out, capture_output)
 
 
@@ -206,7 +213,7 @@ class DfCommand(Command):
 class FreeCommand(Command):
     name = "free"
     usage = "free"
-    description = "Show mock memory usage statistics."
+    description = "Show memory usage statistics."
 
     def execute(
         self,
@@ -215,14 +222,20 @@ class FreeCommand(Command):
         capture_output=False,
         raw_line=None,
     ):
-        out = (
-            "              total        used        free      "
-            "shared  buff/cache   available\n"
-            "Mem:        8192000     2048000     4096000           "
-            "0     2048000     6144000\n"
-            "Swap:       2048000      512000     1536000"
-        )
-        return self.emit(out, capture_output)
+        mem = self.kernel.drivers.drivers.get("memory")
+        if mem:
+            s = mem.get_stats()
+            out = (
+                f"              total        used        free      "
+                f"shared  buff/cache   available\n"
+                f"Mem:     {s['total']:>10d} {s['used']:>10d} "
+                f"{s['free']:>10d}          0 "
+                f"{s['cached']:>10d} {s['available']:>10d}\n"
+                f"Swap:    {s['swap_total']:>10d} {s['swap_used']:>10d} "
+                f"{s['swap_free']:>10d}"
+            )
+            return self.emit(out, capture_output)
+        return self.emit("Memory driver not loaded.", capture_output)
 
 
 class SleepCommand(Command):
