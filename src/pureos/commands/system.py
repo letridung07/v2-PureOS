@@ -411,7 +411,7 @@ class CrontabCommand(Command):
 
 class DriverCommand(Command):
     name = "driver"
-    usage = "driver [list | load <module> <class> | unload <name>]"
+    usage = "driver [list | status [<name>] | load <module> <class> | start <name> | stop <name> | unload <name>]"
     description = "Manage system drivers."
 
     def execute(
@@ -430,8 +430,28 @@ class DriverCommand(Command):
             out = ["Loaded drivers:"]
             for name, driver in dm.drivers.items():
                 desc = getattr(driver, "description", "")
-                out.append(f"  {name} - {desc}")
+                state = getattr(driver, "state", "unknown")
+                out.append(f"  {name} [{state}] - {desc}")
             return self.emit("\n".join(out), capture_output)
+
+        elif subcommand == "status":
+            if len(parts) == 2:
+                if not dm.drivers:
+                    return self.emit("No drivers loaded.", capture_output)
+                out = ["Driver status:"]
+                for name, driver in dm.drivers.items():
+                    state = getattr(driver, "state", "unknown")
+                    out.append(f"  {name}: {state}")
+                return self.emit("\n".join(out), capture_output)
+            if len(parts) == 3:
+                name = parts[2]
+                driver = dm.drivers.get(name)
+                if not driver:
+                    return self.emit(f"Driver {name} is not loaded.", capture_output)
+                state = getattr(driver, "state", "unknown")
+                return self.emit(f"{name}: {state}", capture_output)
+            print("Usage: driver status [<name>]")
+            return False
 
         elif subcommand == "load":
             if len(parts) < 4:
@@ -441,8 +461,6 @@ class DriverCommand(Command):
             cls_name = parts[3]
 
             try:
-                # First try to load module from VFS if it starts with pureos_vfs
-                # or just use standard importlib
                 module = importlib.import_module(mod_name)
                 driver_class = getattr(module, cls_name)
                 dm.load_driver(driver_class)
@@ -450,6 +468,26 @@ class DriverCommand(Command):
             except Exception as e:
                 print(f"Error loading driver: {e}")
                 return False
+
+        elif subcommand == "start":
+            if len(parts) < 3:
+                print("Usage: driver start <name>")
+                return False
+            name = parts[2]
+            if not dm.start_driver(name):
+                print(f"Failed to start driver: {name}")
+                return False
+            return True
+
+        elif subcommand == "stop":
+            if len(parts) < 3:
+                print("Usage: driver stop <name>")
+                return False
+            name = parts[2]
+            if not dm.stop_driver(name):
+                print(f"Failed to stop driver: {name}")
+                return False
+            return True
 
         elif subcommand == "unload":
             if len(parts) < 3:

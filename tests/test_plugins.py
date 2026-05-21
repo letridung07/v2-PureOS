@@ -72,14 +72,63 @@ def test_driver_lifecycle(kernel):
 
     assert drv.loaded is True
     assert "mock_drv" in dm.drivers
-
-    dm.start_all()
+    assert drv.state == "running"
     assert drv.started is True
 
     dm.unload_driver("mock_drv")
     assert drv.stopped is True
     assert drv.unloaded is True
+    assert drv.state == "unloaded"
     assert "mock_drv" not in dm.drivers
+
+
+def test_driver_runtime_control_commands(kernel, shell):
+    """Test runtime driver start/stop/status behavior."""
+    driver_content = """
+from pureos.drivers import Driver
+
+class CmdDriver(Driver):
+    name = "cmd_drv"
+    description = "Runtime Test Driver"
+
+    def __init__(self, kernel):
+        super().__init__(kernel)
+        self.started = False
+        self.stopped = False
+
+    def on_load(self):
+        pass
+
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.stopped = True
+"""
+
+    kernel.fs.write("/usr/lib/python/runtime_drv.py", driver_content)
+
+    assert shell.execute("driver load pureos_vfs.runtime_drv CmdDriver") is True
+    driver = kernel.drivers.drivers.get("cmd_drv")
+    assert driver is not None
+    assert driver.started is True
+    assert driver.state == "running"
+
+    assert shell.execute("driver stop cmd_drv") is True
+    assert driver.stopped is True
+    assert driver.state == "stopped"
+
+    assert shell.execute("driver start cmd_drv") is True
+    assert driver.state == "running"
+
+    out = shell.registry.execute("driver status cmd_drv", capture_output=True)
+    assert "cmd_drv: running" in out
+
+    out = shell.registry.execute("driver list", capture_output=True)
+    assert "cmd_drv [running]" in out
+
+    assert shell.execute("driver unload cmd_drv") is True
+    assert "cmd_drv" not in kernel.drivers.drivers
 
 
 def test_driver_command(kernel, shell):
