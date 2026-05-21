@@ -254,6 +254,7 @@ class GreetFileCommand(Command):
 
     # Give the thread a moment to start and run
     import time
+
     success = False
     for _ in range(20):
         if kernel.fs.exists("/tmp/dynamic_out"):
@@ -264,4 +265,3 @@ class GreetFileCommand(Command):
         time.sleep(0.05)
 
     assert success is True
-
