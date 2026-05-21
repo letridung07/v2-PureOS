@@ -485,6 +485,7 @@ def register_system_commands(registry):
     registry.register(FgCommand(registry.kernel))
     registry.register(TimeCommand(registry.kernel))
     registry.register(DriverCommand(registry.kernel))
+    registry.register(DmesgCommand(registry.kernel))
 
 
 class SetCommand(Command):
@@ -586,3 +587,45 @@ class TimeCommand(Command):
         timing = f"\nreal\t{elapsed:.3f}s"
         print(timing)
         return result is not False
+
+
+class DmesgCommand(Command):
+    name = "dmesg"
+    usage = "dmesg [-c] [-l <level>]"
+    description = "Print or control the kernel/system log ring buffer."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        syslog = self.kernel.drivers.drivers.get("syslog")
+        if not syslog:
+            return self.emit("Syslog driver not loaded.", capture_output)
+
+        clear_logs = False
+        filter_level = None
+
+        idx = 1
+        while idx < len(parts):
+            arg = parts[idx]
+            if arg == "-c":
+                clear_logs = True
+            elif arg == "-l" and idx + 1 < len(parts):
+                filter_level = parts[idx + 1].upper()
+                idx += 1
+            else:
+                print("Usage: dmesg [-c] [-l <level>]")
+                return False
+            idx += 1
+
+        if clear_logs:
+            syslog.clear()
+            return True
+
+        with syslog._lock:
+            logs = list(syslog.logs)
+
+        if filter_level:
+            logs = [entry for entry in logs if entry["levelname"] == filter_level]
+
+        out = "\n".join(entry["formatted"] for entry in logs)
+        return self.emit(out, capture_output)

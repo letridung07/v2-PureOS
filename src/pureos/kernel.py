@@ -65,10 +65,13 @@ class Kernel:
             self.users.initialize()
 
         from .memory import MemoryDriver
+        from .syslog import SyslogDriver
 
         mem_driver = self.drivers.load_driver(MemoryDriver)
         if mem_driver:
             self.scheduler.memory = mem_driver
+
+        self.drivers.load_driver(SyslogDriver)
 
         print("Kernel: starting drivers...")
         self.drivers.start_all()
