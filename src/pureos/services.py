@@ -1,6 +1,8 @@
 """Lightweight service manager with optional stoppable services."""
 
+import logging
 import threading
+import time
 from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
@@ -22,6 +24,7 @@ class ServiceManager:
         self._services: Dict[str, Service] = {}
         self._threads: Dict[str, threading.Thread] = {}
         self._stop_events: Dict[str, threading.Event] = {}
+        self.logger = logging.getLogger("pureos.services")
 
     def register(
         self,
@@ -139,8 +142,41 @@ class ServiceManager:
         }
 
     def stop_all(self, timeout: Optional[float] = 1.0):
-        for name in list(self._services.keys()):
-            self.stop(name, timeout=timeout)
+        """Stop all registered services.
+
+        Stops each service (best-effort) and then attempts to join any remaining
+        service threads up to the provided timeout.
+        """
+        names = list(self._services.keys())
+        for name in names:
+            try:
+                self.stop(name, timeout=timeout)
+            except Exception as exc:
+                self.logger.error("Error stopping service %s: %s", name, exc)
+
+        # After requesting stop for all services, wait for threads to finish
+        if timeout is None:
+            # wait indefinitely
+            for t in list(self._threads.values()):
+                try:
+                    t.join()
+                except Exception:
+                    pass
+            return
+
+        deadline = time.time() + float(timeout)
+        for name, t in list(self._threads.items()):
+            if t is None:
+                continue
+            if not t.is_alive():
+                continue
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                break
+            try:
+                t.join(timeout=remaining)
+            except Exception as exc:
+                self.logger.debug("Error joining service thread %s: %s", name, exc)
 
     def list(self):
         return list(self._services.keys())

@@ -80,23 +80,35 @@ class Kernel:
         if mem_driver:
             self.scheduler.memory = mem_driver
 
-        self.drivers.load_driver(SyslogDriver)
+        try:
+            self.drivers.load_driver(SyslogDriver)
+        except Exception as exc:
+            self.logger.error("Failed to load SyslogDriver: %s", exc)
 
         print("Kernel: starting drivers...")
-        self.drivers.start_all()
+        try:
+            self.drivers.start_all()
+        except Exception as exc:
+            self.logger.error("Error starting drivers: %s", exc)
 
         print("Kernel: starting core services...")
         auto_start = self.config.auto_start_services
-        if isinstance(auto_start, list):
-            for name in auto_start:
-                try:
-                    self.services.start(name)
-                except KeyError:
-                    self.logger.warning("Auto-start service %s is not registered", name)
-        elif auto_start:
-            self.services.start_all(auto_start_only=True)
-        else:
-            self.services.start_all()
+        try:
+            if isinstance(auto_start, list):
+                for name in auto_start:
+                    try:
+                        self.services.start(name)
+                    except KeyError:
+                        self.logger.warning(
+                            "Auto-start service %s is not registered", name
+                        )
+            elif auto_start:
+                self.services.start_all(auto_start_only=True)
+            else:
+                self.services.start_all()
+        except Exception as exc:
+            self.logger.error("Error starting services: %s", exc)
+
         print("Kernel: initialization complete")
 
     def start_service(self, name: str):
@@ -106,16 +118,41 @@ class Kernel:
         return self.services.stop(name, timeout=timeout)
 
     def shutdown(self):
-        print("Kernel: shutting down drivers...")
-        self.drivers.shutdown()
-        print("Kernel: shutting down services...")
-        self.services.stop_all()
-        print("Kernel: shutting down processes...")
-        self.scheduler.kill_all()
-        if hasattr(self.scheduler, "wait_all"):
-            self.scheduler.wait_all()
+        errors = []
+
+        # Stop services first (they may depend on drivers)
+        try:
+            print("Kernel: shutting down services...")
+            self.services.stop_all()
+        except Exception as exc:
+            self.logger.error("Error shutting down services: %s", exc)
+            errors.append(exc)
+
+        # Kill processes next
+        try:
+            print("Kernel: shutting down processes...")
+            self.scheduler.kill_all()
+            if hasattr(self.scheduler, "wait_all"):
+                self.scheduler.wait_all()
+        except Exception as exc:
+            self.logger.error("Error shutting down processes: %s", exc)
+            errors.append(exc)
+
+        # Finally shutdown drivers
+        try:
+            print("Kernel: shutting down drivers...")
+            self.drivers.shutdown()
+        except Exception as exc:
+            self.logger.error("Error shutting down drivers: %s", exc)
+            errors.append(exc)
 
         # Unregister VFS Importer
-        VFSImporter.unregister(self.fs)
+        try:
+            VFSImporter.unregister(self.fs)
+        except Exception as exc:
+            self.logger.error("Error unregistering VFS importer: %s", exc)
+            errors.append(exc)
 
         print("Kernel: shutdown complete")
+        if errors:
+            self.logger.warning("Kernel.shutdown completed with errors; see logs")
