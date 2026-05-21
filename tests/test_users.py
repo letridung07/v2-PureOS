@@ -397,3 +397,16 @@ class TestSudoCommand:
         kernel.users.su("root")
         res = run(shell, "sudo", capture=False)
         assert res is False
+
+    def test_sudo_output_capture(self, kernel, shell):
+        # Setup a user with NO password (empty hash) and sudo
+        kernel.users.add_user("tester")
+        kernel.fs.write("/etc/sudoers", "tester ALL=(ALL) ALL")
+
+        # Login as tester
+        kernel.users.su("tester")
+
+        # Run sudo whoami with capture_output=True
+        res = shell.registry.execute("sudo whoami", capture_output=True)
+        assert res.strip() == "root"
+

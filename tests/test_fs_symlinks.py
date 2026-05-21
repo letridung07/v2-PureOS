@@ -155,3 +155,39 @@ def test_chmod_sets_sticky_bit(kernel, shell):
     mode = kernel.fs.state.modes.get("/tmp/stickydir/")
     assert mode is not None
     assert mode & 0o1000  # sticky bit set
+
+
+def test_hard_link_persistence(tmp_path):
+    # Test persistence of hard link inode sharing across reboots
+    from pureos.kernel import Kernel
+
+    store = str(tmp_path / "store.json")
+    k = Kernel(config={"fs_backing": store})
+    k.initialize()
+
+    # Create file and hard link
+    k.fs.write("/file1", "content")
+    k.fs.link("/file1", "/link1")
+
+    inode1 = k.fs.state.inodes["/file1"]
+    inode_link = k.fs.state.inodes["/link1"]
+    assert inode1 == inode_link
+    k.fs.persistence.save()
+
+    # Reload kernel
+    k2 = Kernel(config={"fs_backing": store})
+    k2.initialize()
+
+    assert k2.fs.read("/file1") == "content"
+    assert k2.fs.read("/link1") == "content"
+    assert k2.fs.state.inodes["/file1"] == k2.fs.state.inodes["/link1"]
+
+    # Update one, check other
+    k2.fs.write("/file1", "new content")
+    assert k2.fs.read("/link1") == "new content"
+
+    # Delete one, check other stays
+    k2.fs.delete("/file1")
+    assert k2.fs.exists("/link1")
+    assert k2.fs.read("/link1") == "new content"
+    assert "/file1" not in k2.fs.state.inodes

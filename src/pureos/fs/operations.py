@@ -365,6 +365,7 @@ class FSOperations:
             self.state.modes.pop(normalized, None)
             self.state.owners.pop(normalized, None)
             self.state.groups.pop(normalized, None)
+            self.state.inodes.pop(normalized, None)
             self.persistence.save_if_needed()
             return
         if (
@@ -380,16 +381,19 @@ class FSOperations:
                 self.state.modes.pop(file_path, None)
                 self.state.owners.pop(file_path, None)
                 self.state.groups.pop(file_path, None)
+                self.state.inodes.pop(file_path, None)
         for dir_path in list(self.state.dirs):
             if dir_path.startswith(normalized):
                 self.state.dirs.discard(dir_path)
                 self.state.modes.pop(dir_path, None)
                 self.state.owners.pop(dir_path, None)
                 self.state.groups.pop(dir_path, None)
+                self.state.inodes.pop(dir_path, None)
         self.state.dirs.discard(normalized)
         self.state.modes.pop(normalized, None)
         self.state.owners.pop(normalized, None)
         self.state.groups.pop(normalized, None)
+        self.state.inodes.pop(normalized, None)
         self.persistence.save_if_needed()
 
     def rename(self, src: str, dst: str):
@@ -428,6 +432,9 @@ class FSOperations:
         self.state.modes[normalized_dst] = self.state.modes.pop(src, 0o644)
         self.state.owners[normalized_dst] = self.state.owners.pop(src, 0)
         self.state.groups[normalized_dst] = self.state.groups.pop(src, 0)
+        self.state.inodes[normalized_dst] = self.state.inodes.pop(
+            src, self.state.next_inode()
+        )
         self.persistence.save_if_needed()
 
     def _copy_file(self, src: str, dst: str):
@@ -461,6 +468,9 @@ class FSOperations:
         self.mkdir(dst_dir, parents=True)
         self.state.owners[dst_dir] = self.state.owners.pop(src_dir, 0)
         self.state.groups[dst_dir] = self.state.groups.pop(src_dir, 0)
+        self.state.inodes[dst_dir] = self.state.inodes.pop(
+            src_dir, self.state.next_inode()
+        )
         for directory in sorted(self.state.dirs):
             if directory.startswith(src_dir):
                 relative = directory[len(src_dir) :]
@@ -473,6 +483,9 @@ class FSOperations:
                 )
                 self.state.groups[dst_dir + relative] = self.state.groups.pop(
                     directory, 0
+                )
+                self.state.inodes[dst_dir + relative] = self.state.inodes.pop(
+                    directory, self.state.next_inode()
                 )
                 self.state.dirs.discard(directory)
         for file_path in list(self.state.files):
@@ -487,6 +500,9 @@ class FSOperations:
                 )
                 self.state.groups[dst_dir + relative] = self.state.groups.pop(
                     file_path, 0
+                )
+                self.state.inodes[dst_dir + relative] = self.state.inodes.pop(
+                    file_path, self.state.next_inode()
                 )
         self.delete(src_dir)
         self.persistence.save_if_needed()
