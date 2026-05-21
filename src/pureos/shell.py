@@ -143,6 +143,34 @@ class Shell:
         stages = split_pipeline(line)
         if not stages:
             return None
+
+        # If we are in the main shell loop (not a background subshell),
+        # wrap the pipeline in a foreground process for SIGINT simulation.
+        import threading
+        if threading.current_thread().name == "MainThread" and not stop_event:
+            def pipeline_runner(stop_event=None, resume_event=None):
+                self._execute_pipeline_core(stages, stop_event, resume_event)
+
+            p = self.kernel.scheduler.spawn(
+                line, target_func=pipeline_runner, is_foreground=True
+            )
+            try:
+                self.kernel.scheduler.wait(p.pid)
+            except KeyboardInterrupt:
+                print("\n^C")
+                self.kernel.scheduler.kill(p.pid, signal=9)
+                self._last_exit_code = 130
+                self.env["?"] = "130"
+                return False
+            
+            success = p.status == "completed"
+            self._last_exit_code = 0 if success else 1
+            self.env["?"] = str(self._last_exit_code)
+            return success
+
+        return self._execute_pipeline_core(stages, stop_event, resume_event)
+
+    def _execute_pipeline_core(self, stages, stop_event=None, resume_event=None):
         input_data = None
         for index, stage in enumerate(stages):
             if resume_event:

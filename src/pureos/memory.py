@@ -99,6 +99,12 @@ class MemoryDriver(Driver):
                     - self.swap_used_kb
                 )
                 if size_kb > total_free:
+                    self.logger.error(
+                        "Out of memory: process %s requested %s KB, but only %s KB free",
+                        pid,
+                        size_kb,
+                        total_free,
+                    )
                     return False
 
                 phys_free = self.total_kb - self.used_kb - self.cached_kb

@@ -11,6 +11,7 @@ For detailed information about the inner workings of v2-PureOS, please consult t
 - [Shell and Commands](shell_and_commands.md): The shell execution lifecycle, command chaining, piping, redirection, and creating custom commands.
 - [Text Pipeline Tools](text_tools.md): `wc`, `grep`, `sort`, `uniq`, `cut`, `tr`, and `xargs` — composable text processors.
 - [Cron Daemon](cron.md): Scheduled background tasks, syntax format, and `crontab` command.
+- [Inter-Process Communication](ipc.md): Message queues and shared memory segments.
 
 ---
 

@@ -152,3 +152,32 @@ def test_syslog_write_by_unprivileged_user(kernel, shell):
     # Verify in file
     syslog_content = kernel.fs.read("/var/log/syslog")
     assert "Log from guest user" in syslog_content
+
+
+def test_dmesg_follow_mode_logic(kernel, shell):
+    """Test that dmesg -f refuses to run in a pipe/capture context."""
+    import io
+    from contextlib import redirect_stdout
+    
+    # We call the command with capture_output=True. 
+    # The command should detect this and return False.
+    # We use a manual redirect to see what it printed before returning False.
+    f = io.StringIO()
+    with redirect_stdout(f):
+        res = shell.registry.execute(["dmesg", "-f"], capture_output=True)
+    
+    # registry.execute returns False if the command returns False
+    assert res is False
+    # The message is printed to stdout (which registry.execute redirects to its own internal buffer)
+    # Wait, if registry.execute uses its own buffer, my manual redirect might not catch it 
+    # if it's nested. Let's look at registry.execute again.
+    # It uses a local 'f' and doesn't print if result is False.
+    
+    # To really test this, we can call the handler directly.
+    handler = shell.registry.commands["dmesg"]
+    f2 = io.StringIO()
+    with redirect_stdout(f2):
+        res2 = handler.execute(["dmesg", "-f"], capture_output=True)
+    
+    assert res2 is False
+    assert "not supported in pipes" in f2.getvalue()

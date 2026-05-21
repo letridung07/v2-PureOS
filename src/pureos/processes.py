@@ -24,6 +24,7 @@ class Process:
     thread: Optional[object] = None  # reference to the backing thread
     vsize: int = 0  # virtual memory size in KB
     rss: int = 0  # resident set size in KB
+    is_foreground: bool = False  # Track if it is a shell foreground process
 
 
 class Scheduler:
@@ -36,7 +37,12 @@ class Scheduler:
         self.memory: Optional[MemoryDriver] = None
 
     def spawn(
-        self, name: str, target_func: Optional[Callable] = None, *args, **kwargs
+        self,
+        name: str,
+        target_func: Optional[Callable] = None,
+        is_foreground: bool = False,
+        *args,
+        **kwargs,
     ) -> Process:
         pid = next(self._pid_iter)
 
@@ -55,6 +61,7 @@ class Scheduler:
             exit_code=None,
             exit_reason="started",
             start_time=time.time(),
+            is_foreground=is_foreground,
         )
         self.processes[pid] = proc
         stop_event = threading.Event()
@@ -64,7 +71,8 @@ class Scheduler:
         self._resume_events[pid] = resume_event
 
         if self.memory:
-            self.memory.alloc(pid, 1024)
+            if not self.memory.alloc(pid, 1024):
+                raise MemoryError("Kernel: Out of memory during process spawn")
 
         def target():
             try:

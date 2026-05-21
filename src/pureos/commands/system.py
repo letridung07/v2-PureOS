@@ -591,7 +591,7 @@ class TimeCommand(Command):
 
 class DmesgCommand(Command):
     name = "dmesg"
-    usage = "dmesg [-c] [-l <level>]"
+    usage = "dmesg [-c] [-l <level>] [-f]"
     description = "Print or control the kernel/system log ring buffer."
 
     def execute(
@@ -603,23 +603,56 @@ class DmesgCommand(Command):
 
         clear_logs = False
         filter_level = None
+        follow = False
 
         idx = 1
         while idx < len(parts):
             arg = parts[idx]
             if arg == "-c":
                 clear_logs = True
+            elif arg == "-f":
+                follow = True
             elif arg == "-l" and idx + 1 < len(parts):
                 filter_level = parts[idx + 1].upper()
                 idx += 1
             else:
-                print("Usage: dmesg [-c] [-l <level>]")
+                print("Usage: dmesg [-c] [-l <level>] [-f]")
                 return False
             idx += 1
 
         if clear_logs:
             syslog.clear()
             return True
+
+        if follow:
+            if capture_output:
+                print("dmesg: -f not supported in pipes")
+                return False
+            
+            print("dmesg: starting follow mode (Ctrl+C to stop)")
+            last_idx = len(syslog.logs)
+            
+            # Print existing logs first
+            with syslog._lock:
+                logs = list(syslog.logs)
+                if filter_level:
+                    logs = [e for e in logs if e["levelname"] == filter_level]
+                for entry in logs:
+                    print(entry["formatted"])
+
+            import time
+            try:
+                while True:
+                    with syslog._lock:
+                        if len(syslog.logs) > last_idx:
+                            new_logs = syslog.logs[last_idx:]
+                            for entry in new_logs:
+                                if not filter_level or entry["levelname"] == filter_level:
+                                    print(entry["formatted"])
+                            last_idx = len(syslog.logs)
+                    time.sleep(0.1)
+            except KeyboardInterrupt:
+                return True
 
         with syslog._lock:
             logs = list(syslog.logs)

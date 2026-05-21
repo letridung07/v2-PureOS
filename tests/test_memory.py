@@ -1,6 +1,7 @@
 import importlib
 import os
 import sys
+import pytest
 
 try:
     kernel_mod = importlib.import_module("pureos.kernel")
@@ -238,7 +239,7 @@ class TestMemoryDriver:
         assert mem.alloc(1, -100) is False
         k.shutdown()
 
-    def test_unlimited_memory_when_total_is_zero(self, tmp_path):
+    def test_alloc_unlimited_memory_when_total_is_zero(self, tmp_path):
         k = Kernel(
             config={
                 "memory_total_kb": 0,
@@ -250,6 +251,29 @@ class TestMemoryDriver:
         mem = k.drivers.drivers["memory"]
         assert mem.alloc(1, 999999)
         assert mem.used_kb == 999999
+        k.shutdown()
+
+    def test_spawn_memory_enforcement(self, tmp_path):
+        """Test that memory limits are enforced during process spawn."""
+        k = Kernel(
+            config={
+                "memory_total_kb": 2048,
+                "memory_swap_kb": 0,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        
+        # Scheduler.spawn uses 1024KB by default
+        p1 = k.scheduler.spawn("proc1", runtime=10.0)
+        assert p1.pid > 0
+        
+        p2 = k.scheduler.spawn("proc2", runtime=10.0)
+        assert p2.pid > 0
+        
+        # Third spawn should fail as 1024 * 3 > 2048
+        with pytest.raises(MemoryError):
+            k.scheduler.spawn("proc3", runtime=10.0)
         k.shutdown()
 
     def test_on_unload_cleans_proc_files(self, tmp_path):
