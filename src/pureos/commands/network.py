@@ -82,8 +82,8 @@ class PingCommand(Command):
                 return self.emit(out, capture_output)
             except Exception as exc:
                 out = f"Ping failed: cannot connect to {host}:{port} ({exc})"
-                self.emit(out, capture_output)
-                return False
+                result = self.emit(out, capture_output)
+                return result if capture_output else False
         else:
             try:
                 ip = resolve_host(self.kernel.fs, host)
@@ -91,8 +91,8 @@ class PingCommand(Command):
                 return self.emit(out, capture_output)
             except Exception as exc:
                 out = f"Ping failed: cannot resolve host {host} ({exc})"
-                self.emit(out, capture_output)
-                return False
+                result = self.emit(out, capture_output)
+                return result if capture_output else False
 
 
 class IfconfigCommand(Command):
