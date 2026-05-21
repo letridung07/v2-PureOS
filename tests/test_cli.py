@@ -31,6 +31,14 @@ def test_cli_backing_flag():
     assert args.version is False
 
 
+def test_cli_backing_path_expands_user_home():
+    expected = os.path.abspath(os.path.expanduser("~/pureos.json"))
+    args = cli_mod.parse_args(["--backing", "~/pureos.json"])
+    assert args.backing == expected
+    assert args.shell is False
+    assert args.version is False
+
+
 def test_cli_parse_no_args():
     args = cli_mod.parse_args([])
     assert args.shell is False

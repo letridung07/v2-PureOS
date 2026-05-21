@@ -49,7 +49,17 @@ def parse_args(argv=None):
         metavar="PATH",
         help="Use a persistent backing file for the virtual filesystem",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.backing is not None:
+        args.backing = resolve_backing_path(args.backing)
+    return args
+
+
+def resolve_backing_path(path):
+    if path is None:
+        return None
+    expanded = os.path.expanduser(os.path.expandvars(path))
+    return os.path.abspath(expanded)
 
 
 def main(argv=None):
@@ -59,7 +69,7 @@ def main(argv=None):
         return
     banner()
     system_info()
-    config = {"fs_backing": args.backing}
+    config = {"fs_backing": resolve_backing_path(args.backing)}
     run_pureos(shell=args.shell, config=config)
     print("Initialization complete.")
     print("Exiting.")
