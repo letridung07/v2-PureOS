@@ -56,7 +56,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest --maxfail=1 --disable-warnings --cov=src --cov-report=xml --cov-report=term
+          pytest --maxfail=1 --disable-warnings --cov=src --cov-branch --cov-report=xml --cov-report=term
 
       - name: Upload coverage report
         if: always()

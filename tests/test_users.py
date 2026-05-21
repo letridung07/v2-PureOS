@@ -409,3 +409,89 @@ class TestSudoCommand:
         # Run sudo whoami with capture_output=True
         res = shell.registry.execute("sudo whoami", capture_output=True)
         assert res.strip() == "root"
+
+
+class TestLastCommand:
+    def test_last_shows_history(self, kernel, shell):
+        kernel.users.add_user("lastuser")
+        kernel.users.su("lastuser")
+        kernel.users.su("root")
+        out = run(shell, "last")
+        assert "root" in out
+        assert "lastuser" in out
+
+    def test_last_specific_user(self, kernel, shell):
+        kernel.users.add_user("loguser")
+        kernel.users.su("loguser")
+        kernel.users.su("root")
+        out = run(shell, "last loguser")
+        assert "loguser" in out
+
+
+class TestUserdelEdgeCases:
+    def test_userdel_nonexistent_user(self, kernel, shell):
+        res = run(shell, "userdel nonexistent", capture=False)
+        assert res is False
+
+    def test_userdel_root_rejected(self, kernel, shell):
+        res = run(shell, "userdel root", capture=False)
+        assert res is False
+        assert "root" in kernel.users.users
+
+
+class TestPasswdLockUnlock:
+    def test_lock_user(self, kernel):
+        kernel.users.add_user("lockme")
+        kernel.users.passwd_lock("lockme")
+        assert kernel.users.users["lockme"].locked is True
+
+    def test_unlock_user(self, kernel):
+        kernel.users.add_user("unlockme")
+        kernel.users.passwd_lock("unlockme")
+        kernel.users.passwd_unlock("unlockme")
+        assert kernel.users.users["unlockme"].locked is False
+
+    def test_lock_root_rejected(self, kernel):
+        with pytest.raises(ValueError, match="Cannot lock root"):
+            kernel.users.passwd_lock("root")
+
+    def test_lock_nonexistent(self, kernel):
+        with pytest.raises(ValueError, match="does not exist"):
+            kernel.users.passwd_lock("nobody")
+
+    def test_unlock_nonexistent(self, kernel):
+        with pytest.raises(ValueError, match="does not exist"):
+            kernel.users.passwd_unlock("nobody")
+
+    def test_locked_user_cannot_authenticate(self, kernel):
+        kernel.users.add_user("authlocked")
+        kernel.users.users["authlocked"].set_password("pass123")
+        kernel.users.passwd_lock("authlocked")
+        assert kernel.users.authenticate("authlocked", "pass123") is False
+
+    def test_locked_user_cannot_su_to(self, kernel):
+        kernel.users.add_user("sulocked")
+        kernel.users.users["sulocked"].set_password("pass123")
+        kernel.users.passwd_lock("sulocked")
+        result = kernel.users.su("sulocked", password="pass123")
+        assert result is False
+
+
+class TestAuthenticate:
+    def test_authenticate_valid(self, kernel):
+        kernel.users.add_user("authuser")
+        kernel.users.users["authuser"].set_password("mypass")
+        assert kernel.users.authenticate("authuser", "mypass") is True
+
+    def test_authenticate_invalid_password(self, kernel):
+        kernel.users.add_user("authfail")
+        kernel.users.users["authfail"].set_password("mypass")
+        assert kernel.users.authenticate("authfail", "wrong") is False
+
+    def test_authenticate_nonexistent(self, kernel):
+        assert kernel.users.authenticate("ghost", "pass") is False
+
+    def test_authenticate_no_password(self, kernel):
+        kernel.users.add_user("nopass")
+        # No password set means any password works
+        assert kernel.users.authenticate("nopass", "anything") is True

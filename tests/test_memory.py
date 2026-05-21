@@ -252,6 +252,155 @@ class TestMemoryDriver:
         assert mem.used_kb == 999999
         k.shutdown()
 
+    def test_on_unload_cleans_proc_files(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        mem = k.drivers.drivers["memory"]
+        p = k.scheduler.spawn("unload_test", runtime=0.5)
+        assert k.fs.exists("/proc/meminfo")
+        assert k.fs.exists(f"/proc/{p.pid}/status")
+        mem.on_unload()
+        assert not k.fs.exists("/proc/meminfo")
+        assert mem.used_kb == 0
+        assert mem.swap_used_kb == 0
+        assert len(mem._per_process) == 0
+        k.shutdown()
+
+    def test_free_zero_or_negative_returns_false(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        mem = k.drivers.drivers["memory"]
+        mem.alloc(1, 1024)
+        assert mem.free(1, 0) is False
+        assert mem.free(1, -100) is False
+        k.shutdown()
+
+    def test_free_unallocated_pid_returns_false(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        mem = k.drivers.drivers["memory"]
+        assert mem.free(999, 1024) is False
+        k.shutdown()
+
+    def test_free_drains_swap_first(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 1024,
+                "memory_swap_kb": 1024,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        mem = k.drivers.drivers["memory"]
+        # Allocate 1536KB: 1024 physical + 512 swap
+        assert mem.alloc(1, 1536)
+        assert mem.used_kb == 1024
+        assert mem.swap_used_kb == 512
+        # Free 768KB: should drain from swap first
+        mem.free(1, 768)
+        assert mem.swap_used_kb == 0  # all 512 swap freed
+        assert mem.used_kb == 768  # 1024 - 256 from physical
+        k.shutdown()
+
+    def test_get_all_process_memory(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        mem = k.drivers.drivers["memory"]
+        p1 = k.scheduler.spawn("proc1", runtime=0.5)
+        p2 = k.scheduler.spawn("proc2", runtime=0.5)
+        result = mem.get_all_process_memory()
+        assert p1.pid in result
+        assert p2.pid in result
+        assert result[p1.pid] == (1024, 1024)
+        assert result[p2.pid] == (1024, 1024)
+        k.shutdown()
+
+    def test_alloc_updates_process_fields(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        mem = k.drivers.drivers["memory"]
+        p = k.scheduler.spawn("field_test", runtime=0.5)
+        assert p.vsize == 1024
+        assert p.rss == 1024
+        mem.alloc(p.pid, 2048)
+        assert p.vsize == 3072
+        assert p.rss == 3072
+        k.shutdown()
+
+    def test_alloc_writes_proc_files(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        mem = k.drivers.drivers["memory"]
+        mem.alloc(42, 2048)
+        # Check /proc/meminfo updated
+        content = k.fs.read("/proc/meminfo")
+        assert "MemTotal:" in content
+        assert "MemFree:" in content
+        k.shutdown()
+
+    def test_free_kb_property(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 10000,
+                "memory_swap_kb": 2000,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        mem = k.drivers.drivers["memory"]
+        assert mem.free_kb == 10000
+        mem.cached_kb = 1000
+        assert mem.free_kb == 9000
+        mem.alloc(1, 3000)
+        assert mem.free_kb == 6000
+        k.shutdown()
+
+    def test_available_kb_property(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 10000,
+                "memory_swap_kb": 2000,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        mem = k.drivers.drivers["memory"]
+        mem.cached_kb = 2000
+        # free = total - used - cached = 10000 - 0 - 2000 = 8000
+        # available = free + cached = 8000 + 2000 = 10000
+        assert mem.available_kb == 10000
+        k.shutdown()
+
 
 # ------------------------------------------------------------------
 # Process / Scheduler integration tests
@@ -459,4 +608,29 @@ class TestCommands:
         k.drivers.unload_driver("memory")
         out = k.shell.registry.execute(["free"], capture_output=True)
         assert "not loaded" in out
+        k.shutdown()
+
+    def test_mem_driver_not_loaded(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        k.drivers.unload_driver("memory")
+        out = k.shell.registry.execute(["mem"], capture_output=True)
+        assert "not loaded" in out
+        k.shutdown()
+
+    def test_mem_invalid_pid_shows_usage(self, tmp_path):
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
+        k.initialize()
+        result = k.shell.registry.execute(["mem", "abc"], capture_output=True)
+        assert result is False
         k.shutdown()
