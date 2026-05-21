@@ -21,10 +21,10 @@ def test_echo_redirection():
 
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        res = shell.execute('echo hello > /tmp/hello', add_to_history=False)
+        res = shell.execute("echo hello > /tmp/hello", add_to_history=False)
 
     assert res is not False
-    assert k.fs.read('/tmp/hello') == 'hello\n'
+    assert k.fs.read("/tmp/hello") == "hello\n"
     k.shutdown()
 
 
@@ -36,10 +36,10 @@ def test_pipeline_capture():
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         # echo with -e expands \n sequences
-        res = shell.execute('echo -e "one\\ntwo\\nthree" | grep two', add_to_history=False)
+        shell.execute('echo -e "one\\ntwo\\nthree" | grep two', add_to_history=False)
 
     out = buf.getvalue().strip()
-    assert 'two' in out
+    assert "two" in out
     k.shutdown()
 
 
@@ -50,10 +50,10 @@ def test_background_job_creates_process():
 
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        res = shell.execute('sleep 0.05 &', add_to_history=False)
+        shell.execute("sleep 0.05 &", add_to_history=False)
 
     # allow scheduler to spawn the background process
     time.sleep(0.02)
     procs = k.scheduler.list()
-    assert any('sleep' in p.name for p in procs)
+    assert any("sleep" in p.name for p in procs)
     k.shutdown()

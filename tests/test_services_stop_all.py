@@ -18,7 +18,7 @@ def test_stop_all_joins_running_service():
             stop_event.wait(1)
 
     sm.register("testsvc", svc, daemon=False, stoppable=True)
-    t = sm.start("testsvc")
+    _ = sm.start("testsvc")
     # allow service thread to start
     time.sleep(0.01)
     sm.stop_all(timeout=1.0)

@@ -81,7 +81,7 @@ class FSPersistence:
             return
         try:
             self._load()
-        except (OSError, ValueError, json.JSONDecodeError) as exc:
+        except (OSError, ValueError, json.JSONDecodeError):
             # Attempt recovery from temp or backup files before falling back
             temp_path = f"{self.state.backing_path}.tmp"
             bak_path = f"{self.state.backing_path}.bak"
@@ -92,7 +92,9 @@ class FSPersistence:
                     with open(temp_path, "r", encoding="utf-8") as f:
                         json.load(f)  # validate JSON
                     os.replace(temp_path, self.state.backing_path)
-                    self.logger.warning("FSPersistence: recovered backing from temp file")
+                    self.logger.warning(
+                        "FSPersistence: recovered backing from temp file"
+                    )
                     self._load()
                     recovered = True
             except Exception:
@@ -105,7 +107,9 @@ class FSPersistence:
                         with open(bak_path, "r", encoding="utf-8") as f:
                             json.load(f)
                         os.replace(bak_path, self.state.backing_path)
-                        self.logger.warning("FSPersistence: recovered backing from backup")
+                        self.logger.warning(
+                            "FSPersistence: recovered backing from backup"
+                        )
                         self._load()
                         recovered = True
                 except Exception:
@@ -118,7 +122,8 @@ class FSPersistence:
                     corrupt_path = f"{self.state.backing_path}.corrupt.{ts}"
                     os.replace(self.state.backing_path, corrupt_path)
                     self.logger.error(
-                        "FSPersistence: backing file corrupted, moved to %s", corrupt_path
+                        "FSPersistence: backing file corrupted, moved to %s",
+                        corrupt_path,
                     )
                 except Exception:
                     # best-effort: ignore if move fails

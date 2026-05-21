@@ -30,7 +30,9 @@ def test_persistence_recovers_from_corrupt_backing(tmp_path):
     # Either the persistence code recovered from a .bak or moved the corrupt
     # file to a .corrupt.* path. Accept either behavior and ensure filesystem
     # is valid after initialization.
-    corrupt_present = any(p.name.startswith(backing.name + ".corrupt.") for p in tmp_path.iterdir())
+    corrupt_present = any(
+        p.name.startswith(backing.name + ".corrupt.") for p in tmp_path.iterdir()
+    )
     data_restored = k2.fs.read("/var/data") == "hello"
     assert corrupt_present or data_restored
     # And the new kernel should have a valid, initialized filesystem (root exists)

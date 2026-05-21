@@ -6,10 +6,15 @@ on:
   pull_request:
     branches: ["main", "master"]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   lint:
     name: Lint on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       matrix:
         os: ["ubuntu-latest", "windows-latest"]
@@ -35,7 +40,9 @@ jobs:
   test:
     name: Test on ${{ matrix.os }} Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         os: ["ubuntu-latest", "windows-latest"]
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
@@ -56,7 +63,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest --maxfail=1 --disable-warnings --cov=src --cov-branch --cov-report=xml --cov-report=term
+          pytest --maxfail=1 --disable-warnings --cov=src --cov-branch --cov-report=xml --cov-report=term --cov-fail-under=80
 
       - name: Upload coverage report
         if: always() && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'

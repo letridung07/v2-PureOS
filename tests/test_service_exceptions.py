@@ -1,5 +1,3 @@
-import time
-
 from pureos.services import ServiceManager
 
 

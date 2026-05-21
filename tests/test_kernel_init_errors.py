@@ -1,7 +1,6 @@
 import importlib
 import os
 import sys
-import time
 
 try:
     kernel_mod = importlib.import_module("pureos.kernel")
