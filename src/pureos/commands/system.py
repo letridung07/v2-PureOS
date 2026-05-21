@@ -14,7 +14,7 @@ class HelpCommand(Command):
     ):
         seen = set()
         commands = []
-        for command in self.kernel.shell.registry.commands.values():
+        for command in self.kernel.registry.commands.values():
             if id(command) in seen:
                 continue
             seen.add(id(command))

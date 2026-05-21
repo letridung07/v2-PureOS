@@ -229,3 +229,39 @@ class FmtCommand(Command):
     # Verify both VFS and Registry are clean
     assert not kernel.fs.exists(f"{pkg_dir}fmt.py")
     assert "fmtcmd" not in shell.registry.commands
+
+
+def test_pkg_background_execution(kernel, shell):
+    # Register a dynamic command that writes to a temporary file
+    pkg_content = """
+class GreetFileCommand(Command):
+    name = "greetfile"
+    def execute(self, parts, input_data=None, capture_output=False, raw_line=None):
+        self.kernel.fs.write("/tmp/dynamic_out", "Greetings from background!")
+        return True
+"""
+    pkg_dir = "/usr/lib/pureos/packages/"
+    kernel.fs.mkdir(pkg_dir, parents=True)
+    file_path = f"{pkg_dir}greetfile.py"
+    kernel.fs.write(file_path, pkg_content)
+
+    # Load the package
+    res = shell.registry.load_from_vfs(file_path)
+    assert res is True
+
+    # Execute it in the background using '&'
+    shell.execute("greetfile &")
+
+    # Give the thread a moment to start and run
+    import time
+    success = False
+    for _ in range(20):
+        if kernel.fs.exists("/tmp/dynamic_out"):
+            content = kernel.fs.read("/tmp/dynamic_out")
+            if content == "Greetings from background!":
+                success = True
+                break
+        time.sleep(0.05)
+
+    assert success is True
+

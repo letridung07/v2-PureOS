@@ -422,7 +422,7 @@ class SudoCommand(Command):
                 target_raw_line = " ".join(target_parts)
 
         try:
-            result = self.kernel.shell.registry.execute(
+            result = self.kernel.registry.execute(
                 target_parts,
                 input_data=input_data,
                 capture_output=capture_output,

@@ -123,8 +123,8 @@ class FormatCommand(FileCommand):
         try:
             self.kernel.fs.format()
             # Deep Edge Case: Unregister dynamic commands on format
-            if hasattr(self.kernel.shell, "registry"):
-                self.kernel.shell.registry.clear_dynamic_commands()
+            if hasattr(self.kernel, "registry") and self.kernel.registry is not None:
+                self.kernel.registry.clear_dynamic_commands()
             print("Formatted filesystem")
             return True
         except PermissionError as exc:

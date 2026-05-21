@@ -30,7 +30,7 @@ class PackageManager:
             self.kernel.fs.write(file_path, content)
 
             print(f"Installing {name}...")
-            success = self.kernel.shell.registry.load_from_vfs(file_path)
+            success = self.kernel.registry.load_from_vfs(file_path)
             if success:
                 print(f"Successfully installed and registered '{name}'.")
                 return True
@@ -68,7 +68,7 @@ class PackageManager:
             return False
 
         # Deregister commands first
-        self.kernel.shell.registry.unregister_from_vfs(file_path)
+        self.kernel.registry.unregister_from_vfs(file_path)
 
         # Then delete the file
         self.kernel.fs.delete(file_path)
@@ -82,4 +82,4 @@ class PackageManager:
             pkgs = sorted(self.kernel.fs.list(self.package_dir))
             for p in pkgs:
                 if p.endswith(".py"):
-                    self.kernel.shell.registry.load_from_vfs(p)
+                    self.kernel.registry.load_from_vfs(p)

@@ -590,7 +590,7 @@ class XargsCommand(Command):
         for start in range(0, len(stdin_words), chunk_size):
             chunk = stdin_words[start : start + chunk_size]
             cmd_parts = [base_cmd] + initial_args + chunk
-            result = self.kernel.shell.registry.execute(
+            result = self.kernel.registry.execute(
                 cmd_parts,
                 capture_output=capture_output,
             )

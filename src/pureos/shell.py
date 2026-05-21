@@ -15,7 +15,6 @@ class Shell:
     def __init__(self, kernel):
         self.kernel = kernel
         self.cwd = "/"
-        self.registry = CommandRegistry(kernel)
         self.env = {"?": "0"}
         self.aliases = {}
         self.history = []
@@ -29,6 +28,21 @@ class Shell:
 
     def get_flag(self, flag: str) -> bool:
         return self._flags.get(flag, False)
+
+    @property
+    def registry(self):
+        if hasattr(self.kernel, "registry") and self.kernel.registry is not None:
+            return self.kernel.registry
+        if not hasattr(self, "_registry"):
+            self._registry = CommandRegistry(self.kernel)
+        return self._registry
+
+    @registry.setter
+    def registry(self, value):
+        if hasattr(self.kernel, "registry") and self.kernel.registry is not None:
+            self.kernel.registry = value
+        else:
+            self._registry = value
 
     @property
     def prompt(self) -> str:

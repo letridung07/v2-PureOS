@@ -32,6 +32,8 @@ class Kernel:
         self.scheduler = Scheduler()
         self.services = ServiceManager()
         self.drivers = DriverManager(self)
+        from .commands import CommandRegistry
+        self.registry = CommandRegistry(self)
         self.package_manager = PackageManager(self)
         self.shell = Shell(self)
 
