@@ -1,7 +1,6 @@
 import importlib
 import os
 import sys
-import time
 
 try:
     kernel_mod = importlib.import_module("pureos.kernel")
@@ -26,11 +25,13 @@ Scheduler = processes_mod.Scheduler
 
 class TestMemoryDriver:
     def test_on_load_initializes_from_config(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 4194304,
-            "memory_swap_kb": 1048576,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 4194304,
+                "memory_swap_kb": 1048576,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         assert mem.total_kb == 4194304
@@ -47,10 +48,12 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_alloc_succeeds_with_enough_memory(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         p = k.scheduler.spawn("testproc", runtime=0.1)
@@ -59,11 +62,13 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_alloc_fails_when_out_of_memory(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 2048,
-            "memory_swap_kb": 0,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 2048,
+                "memory_swap_kb": 0,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         assert mem.alloc(1, 3000) is False
@@ -71,11 +76,13 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_alloc_spills_to_swap(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 2048,
-            "memory_swap_kb": 1024,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 2048,
+                "memory_swap_kb": 1024,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         assert mem.alloc(1, 3000)
@@ -85,11 +92,13 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_alloc_fails_when_swap_exhausted(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 2048,
-            "memory_swap_kb": 512,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 2048,
+                "memory_swap_kb": 512,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         assert mem.alloc(1, 2048)
@@ -97,10 +106,12 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_free_reclaims_memory(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         mem.alloc(1, 4096)
@@ -110,10 +121,12 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_free_all_cleans_up_process(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         p = k.scheduler.spawn("cleanup_test", runtime=0.5)
@@ -126,11 +139,13 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_get_stats_accuracy(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10000,
-            "memory_swap_kb": 2000,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10000,
+                "memory_swap_kb": 2000,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         mem.cached_kb = 1000
@@ -147,11 +162,13 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_proc_meminfo_content(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 8192,
-            "memory_swap_kb": 1024,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 8192,
+                "memory_swap_kb": 1024,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         content = k.fs.read("/proc/meminfo")
         assert "MemTotal:" in content
@@ -163,10 +180,12 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_proc_status_per_process(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         p = k.scheduler.spawn("status_test", runtime=1.0)
         assert k.fs.exists(f"/proc/{p.pid}/status")
@@ -179,10 +198,12 @@ class TestMemoryDriver:
     def test_concurrent_alloc_thread_safety(self, tmp_path):
         import threading
 
-        k = Kernel(config={
-            "memory_total_kb": 102400,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 102400,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         errors = []
@@ -203,10 +224,12 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_alloc_zero_or_negative_returns_false(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         assert mem.alloc(1, 0) is False
@@ -214,11 +237,13 @@ class TestMemoryDriver:
         k.shutdown()
 
     def test_unlimited_memory_when_total_is_zero(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 0,
-            "memory_swap_kb": 0,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 0,
+                "memory_swap_kb": 0,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         assert mem.alloc(1, 999999)
@@ -233,10 +258,12 @@ class TestMemoryDriver:
 
 class TestProcessIntegration:
     def test_spawn_allocates_default_working_set(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         p = k.scheduler.spawn("worker", runtime=0.1)
         assert p.vsize == 1024
@@ -244,10 +271,12 @@ class TestProcessIntegration:
         k.shutdown()
 
     def test_process_exit_frees_memory(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         p = k.scheduler.spawn("short_lived", runtime=0.05)
         k.scheduler.wait(p.pid, timeout=1.0)
@@ -259,10 +288,12 @@ class TestProcessIntegration:
         k.shutdown()
 
     def test_kill_frees_memory(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         mem = k.drivers.drivers["memory"]
         p = k.scheduler.spawn("kill_me", runtime=5.0)
@@ -273,10 +304,12 @@ class TestProcessIntegration:
         k.shutdown()
 
     def test_ps_shows_memory_columns(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         k.scheduler.spawn("ps_test", runtime=0.1)
         out = k.shell.registry.execute(["ps"], capture_output=True)
@@ -286,10 +319,12 @@ class TestProcessIntegration:
         k.shutdown()
 
     def test_top_shows_memory_columns(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         k.scheduler.spawn("top_test", runtime=0.1)
         out = k.shell.registry.execute(["top"], capture_output=True)
@@ -305,11 +340,13 @@ class TestProcessIntegration:
 
 class TestCommands:
     def test_free_shows_real_stats(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 524288,
-            "memory_swap_kb": 131072,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 524288,
+                "memory_swap_kb": 131072,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         k.scheduler.spawn("proc_a", runtime=0.1)
         out = k.shell.registry.execute(["free"], capture_output=True)
@@ -321,10 +358,12 @@ class TestCommands:
         k.shutdown()
 
     def test_info_shows_memory_line(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10000,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10000,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         k.scheduler.spawn("info_test", runtime=0.1)
         out = k.shell.registry.execute(["info"], capture_output=True)
@@ -333,10 +372,12 @@ class TestCommands:
         k.shutdown()
 
     def test_mem_global_view(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 102400,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 102400,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         k.scheduler.spawn("mem_a", runtime=0.2)
         k.scheduler.spawn("mem_b", runtime=0.2)
@@ -348,10 +389,12 @@ class TestCommands:
         k.shutdown()
 
     def test_mem_per_process_view(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 102400,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 102400,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         p = k.scheduler.spawn("detail_proc", runtime=0.3)
         out = k.shell.registry.execute(["mem", str(p.pid)], capture_output=True)
@@ -362,33 +405,37 @@ class TestCommands:
         k.shutdown()
 
     def test_mem_nonexistent_pid(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 102400,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 102400,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         out = k.shell.registry.execute(["mem", "99999"], capture_output=True)
         assert "No such process" in out
         k.shutdown()
 
     def test_cat_proc_meminfo(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 8192,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
-        k.initialize()
-        out = k.shell.registry.execute(
-            ["cat", "/proc/meminfo"], capture_output=True
+        k = Kernel(
+            config={
+                "memory_total_kb": 8192,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
         )
+        k.initialize()
+        out = k.shell.registry.execute(["cat", "/proc/meminfo"], capture_output=True)
         assert "MemTotal:" in out
         assert "SwapTotal:" in out
         k.shutdown()
 
     def test_cat_proc_status(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         p = k.scheduler.spawn("cat_test", runtime=0.3)
         out = k.shell.registry.execute(
@@ -400,10 +447,12 @@ class TestCommands:
         k.shutdown()
 
     def test_free_driver_not_loaded(self, tmp_path):
-        k = Kernel(config={
-            "memory_total_kb": 10240,
-            "fs_backing": str(tmp_path / "store.json"),
-        })
+        k = Kernel(
+            config={
+                "memory_total_kb": 10240,
+                "fs_backing": str(tmp_path / "store.json"),
+            }
+        )
         k.initialize()
         k.drivers.unload_driver("memory")
         out = k.shell.registry.execute(["free"], capture_output=True)

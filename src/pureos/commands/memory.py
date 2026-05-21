@@ -50,9 +50,7 @@ class MemCommand(Command):
                 proc = sched.processes.get(pid)
                 name = proc.name if proc else "?"
                 pct = (rss / s["total"] * 100) if s["total"] > 0 else 0.0
-                lines.append(
-                    f"{pid:<6} {name:<20} {vsize:>7}K {rss:>7}K {pct:>5.1f}%"
-                )
+                lines.append(f"{pid:<6} {name:<20} {vsize:>7}K {rss:>7}K {pct:>5.1f}%")
         else:
             lines.append("No processes with allocated memory.")
 

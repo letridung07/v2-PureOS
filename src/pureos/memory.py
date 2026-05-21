@@ -1,7 +1,7 @@
 """Memory management subsystem — MemoryDriver for v2-PureOS."""
 
 import threading
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 from .drivers import Driver
 
@@ -87,8 +87,12 @@ class MemoryDriver(Driver):
 
         with self._lock:
             if self.total_kb > 0:
-                total_free = (self.total_kb + self.swap_total_kb
-                              - self.used_kb - self.swap_used_kb)
+                total_free = (
+                    self.total_kb
+                    + self.swap_total_kb
+                    - self.used_kb
+                    - self.swap_used_kb
+                )
                 if size_kb > total_free:
                     return False
 
@@ -143,7 +147,9 @@ class MemoryDriver(Driver):
             if allocated > 0:
                 from_physical = min(allocated, self.used_kb)
                 self.used_kb -= from_physical
-                self.swap_used_kb = max(0, self.swap_used_kb - (allocated - from_physical))
+                self.swap_used_kb = max(
+                    0, self.swap_used_kb - (allocated - from_physical)
+                )
                 self._sync_process_fields(pid)
                 self._delete_proc_status(pid)
                 self._write_meminfo()

@@ -1,10 +1,15 @@
 """Process and scheduler utilities."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 import itertools
 import threading
 import time
-from typing import Optional, Callable
+from typing import Optional, Callable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .memory import MemoryDriver
 
 
 @dataclass
@@ -28,7 +33,7 @@ class Scheduler:
         self._threads = {}
         self._stop_events = {}
         self._resume_events = {}
-        self.memory: Optional["MemoryDriver"] = None  # type: ignore[name-defined]
+        self.memory: Optional[MemoryDriver] = None
 
     def spawn(
         self, name: str, target_func: Optional[Callable] = None, *args, **kwargs
