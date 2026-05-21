@@ -23,6 +23,7 @@ v2-PureOS is a minimal OS-like system built with Python 3.8+. The package includ
 - `pureos.builtin_services` — default background services
 - `pureos.fs` — virtual filesystem
 - `pureos.commands` — interactive shell command registry and modular commands
+- `pureos.pkg` — dynamic package manager subsystem
 - `pureos.services` — lightweight service management
 - `pureos.processes` — simple process scheduler and lifecycle control
 - `pureos.memory` — memory management subsystem (allocation, swap, /proc filesystem)
@@ -146,7 +147,7 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 ### Processes & Services
 
 - `ps` — list active processes (PID, NAME, STATUS, START, TIME, NI, VSZ, RSS)
-- `spawn <name>` — create a new process with a name
+- `spawn <name> [runtime]` — create a new background process with a name and optional runtime duration in seconds (default: 5.0)
 - `kill [-<signal>] <pid>` — terminate a process (default SIGTERM; `-9` for SIGKILL)
 - `wait [pid]...` — wait for specific background processes (or all active background processes if none specified) to complete
 - `top` — one-shot snapshot of processes ranked by elapsed time, including RSS
@@ -210,6 +211,7 @@ pytest
   - `kernel.py` — kernel orchestrator
   - `memory.py` — memory management subsystem
   - `processes.py` — process scheduler
+  - `pkg.py` — package manager subsystem
   - `fs/` — virtual filesystem
   - `commands/` — interactive shell commands
 - `tests` — unit and integration tests

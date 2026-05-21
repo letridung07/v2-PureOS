@@ -7,7 +7,7 @@ This document provides a detailed overview of the core architectural components 
 The Kernel is the central orchestrator of v2-PureOS. It initializes and manages the lifecycle of the entire system.
 
 **Key Responsibilities:**
-- **Initialization**: Bootstrapping the Virtual Filesystem (`VirtualFS`), Scheduler, and Service Manager.
+- **Initialization**: Bootstrapping the Virtual Filesystem (`VirtualFS`), Scheduler, Service Manager, Command Registry, and Package Manager.
 - **Boot Sequence Execution**: Running `run_boot_sequence` to ensure the filesystem is formatted or populated with default configurations (e.g., `/etc/motd`, `/etc/pureosrc`).
 - **Service Registration**: Registering default built-in background services via `register_builtin_services`.
 - **System Lifecycle**: Handling the `initialize()` routine (starting auto-started services) and the `shutdown()` routine (gracefully stopping all processes and services).
@@ -24,7 +24,7 @@ The boot sequence simulates the early user-space initialization (similar to an i
 The `Scheduler` provides a simplified process management layer. Each process runs in its own background daemon thread.
 
 **Features:**
-- **Process Spawning**: Using `spawn(name, target_func)`, you can launch arbitrary Python functions as isolated background "processes".
+- **Process Spawning**: Using `spawn(name, target_func)` (or the shell `spawn <name> [runtime]` command), you can launch arbitrary Python functions or a dummy/timer task with an optional `runtime` (default: 5.0 seconds) as isolated background "processes".
 - **Tracking & Status**: Each process is assigned a PID and a status (`running`, `completed`, `failed`, `killed`).
 - **Control**: Supports waiting for processes (`wait()`) and forcefully terminating them (`kill()`). Threads are cooperative; long-running functions should check `stop_event.is_set()` if passed.
 
@@ -72,11 +72,12 @@ The `MemoryDriver` tracks global and per-process memory usage across physical RA
 - **`/proc` Virtual Filesystem**: The driver writes `/proc/meminfo` (global stats) and `/proc/<pid>/status` (per-process VmSize/VmRSS) into the kernel VirtualFS on every alloc/free, making memory stats readable via standard commands like `cat /proc/meminfo`.
 - **Startup Cleanup**: On `on_load`, stale `/proc/<pid>/` directories from previous sessions are purged. On process exit, `free_all` deletes the per-pid `/proc/<pid>/` directory tree.
 
-## 8. Package Manager (Dynamic Command Loading)
+## 8. Package Manager (`pureos.pkg`)
 
-v2-PureOS supports runtime extension via the `pkg` command. This allows the system to download and register new shell commands dynamically.
+v2-PureOS supports runtime extension via the `PackageManager` subsystem and the user-facing `pkg` command. This allows the system to download, install, list, and remove shell commands dynamically.
 
 **Mechanism:**
+- **Encapsulation**: The package management logic is encapsulated in `pureos.pkg.PackageManager`.
 - **Storage**: Packages are stored as Python scripts in the VirtualFS at `/usr/lib/pureos/packages/`.
-- **Loading**: The `CommandRegistry` uses a custom `VFSImporter` (implementing `importlib`) to import packages from the VirtualFS. This provides proper namespacing (under `pureos_vfs.packages.*`), standard tracebacks, and supports multi-file packages and dependencies.
-- **Persistence**: During the boot sequence (`pureos.boot`), the system automatically scans the packages directory and re-registers any previously installed commands.
+- **Loading**: The `PackageManager` uses the centralized `CommandRegistry` (now managed by the `Kernel` as `kernel.registry` to unify command lookup) and a custom `VFSImporter` (implementing `importlib`) to import packages from the VirtualFS. This provides proper namespacing (under `pureos_vfs.packages.*`), standard tracebacks, and supports multi-file packages and dependencies.
+- **Persistence**: During the boot sequence (`pureos.boot`), the `PackageManager` automatically scans the packages directory and re-registers any previously installed commands.

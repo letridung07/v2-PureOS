@@ -22,7 +22,7 @@ When a user enters a command line in the shell (`pureos.shell.Shell`), the follo
 6. **Tokenization & Aliasing**:
    The command string is split into tokens (words), respecting quotes (`"` and `'`) and escaped characters (`\`). The first token is checked against defined aliases; if a match is found, the alias is expanded recursively (up to 10 levels deep to prevent infinite loops).
 7. **Execution (`commands.registry.CommandRegistry`)**:
-   The `CommandRegistry` looks up the command class based on the first token and calls its `execute` method, passing the parsed tokens, pipeline input data (if any), and whether the output should be captured or directly printed.
+   The centralized `CommandRegistry` (now managed directly by the `Kernel` as `self.kernel.registry`) looks up the command class based on the first token and calls its `execute` method, passing the parsed tokens, pipeline input data (if any), and whether the output should be captured or directly printed.
 
 ## Command Registry
 
@@ -36,7 +36,7 @@ Commands are dynamically registered on startup by scanning the `pureos.commands`
 To create a new shell command, create a subclass of `Command` (`pureos.commands.base.Command`).
 
 ### Dynamic Commands
-Commands can be installed at runtime using the `pkg install <url> <name>` command. These are stored in `/usr/lib/pureos/packages/` and loaded as Python modules. When loaded via the `pkg` system, common dependencies like `Command`, `json`, `re`, and `math` are automatically injected into the module namespace for convenience.
+Commands can be installed at runtime using the `pkg install <url> <name>` command. This user interface calls the new `PackageManager` subsystem (`pureos.pkg.PackageManager`) to handle fetching and installing. The scripts are stored in `/usr/lib/pureos/packages/` and loaded as Python modules. When loaded via the `PackageManager` system, common dependencies like `Command`, `json`, `re`, and `math` are automatically injected into the module namespace for convenience, and the commands are registered in the centralized `CommandRegistry`.
 
 ## Driver System
 
