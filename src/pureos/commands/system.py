@@ -411,7 +411,10 @@ class CrontabCommand(Command):
 
 class DriverCommand(Command):
     name = "driver"
-    usage = "driver [list | status [<name>] | load <module> <class> | start <name> | stop <name> | unload <name>]"
+    usage = (
+        "driver [list | status [<name>] | load <module> <class> | start <name> | "
+        "stop <name> | unload <name>]"
+    )
     description = "Manage system drivers."
 
     def execute(

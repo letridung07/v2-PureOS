@@ -75,3 +75,43 @@ def test_main_version(capsys):
     cli_mod.main(["--version"])
     captured = capsys.readouterr()
     assert captured.out.strip() == pureos_mod.__version__
+
+
+def test_run_entrypoint_initializes_kernel():
+    kernel = pureos_mod.run(shell=False, config={"format_on_boot": True, "auto_start_services": False})
+    assert kernel is not None
+    assert hasattr(kernel, "shutdown")
+    kernel.shutdown()
+
+
+def test_dunder_main_version(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["python", "--version"])
+    import importlib
+
+    main_mod = importlib.import_module("pureos.__main__")
+    main_mod.main()
+    captured = capsys.readouterr()
+    assert captured.out.strip() == pureos_mod.__version__
+
+
+def test_run_module_as_main(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["python", "--version"])
+    import runpy
+
+    original_pureos = sys.modules.get("pureos")
+    original_main = sys.modules.get("pureos.__main__")
+    try:
+        sys.modules.pop("pureos.__main__", None)
+        sys.modules.pop("pureos", None)
+        runpy.run_module("pureos", run_name="__main__")
+        captured = capsys.readouterr()
+        assert captured.out.strip() == pureos_mod.__version__
+    finally:
+        if original_pureos is not None:
+            sys.modules["pureos"] = original_pureos
+        else:
+            sys.modules.pop("pureos", None)
+        if original_main is not None:
+            sys.modules["pureos.__main__"] = original_main
+        else:
+            sys.modules.pop("pureos.__main__", None)

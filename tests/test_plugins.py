@@ -82,6 +82,112 @@ def test_driver_lifecycle(kernel):
     assert "mock_drv" not in dm.drivers
 
 
+def test_driver_manager_lazy_start_and_stop():
+    """Test driver manager behavior before drivers are started."""
+
+    class LazyDriver(Driver):
+        name = "lazy_drv"
+
+        def __init__(self, kernel):
+            super().__init__(kernel)
+            self.started = False
+            self.stopped = False
+
+        def on_load(self):
+            pass
+
+        def start(self):
+            self.started = True
+
+        def stop(self):
+            self.stopped = True
+
+    kernel = Kernel({"format_on_boot": True, "auto_start_services": False})
+    dm = kernel.drivers
+    drv = dm.load_driver(LazyDriver)
+
+    assert drv.state == "loaded"
+    assert not drv.is_running
+    assert dm.start_driver("lazy_drv") is True
+    assert drv.state == "running"
+    assert drv.started is True
+
+    assert dm.stop_driver("lazy_drv") is True
+    assert drv.state == "stopped"
+    assert drv.stopped is True
+
+    dm.unload_driver("lazy_drv")
+    assert "lazy_drv" not in dm.drivers
+
+
+def test_driver_manager_missing_driver_start_stop():
+    """Test start/stop behavior for drivers that are not loaded."""
+    kernel = Kernel({"format_on_boot": True, "auto_start_services": False})
+    dm = kernel.drivers
+
+    assert dm.start_driver("no_such_driver") is False
+    assert dm.stop_driver("no_such_driver") is False
+
+
+def test_driver_manager_stop_not_running():
+    """Test stopping a loaded driver that has not yet been started."""
+
+    class LazyStopDriver(Driver):
+        name = "lazy_stop_drv"
+
+        def __init__(self, kernel):
+            super().__init__(kernel)
+            self.stopped = False
+
+        def on_load(self):
+            pass
+
+        def stop(self):
+            self.stopped = True
+
+    kernel = Kernel({"format_on_boot": True, "auto_start_services": False})
+    dm = kernel.drivers
+    drv = dm.load_driver(LazyStopDriver)
+
+    assert drv.state == "loaded"
+    assert dm.stop_driver("lazy_stop_drv") is True
+    assert drv.state == "stopped"
+    assert drv.stopped is False
+
+    dm.unload_driver("lazy_stop_drv")
+    assert "lazy_stop_drv" not in dm.drivers
+
+
+def test_driver_manager_start_driver_already_running():
+    """Test starting a driver that is already running."""
+
+    class RunningDriver(Driver):
+        name = "running_drv"
+
+        def __init__(self, kernel):
+            super().__init__(kernel)
+            self.start_count = 0
+
+        def on_load(self):
+            pass
+
+        def start(self):
+            self.start_count += 1
+
+    kernel = Kernel({"format_on_boot": True, "auto_start_services": False})
+    dm = kernel.drivers
+    drv = dm.load_driver(RunningDriver)
+
+    assert drv.state == "loaded"
+    assert dm.start_driver("running_drv") is True
+    assert drv.state == "running"
+    assert dm.start_driver("running_drv") is True
+    assert drv.start_count == 1
+
+    dm.unload_driver("running_drv")
+    assert "running_drv" not in dm.drivers
+
+
 def test_driver_runtime_control_commands(kernel, shell):
     """Test runtime driver start/stop/status behavior."""
     driver_content = """

@@ -109,7 +109,9 @@ class DriverManager:
     def start_driver(self, name: str) -> bool:
         with self._lock:
             if name not in self.drivers:
-                self.logger.warning("Driver %s cannot be started because it is not loaded", name)
+                self.logger.warning(
+                    "Driver %s cannot be started because it is not loaded", name
+                )
                 return False
             driver = self.drivers[name]
             started = self._start_driver(driver)
@@ -120,7 +122,9 @@ class DriverManager:
     def stop_driver(self, name: str) -> bool:
         with self._lock:
             if name not in self.drivers:
-                self.logger.warning("Driver %s cannot be stopped because it is not loaded", name)
+                self.logger.warning(
+                    "Driver %s cannot be stopped because it is not loaded", name
+                )
                 return False
             driver = self.drivers[name]
             return self._stop_driver(driver)
