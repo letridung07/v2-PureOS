@@ -54,6 +54,11 @@ class MemoryDriver(Driver):
         fs = self.kernel.fs
         if not fs.exists("/proc/"):
             fs.mkdir("/proc")
+        else:
+            for entry in list(fs.list("/proc/")):
+                path = entry if entry.endswith("/") else entry + "/"
+                if fs.is_dir(path):
+                    fs.delete(path)
         self._write_meminfo()
 
     def on_unload(self):
@@ -128,9 +133,9 @@ class MemoryDriver(Driver):
                 return False
             to_free = min(size_kb, allocated)
 
-            from_physical = min(to_free, self.used_kb)
-            self.used_kb -= from_physical
-            self.swap_used_kb = max(0, self.swap_used_kb - (to_free - from_physical))
+            from_swap = min(to_free, self.swap_used_kb)
+            self.swap_used_kb -= from_swap
+            self.used_kb = max(0, self.used_kb - (to_free - from_swap))
 
             self._per_process[pid] = allocated - to_free
             if self._per_process[pid] == 0:
@@ -145,11 +150,9 @@ class MemoryDriver(Driver):
         with self._lock:
             allocated = self._per_process.pop(pid, 0)
             if allocated > 0:
-                from_physical = min(allocated, self.used_kb)
-                self.used_kb -= from_physical
-                self.swap_used_kb = max(
-                    0, self.swap_used_kb - (allocated - from_physical)
-                )
+                from_swap = min(allocated, self.swap_used_kb)
+                self.swap_used_kb -= from_swap
+                self.used_kb = max(0, self.used_kb - (allocated - from_swap))
                 self._sync_process_fields(pid)
                 self._delete_proc_status(pid)
                 self._write_meminfo()
@@ -172,10 +175,13 @@ class MemoryDriver(Driver):
         }
 
     def get_all_process_memory(self) -> Dict[int, Tuple[int, int]]:
-        """Return ``{pid: (vsize, rss)}`` for every tracked process."""
+        """Return ``{pid: (vsize, rss)}`` for processes with active allocations."""
         result: Dict[int, Tuple[int, int]] = {}
-        for pid, proc in self.kernel.scheduler.processes.items():
-            result[pid] = (proc.vsize, proc.rss)
+        with self._lock:
+            for pid in list(self._per_process):
+                proc = self.kernel.scheduler.processes.get(pid)
+                if proc:
+                    result[pid] = (proc.vsize, proc.rss)
         return result
 
     # ------------------------------------------------------------------
@@ -208,9 +214,9 @@ class MemoryDriver(Driver):
 
     def _delete_proc_status(self, pid: int):
         fs = self.kernel.fs
-        path = f"/proc/{pid}/status"
-        if fs.exists(path):
-            fs.delete(path)
+        proc_dir = f"/proc/{pid}/"
+        if fs.is_dir(proc_dir):
+            fs.delete(proc_dir)
 
     def _format_meminfo(self) -> str:
         s = self.get_stats()

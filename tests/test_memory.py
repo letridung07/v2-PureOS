@@ -132,10 +132,12 @@ class TestMemoryDriver:
         p = k.scheduler.spawn("cleanup_test", runtime=0.5)
         pid = p.pid
         assert k.fs.exists(f"/proc/{pid}/status")
+        assert k.fs.is_dir(f"/proc/{pid}/")
         mem.free_all(pid)
         assert pid not in mem._per_process
         assert mem.used_kb == 0
         assert not k.fs.exists(f"/proc/{pid}/status")
+        assert not k.fs.is_dir(f"/proc/{pid}/")
         k.shutdown()
 
     def test_get_stats_accuracy(self, tmp_path):
