@@ -1,5 +1,8 @@
 import json
 import os
+import shutil
+import time
+import logging
 from .state import FSState
 from .path import PathResolver
 
@@ -7,6 +10,7 @@ from .path import PathResolver
 class FSPersistence:
     def __init__(self, state: FSState):
         self.state = state
+        self.logger = logging.getLogger("pureos.fs.persistence")
 
     def save_if_needed(self):
         if self.state.backing_path:
@@ -19,23 +23,57 @@ class FSPersistence:
         if dirpath and not os.path.exists(dirpath):
             os.makedirs(dirpath, exist_ok=True)
         temp_path = f"{self.state.backing_path}.tmp"
+        payload = {
+            "files": self.state.files,
+            "dirs": sorted(self.state.dirs),
+            "modes": {path: mode for path, mode in self.state.modes.items()},
+            "owners": {path: uid for path, uid in self.state.owners.items()},
+            "groups": {path: gid for path, gid in self.state.groups.items()},
+            "symlinks": self.state.symlinks,
+            "inodes": self.state.inodes,
+            "inode_counter": self.state._inode_counter,
+            "sticky_bits": sorted(self.state.sticky_bits),
+        }
+        # Write to a temp file and fsync to reduce risk of corruption on crash
         with open(temp_path, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "files": self.state.files,
-                    "dirs": sorted(self.state.dirs),
-                    "modes": {path: mode for path, mode in self.state.modes.items()},
-                    "owners": {path: uid for path, uid in self.state.owners.items()},
-                    "groups": {path: gid for path, gid in self.state.groups.items()},
-                    "symlinks": self.state.symlinks,
-                    "inodes": self.state.inodes,
-                    "inode_counter": self.state._inode_counter,
-                    "sticky_bits": sorted(self.state.sticky_bits),
-                },
-                f,
-                indent=2,
-            )
-        os.replace(temp_path, self.state.backing_path)
+            json.dump(payload, f, indent=2)
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                # Best-effort; ignore if fsync is not supported
+                pass
+
+        # Attempt to create a backup of the existing backing file (best-effort)
+        bak_path = f"{self.state.backing_path}.bak"
+        try:
+            if os.path.exists(self.state.backing_path):
+                shutil.copy2(self.state.backing_path, bak_path)
+        except Exception as exc:
+            self.logger.debug("FSPersistence: could not create backup: %s", exc)
+
+        # Atomically replace the backing file with the temp file
+        try:
+            os.replace(temp_path, self.state.backing_path)
+            # Try to fsync the directory to ensure the rename is committed
+            dir_to_sync = dirpath if dirpath else "."
+            try:
+                dirfd = os.open(dir_to_sync, os.O_RDONLY)
+                try:
+                    os.fsync(dirfd)
+                finally:
+                    os.close(dirfd)
+            except Exception:
+                # Ignore directory fsync errors; best-effort
+                pass
+        except Exception:
+            # Cleanup temp file on failure
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+            except Exception:
+                pass
+            raise
 
     def load(self):
         """Load persisted filesystem state from the backing store."""
@@ -43,12 +81,53 @@ class FSPersistence:
             return
         try:
             self._load()
-        except (OSError, ValueError, json.JSONDecodeError):
-            self.state.files = {}
-            self.state.dirs = {"/"}
-            self.state.modes = {"/": 0o755}
-            self.state.owners = {"/": 0}
-            self.state.groups = {"/": 0}
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            # Attempt recovery from temp or backup files before falling back
+            temp_path = f"{self.state.backing_path}.tmp"
+            bak_path = f"{self.state.backing_path}.bak"
+            recovered = False
+            # Try temp file
+            try:
+                if os.path.exists(temp_path):
+                    with open(temp_path, "r", encoding="utf-8") as f:
+                        json.load(f)  # validate JSON
+                    os.replace(temp_path, self.state.backing_path)
+                    self.logger.warning("FSPersistence: recovered backing from temp file")
+                    self._load()
+                    recovered = True
+            except Exception:
+                recovered = False
+
+            # Try backup if not recovered
+            if not recovered:
+                try:
+                    if os.path.exists(bak_path):
+                        with open(bak_path, "r", encoding="utf-8") as f:
+                            json.load(f)
+                        os.replace(bak_path, self.state.backing_path)
+                        self.logger.warning("FSPersistence: recovered backing from backup")
+                        self._load()
+                        recovered = True
+                except Exception:
+                    recovered = False
+
+            if not recovered:
+                # Move corrupted file out of the way for forensics, then reset state
+                try:
+                    ts = int(time.time())
+                    corrupt_path = f"{self.state.backing_path}.corrupt.{ts}"
+                    os.replace(self.state.backing_path, corrupt_path)
+                    self.logger.error(
+                        "FSPersistence: backing file corrupted, moved to %s", corrupt_path
+                    )
+                except Exception:
+                    # best-effort: ignore if move fails
+                    pass
+                self.state.files = {}
+                self.state.dirs = {"/"}
+                self.state.modes = {"/": 0o755}
+                self.state.owners = {"/": 0}
+                self.state.groups = {"/": 0}
 
     def _load(self):
         if os.path.exists(self.state.backing_path):
