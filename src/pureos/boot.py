@@ -31,4 +31,3 @@ def _ensure_default_files(fs):
 def _load_packages(kernel):
     """Load dynamically installed packages from the VirtualFS."""
     kernel.package_manager.load_all_packages()
-

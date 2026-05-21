@@ -16,7 +16,7 @@ class PackageManager:
         return name.isidentifier() and not name.startswith("_")
 
     def install(self, url: str, name: str) -> bool:
-        """Download package from URL, save to VirtualFS, and load into command registry."""
+        """Download package from URL, save to VirtualFS, and load into registry."""
         file_path = f"{self.package_dir}{name}.py"
         try:
             print(f"Fetching package from {url}...")
@@ -61,7 +61,7 @@ class PackageManager:
         return names
 
     def remove(self, name: str) -> bool:
-        """Deregister dynamic package commands and remove the package script from VFS."""
+        """Deregister commands and remove the package script from VFS."""
         file_path = f"{self.package_dir}{name}.py"
         if not self.kernel.fs.exists(file_path):
             print(f"Package '{name}' not found.")
