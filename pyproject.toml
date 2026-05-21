@@ -8,7 +8,13 @@ version = "0.1.0"
 description = "v2-PureOS minimal OS-like package"
 readme = "README.md"
 requires-python = ">=3.8"
-authors = [{name = "Copilot", email = "copilot@example.com"}]
+authors = [{name = "Dung Le", email = "abcd@example.com"}]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-xdist"
+]
 
 [tool.ruff]
 line-length = 88
