@@ -64,11 +64,13 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `&&` — run the next command only if the previous succeeded
 - `||` — run the next command only if the previous failed
 - `|` — pipe command output into the next built-in command
+- `!N` / `!prefix` — recall command from history (e.g. `!10` or `!ls`)
 - `export VAR=value` — set a shell variable
 - `$VAR` — substitute the variable value in the command line
 - `alias name command` — define a shorthand command
 - `unalias name` — remove an alias
 - `history` — display the session command history
+- `help` — show available commands and usage
 - `env` / `printenv` — list all active environment variables
 - `which <command>` — locate a command in the path
 - `clear` — clear the terminal screen
@@ -78,11 +80,12 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 
 - `uptime` — show how long the system has been running
 - `date` — display the current date and time
-- `df [-h]` — show disk space usage
-- `free [-h]` — display memory usage
-- `mem [pid]` — show memory statistics and per-process memory usage
+- `df` — show disk space usage
+- `free` — display memory usage
+- `mem [pid]` / `memory` — show memory statistics and per-process memory usage
 - `sleep <seconds>` — pause for a specified duration
 - `info` — show system and kernel information (includes memory stats)
+- `driver [list|load|unload]` — manage system drivers
 
 ### File system
 
@@ -94,7 +97,7 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `edit <path>` — interactive line-based text editor
 - `write <path> <content>` — overwrite or create a file
 - `append <path> <content>` — append text to a file
-- `echo [-n] <text> > <path>` — write redirected text to a file
+- `echo [-n] [-e] <text> [> path]` — write text to stdout or a file; `-e` expands escapes
 - `mkdir <path>` — create a directory
 - `touch <path>` — create or update a file
 - `rm <path>` — delete a file or directory
@@ -118,11 +121,11 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `login` — begin a new session as a different user
 - `su [user]` — switch to another user (defaults to root)
 - `sudo <command>` — execute a command with root privileges
-- `passwd [user]` — change user password
+- `passwd [-l|-u] [user]` — change password, or lock (`-l`) / unlock (`-u`) account
 - `useradd <name>` — create a new user account
 - `userdel <name>` — delete a user account
 - `groups [user]` — show group memberships
-- `chown <user>[:<group>] <path>` — change file owner and group
+- `chown <user> <path>` — change file owner
 - `chgrp <group> <path>` — change group ownership
 - `last` — show a list of last logged in users (simulated)
 
@@ -137,7 +140,7 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 - `cut -f <fields> [-d <delim>] [file]` — extract delimited fields (e.g. `-f 1,3 -d :`)
 - `cut -c <range> [file]` — extract character positions (e.g. `-c 1-5`)
 - `tr [-d] [-s] <set1> [set2]` — translate or delete characters; supports `a-z` ranges
-- `base64 [-d|-D] [file]` — encode or decode text using Base64
+- `base64 [-d|-D] [-w cols] [file]` — encode or decode text using Base64
 - `xargs [-n <max>] <command> [args...]` — build commands from stdin words
 
 ### Processes & Services
@@ -150,6 +153,7 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 - `renice <priority> <pid>` — change the nice value (priority) of a process
 - `jobs` — list background processes with status
 - `fg <pid>` — bring a background process to the foreground
+- `bg <pid>` — resume a suspended background process
 - `time <command>` — measure wall-clock execution time of a command
 - `set [-e] [-x] [+e] [+x]` — enable/disable shell options (exit-on-error, trace)
 - `services` — list registered services
@@ -164,7 +168,7 @@ All commands below are pipeline-aware: they read from a file argument **or** fro
 
 - `ifconfig` — display network interface configuration
 - `ping <host> [port]` — check host or port reachability
-- `nc <host> <port> [message]` — connect to a TCP port, send data, and print response
+- `nc` / `netcat <host> <port> [message]` — connect to a TCP port, send data, and print response
 - `curl [options] <url>` — transfer data from or to a server using HTTP/HTTPS
 - `wget [options] <url>` — retrieve files over HTTP/HTTPS
 - `host <domain>` — DNS lookup for a domain name

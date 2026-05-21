@@ -1,4 +1,4 @@
-# v2-PureOS
+# v2-PureOS v0.1.0
 
 ![CI](https://github.com/letridung07/v2-PureOS/actions/workflows/ci.yml/badge.svg)
 

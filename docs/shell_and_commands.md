@@ -6,17 +6,22 @@ The interactive shell in v2-PureOS simulates standard bash-like behavior, includ
 
 When a user enters a command line in the shell (`pureos.shell.Shell`), the following steps occur:
 
-1. **Command Sequence Splitting (`parser.py`)**: 
+1. **History Recall**:
+   Lines starting with `!` are processed for history recall:
+   - `!N`: Recalls the N-th command in the history (1-based).
+   - `!prefix`: Recalls the most recent command starting with `prefix`.
+   The recalled command is printed and then executed.
+2. **Command Sequence Splitting (`parser.py`)**: 
    The input line is split into logical execution units using `&&` (AND), `||` (OR), and `;` (sequential). Background jobs (`&`) are also separated here.
-2. **Environment Variable Substitution**:
+3. **Environment Variable Substitution**:
    Variables prefixed with `$` or enclosed in `${}` are substituted with their values from the shell's environment map.
-3. **Pipeline Splitting**:
+4. **Pipeline Splitting**:
    Each command sequence is further split by the pipe operator `|`. Output from the left command becomes the input to the right command.
-4. **Redirection Processing**:
+5. **Redirection Processing**:
    The parser scans for `>` (overwrite), `>>` (append), and `<` (input redirection). Redirect targets are handled within the VirtualFS.
-5. **Tokenization & Aliasing**:
+6. **Tokenization & Aliasing**:
    The command string is split into tokens (words), respecting quotes (`"` and `'`) and escaped characters (`\`). The first token is checked against defined aliases; if a match is found, the alias is expanded recursively (up to 10 levels deep to prevent infinite loops).
-6. **Execution (`commands.registry.CommandRegistry`)**:
+7. **Execution (`commands.registry.CommandRegistry`)**:
    The `CommandRegistry` looks up the command class based on the first token and calls its `execute` method, passing the parsed tokens, pipeline input data (if any), and whether the output should be captured or directly printed.
 
 ## Command Registry
@@ -87,4 +92,4 @@ Displays a human-readable table of memory usage (Mem: total, used, free, buff/ca
 The `ps` command now includes `VSZ` and `RSS` columns alongside the existing PID, NAME, STATUS, START, TIME, and NI columns.
 
 ### `top` — One-Shot Process Snapshot
-The `top` command now includes an `RSS` column showing resident memory per process alongside elapsed time and CPU utilization.
+The `top` command now includes an `RSS` column showing resident memory per process alongside elapsed time.

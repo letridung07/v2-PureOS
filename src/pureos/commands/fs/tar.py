@@ -9,7 +9,7 @@ from .base import FileCommand
 
 class TarCommand(FileCommand):
     name = "tar"
-    usage = "tar [-c|-x|-t] [-z] [-v] -f <archive> [paths...]"
+    usage = "tar [-c|-x|-t] [-z] [-v] [-C <dir>] -f <archive> [paths...]"
     description = "Create, extract, or list files in a tar archive."
 
     def execute(

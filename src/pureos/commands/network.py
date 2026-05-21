@@ -504,7 +504,6 @@ class IpCommand(Command):
 
 class SsCommand(Command):
     name = "ss"
-    aliases = ["route"]
     usage = "ss [-t] [-u] [-l]"
     description = "Show mock socket statistics."
 
