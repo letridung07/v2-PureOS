@@ -33,3 +33,22 @@ def test_system_stats(tmp_path):
     assert "Swap:" in free_out
 
     k.shutdown()
+
+
+def test_env_and_clear_commands(kernel, shell):
+    # Test env / printenv
+    shell.execute("export FOO=bar")
+    shell.execute("export BAZ=qux")
+
+    env_out = shell.registry.execute(["env"], capture_output=True)
+    assert "FOO=bar" in env_out
+    assert "BAZ=qux" in env_out
+
+    printenv_out = shell.registry.execute(["printenv"], capture_output=True)
+    assert "FOO=bar" in printenv_out
+    assert "BAZ=qux" in printenv_out
+
+    # Test clear
+    clear_out = shell.registry.execute(["clear"], capture_output=True)
+    assert clear_out == "\033[H\033[2J"
+

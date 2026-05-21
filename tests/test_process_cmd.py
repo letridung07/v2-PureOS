@@ -190,3 +190,63 @@ class TestProcessCommands:
         result = k.shell.registry.execute(["renice", "abc", "1"])
         assert result is False
         k.shutdown()
+
+    def test_wait_command(self, tmp_path):
+        k = self._make_kernel(tmp_path)
+        shell = k.shell
+        # Spawn background job
+        shell.execute("spawn slow_job 0.1")
+        procs = k.scheduler.list()
+        assert len(procs) >= 1
+        p = procs[0]
+
+        # Status should be running
+        assert p.status == "running"
+
+        # Wait for this process
+        res = shell.execute(f"wait {p.pid}")
+        assert res is True
+
+        # After wait, status should be completed
+        assert p.status == "completed"
+
+        # Wait for non-existent process should return False
+        res2 = shell.execute("wait 999")
+        assert res2 is False
+        k.shutdown()
+
+    def test_wait_command_all_extended(self, tmp_path):
+        k = self._make_kernel(tmp_path)
+        shell = k.shell
+        # Spawn multiple background jobs
+        shell.execute("spawn job1 0.1")
+        shell.execute("spawn job2 0.1")
+
+        procs = k.scheduler.list()
+        assert len(procs) >= 2
+
+        # Wait all
+        res = shell.execute("wait")
+        assert res is True
+
+        assert all(p.status == "completed" for p in procs)
+        k.shutdown()
+
+    def test_wait_command_multi(self, tmp_path):
+        k = self._make_kernel(tmp_path)
+        shell = k.shell
+        # Spawn multiple background jobs
+        shell.execute("spawn job1 0.1")
+        shell.execute("spawn job2 0.1")
+
+        procs = k.scheduler.list()
+        assert len(procs) >= 2
+        pids = [p.pid for p in procs]
+
+        # Wait for both specific PIDs
+        res = shell.execute(f"wait {pids[0]} {pids[1]}")
+        assert res is True
+
+        assert all(p.status == "completed" for p in procs)
+        k.shutdown()
+
