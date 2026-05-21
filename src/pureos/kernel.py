@@ -10,6 +10,7 @@ from .fs.importer import VFSImporter
 from .processes import Scheduler
 from .services import ServiceManager
 from .drivers import DriverManager
+from .pkg import PackageManager
 from .shell import Shell
 from .boot import run_boot_sequence
 from .builtin_services import register_builtin_services
@@ -31,7 +32,9 @@ class Kernel:
         self.scheduler = Scheduler()
         self.services = ServiceManager()
         self.drivers = DriverManager(self)
+        self.package_manager = PackageManager(self)
         self.shell = Shell(self)
+
         self.boot_time = time.time()
 
         # register built-in background services
