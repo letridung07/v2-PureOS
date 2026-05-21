@@ -249,4 +249,3 @@ class TestProcessCommands:
 
         assert all(p.status == "completed" for p in procs)
         k.shutdown()
-

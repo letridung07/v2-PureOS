@@ -1,7 +1,3 @@
-import pytest
-from pureos.kernel import Kernel
-
-
 def test_tar_create_list_extract(kernel, shell):
     # Prepare directory structure
     kernel.fs.mkdir("/tmp/tardir")

@@ -51,4 +51,3 @@ def test_env_and_clear_commands(kernel, shell):
     # Test clear
     clear_out = shell.registry.execute(["clear"], capture_output=True)
     assert clear_out == "\033[H\033[2J"
-
