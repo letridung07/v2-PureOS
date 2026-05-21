@@ -59,9 +59,10 @@ jobs:
           pytest --maxfail=1 --disable-warnings --cov=src --cov-branch --cov-report=xml --cov-report=term
 
       - name: Upload coverage report
-        if: always()
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report-${{ matrix.os }}-${{ matrix.python-version }}
           path: coverage.xml
+          if-no-files-found: ignore
 
