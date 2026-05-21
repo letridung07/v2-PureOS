@@ -185,6 +185,7 @@ def test_removed_queue_unblocks_receiver(kernel):
     msqid = ipc.msgget(777, IPC_CREAT)
 
     raised = []
+
     def receiver():
         try:
             ipc.msgrcv(msqid, msg_type=0, block=True)

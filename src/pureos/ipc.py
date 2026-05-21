@@ -1,20 +1,18 @@
 """Simulated System V Inter-Process Communication (IPC) Message Queue subsystem."""
 
-import collections
 import itertools
-import re
 import threading
 import time
 from typing import Dict, List, Optional, Tuple, Any
 
 IPC_PRIVATE = 0
-IPC_CREAT = 512    # 0o1000
-IPC_EXCL = 1024    # 0o2000
+IPC_CREAT = 512  # 0o1000
+IPC_EXCL = 1024  # 0o2000
 
 
 def get_current_pid() -> int:
     """Resolve the simulated PID of the calling thread.
-    
+
     If the current thread is not spawned by the Scheduler, returns 0 (system/shell).
     """
     name = threading.current_thread().name
@@ -28,6 +26,7 @@ def get_current_pid() -> int:
 
 class Message:
     """Represents a single message stored in a message queue."""
+
     def __init__(self, msg_type: int, text: str, sender_pid: int):
         self.msg_type = msg_type
         self.text = text
@@ -37,6 +36,7 @@ class Message:
 
 class MessageQueue:
     """Thread-safe simulated System V message queue with capacity limits."""
+
     def __init__(self, msqid: int, key: int, creator_pid: int, max_bytes: int = 16384):
         self.msqid = msqid
         self.key = key
@@ -46,14 +46,16 @@ class MessageQueue:
         self.condition = threading.Condition(self.lock)
         self.max_bytes = max_bytes
         self.removed = False
-        
+
         # Statistics
         self.last_snd_pid = 0
         self.last_rcv_pid = 0
         self.last_snd_time = 0.0
         self.last_rcv_time = 0.0
 
-    def send(self, msg_type: int, text: str, sender_pid: int, block: bool = True) -> bool:
+    def send(
+        self, msg_type: int, text: str, sender_pid: int, block: bool = True
+    ) -> bool:
         """Send a message of msg_type to the queue. Blocks if the queue is full."""
         if not isinstance(msg_type, int):
             raise TypeError("Message type must be an integer")
@@ -61,20 +63,20 @@ class MessageQueue:
             raise ValueError("Message type must be a positive integer (> 0)")
         if not isinstance(text, str):
             raise TypeError("Message text must be a string")
-            
+
         with self.lock:
             while True:
                 if self.removed:
                     raise OSError("Message queue was removed.")
-                
+
                 # Calculate currently used bytes
                 current_bytes = sum(len(msg.text) for msg in self.messages)
                 if current_bytes + len(text) <= self.max_bytes:
                     break
-                
+
                 if not block:
                     raise BlockingIOError("Message queue is full.")
-                
+
                 self.condition.wait()
 
             msg = Message(msg_type, text, sender_pid)
@@ -84,9 +86,11 @@ class MessageQueue:
             self.condition.notify_all()
             return True
 
-    def receive(self, msg_type: int = 0, block: bool = True, timeout: Optional[float] = None) -> Optional[Message]:
+    def receive(
+        self, msg_type: int = 0, block: bool = True, timeout: Optional[float] = None
+    ) -> Optional[Message]:
         """Receive a message from the queue.
-        
+
         msg_type:
             0: receive first message on the queue (FIFO).
             >0: receive first message of type msg_type.
@@ -96,6 +100,7 @@ class MessageQueue:
             raise TypeError("Message type must be an integer")
 
         with self.lock:
+
             def find_msg():
                 for idx, msg in enumerate(self.messages):
                     if msg_type == 0:
@@ -105,10 +110,16 @@ class MessageQueue:
                             return idx, msg
                     else:  # msg_type < 0
                         limit = abs(msg_type)
-                        matching = [(i, m) for i, m in enumerate(self.messages) if m.msg_type <= limit]
+                        matching = [
+                            (i, m)
+                            for i, m in enumerate(self.messages)
+                            if m.msg_type <= limit
+                        ]
                         if matching:
                             # Pick the matching message with the lowest msg_type
-                            lowest_idx, lowest_msg = min(matching, key=lambda item: item[1].msg_type)
+                            lowest_idx, lowest_msg = min(
+                                matching, key=lambda item: item[1].msg_type
+                            )
                             return lowest_idx, lowest_msg
                 return -1, None
 
@@ -117,7 +128,7 @@ class MessageQueue:
                 while True:
                     if self.removed:
                         raise OSError("Message queue was removed.")
-                    
+
                     idx, msg = find_msg()
                     if msg is not None:
                         self.messages.pop(idx)
@@ -148,6 +159,7 @@ class MessageQueue:
 
 class IPCManager:
     """Manager for simulated IPC facilities registered on the Kernel."""
+
     def __init__(self, kernel):
         self.kernel = kernel
         self.queues: Dict[int, MessageQueue] = {}
@@ -172,7 +184,9 @@ class IPCManager:
             if key in self.key_to_id:
                 msqid = self.key_to_id[key]
                 if (msgflg & IPC_CREAT) and (msgflg & IPC_EXCL):
-                    raise FileExistsError(f"Message queue with key {key} already exists.")
+                    raise FileExistsError(
+                        f"Message queue with key {key} already exists."
+                    )
                 return msqid
             else:
                 if msgflg & IPC_CREAT:
@@ -192,7 +206,13 @@ class IPCManager:
         current_pid = get_current_pid()
         return queue.send(msg_type, text, current_pid, block=block)
 
-    def msgrcv(self, msqid: int, msg_type: int = 0, block: bool = True, timeout: Optional[float] = None) -> Optional[Tuple[int, str, int, float]]:
+    def msgrcv(
+        self,
+        msqid: int,
+        msg_type: int = 0,
+        block: bool = True,
+        timeout: Optional[float] = None,
+    ) -> Optional[Tuple[int, str, int, float]]:
         """Receive a message from a queue ID."""
         with self._lock:
             queue = self.queues.get(msqid)
@@ -207,7 +227,7 @@ class IPCManager:
         """Control message queue behavior (e.g. remove queue or query status)."""
         with self._lock:
             queue = self.queues.get(msqid)
-            
+
         if not queue:
             raise KeyError(f"Invalid message queue ID: {msqid}")
 

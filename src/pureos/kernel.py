@@ -33,6 +33,7 @@ class Kernel:
         self.services = ServiceManager()
         self.drivers = DriverManager(self)
         from .ipc import IPCManager
+
         self.ipc = IPCManager(self)
         from .commands import CommandRegistry
 
