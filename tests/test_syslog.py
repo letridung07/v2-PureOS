@@ -92,3 +92,64 @@ def test_recursive_logging_prevention(kernel, shell):
     assert getattr(syslog._local, "writing", False) is False
     kernel.logger.info("Safe log message")
     assert getattr(syslog._local, "writing", False) is False
+
+
+def test_actual_recursive_logging_append(kernel):
+    # Patch kernel.fs.append to log something
+    original_append = kernel.fs.append
+    log_called = False
+    
+    def mock_append(path, content):
+        nonlocal log_called
+        if not log_called:
+            log_called = True
+            kernel.logger.info("Log message inside append")
+        original_append(path, content)
+        
+    kernel.fs.append = mock_append
+    
+    # This log should trigger fs.append, which logs "Log message inside append",
+    # which should be handled without infinite recursion or deadlock.
+    kernel.logger.info("Trigger log")
+    
+    assert log_called is True
+
+
+def test_actual_recursive_logging_clear(kernel):
+    original_write = kernel.fs.write
+    log_called = False
+    
+    def mock_write(path, content):
+        nonlocal log_called
+        if not log_called and path == "/var/log/syslog":
+            log_called = True
+            kernel.logger.info("Log message inside write")
+        original_write(path, content)
+        
+    kernel.fs.write = mock_write
+    
+    syslog = kernel.drivers.drivers.get("syslog")
+    syslog.clear()
+    
+    assert log_called is True
+
+
+def test_syslog_write_by_unprivileged_user(kernel, shell):
+    # Switch to guest user
+    users = kernel.users
+    guest = users.users.get("guest")
+    assert guest is not None
+    users.current_user = guest
+    
+    # Generate log
+    kernel.logger.warning("Log from guest user")
+    
+    # Switch back to root to verify
+    users.current_user = users.users.get("root")
+    
+    syslog = kernel.drivers.drivers.get("syslog")
+    # Verify in memory
+    assert any("Log from guest user" in log["message"] for log in syslog.logs)
+    # Verify in file
+    syslog_content = kernel.fs.read("/var/log/syslog")
+    assert "Log from guest user" in syslog_content

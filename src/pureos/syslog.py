@@ -39,7 +39,7 @@ class SyslogDriver(Driver):
         super().__init__(kernel)
         self.logs: List[Dict[str, Any]] = []
         self._max_logs = 500
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._handler = None
         self._local = threading.local()
 
@@ -62,7 +62,9 @@ class SyslogDriver(Driver):
 
         root_logger = logging.getLogger("pureos")
         self._old_level = root_logger.level
-        root_logger.setLevel(logging.INFO)
+        # Lower level to INFO only if it's currently less verbose (WARNING, ERROR, etc.)
+        if root_logger.level == logging.NOTSET or root_logger.level > logging.INFO:
+            root_logger.setLevel(logging.INFO)
         root_logger.addHandler(self._handler)
 
     def on_unload(self):
@@ -89,32 +91,56 @@ class SyslogDriver(Driver):
             if len(self.logs) > self._max_logs:
                 self.logs.pop(0)
 
-        # Write to VFS
-        if getattr(self._local, "writing", False):
-            return
-        self._local.writing = True
-        try:
-            fs = self.kernel.fs
-            if fs.exists("/var/log/syslog"):
-                fs.append("/var/log/syslog", formatted_msg + "\n")
-        except Exception:
-            pass
-        finally:
-            self._local.writing = False
+            # Write to VFS under lock to ensure thread safety
+            if getattr(self._local, "writing", False):
+                return
+            self._local.writing = True
+
+            # Temporarily elevate current user context to root to allow file operations
+            users = getattr(self.kernel, "users", None)
+            old_user = None
+            if users and hasattr(users, "current_user"):
+                old_user = users.current_user
+                root_user = users.users.get("root")
+                if root_user:
+                    users.current_user = root_user
+
+            try:
+                fs = self.kernel.fs
+                if fs.exists("/var/log/syslog"):
+                    fs.append("/var/log/syslog", formatted_msg + "\n")
+            except Exception:
+                pass
+            finally:
+                if users and old_user is not None:
+                    users.current_user = old_user
+                self._local.writing = False
 
     def clear(self):
         """Clear the in-memory log buffer and the /var/log/syslog file."""
         with self._lock:
             self.logs.clear()
         
-        if getattr(self._local, "writing", False):
-            return
-        self._local.writing = True
-        try:
-            fs = self.kernel.fs
-            if fs.exists("/var/log/syslog"):
-                fs.write("/var/log/syslog", "")
-        except Exception:
-            pass
-        finally:
-            self._local.writing = False
+            if getattr(self._local, "writing", False):
+                return
+            self._local.writing = True
+
+            # Temporarily elevate current user context to root to allow file operations
+            users = getattr(self.kernel, "users", None)
+            old_user = None
+            if users and hasattr(users, "current_user"):
+                old_user = users.current_user
+                root_user = users.users.get("root")
+                if root_user:
+                    users.current_user = root_user
+
+            try:
+                fs = self.kernel.fs
+                if fs.exists("/var/log/syslog"):
+                    fs.write("/var/log/syslog", "")
+            except Exception:
+                pass
+            finally:
+                if users and old_user is not None:
+                    users.current_user = old_user
+                self._local.writing = False
