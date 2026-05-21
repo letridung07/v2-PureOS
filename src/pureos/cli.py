@@ -23,6 +23,7 @@ def system_info() -> None:
         "python": sys.version.split()[0],
         "platform": platform.platform(),
         "cwd": os.getcwd(),
+        "version": __version__,
         "user": getpass.getuser(),
         "hostname": socket.gethostname(),
         "time": time.strftime("%Y-%m-%d %H:%M:%S"),

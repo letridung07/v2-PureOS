@@ -59,6 +59,7 @@ def test_system_info(capsys):
     assert "user" in info
     assert "hostname" in info
     assert "time" in info
+    assert "version" in info
 
 
 def test_main_version(capsys):
