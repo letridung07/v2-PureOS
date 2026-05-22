@@ -40,6 +40,12 @@ def parse_args(argv=None):
         help="Start interactive shell after initialization",
     )
     parser.add_argument(
+        "--desktop",
+        "-d",
+        action="store_true",
+        help="Start TUI desktop after initialization",
+    )
+    parser.add_argument(
         "--version",
         action="store_true",
         help="Show package version and exit",
@@ -70,6 +76,6 @@ def main(argv=None):
     banner()
     system_info()
     config = {"fs_backing": resolve_backing_path(args.backing)}
-    run_pureos(shell=args.shell, config=config)
+    run_pureos(shell=args.shell, desktop=args.desktop, config=config)
     print("Initialization complete.")
     print("Exiting.")
