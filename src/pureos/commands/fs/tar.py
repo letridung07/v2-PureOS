@@ -2,7 +2,7 @@ import io
 import os
 import tarfile
 import time
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 from .base import FileCommand
 

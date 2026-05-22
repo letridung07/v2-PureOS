@@ -1,7 +1,6 @@
 """Tests for the CommandInput line editor (non-curses logic)."""
 
-import curses
-
+from pureos.desktop.curses_compat import curses
 from pureos.desktop.inputbar import CommandInput
 
 
@@ -192,3 +191,34 @@ class TestCommandInputExtra:
         win.erase.assert_called_once()
         win.addstr.assert_called_once()
         win.noutrefresh.assert_called_once()
+
+    def test_handle_key_none(self):
+        sh = DummyShell()
+        ci = CommandInput(sh)
+        action, value = ci.handle_key(999)  # unknown key
+        assert action is None
+
+    def test_render_exception(self):
+        from unittest.mock import MagicMock
+
+        sh = DummyShell()
+        ci = CommandInput(sh)
+        win = MagicMock()
+        win.addstr.side_effect = Exception("curses error")
+        ci.render(win, 80)
+        assert win.addstr.called
+
+    def test_recall_history_empty(self):
+        sh = DummyShell()
+        sh.history = []
+        ci = CommandInput(sh)
+        ci.handle_key(curses.KEY_UP)
+        assert ci.text == ""
+
+    def test_do_tab_completion_no_completer(self):
+        class NoCompleterShell:
+            def __init__(self):
+                self.history = []
+        sh = NoCompleterShell()
+        ci = CommandInput(sh)
+        assert ci.do_tab_completion() is False

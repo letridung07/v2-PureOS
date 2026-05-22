@@ -1,6 +1,6 @@
 """Integration tests for Desktop class (non-curses logic)."""
 
-import curses
+from pureos.desktop.curses_compat import curses
 from unittest.mock import MagicMock, patch
 from pureos.desktop.desktop import Desktop
 
@@ -167,6 +167,29 @@ class TestDesktopLogic:
 
         d._cmd_input.handle_key.return_value = ("tab", None)
 
-        with patch("curses.doupdate"):
+        with patch("curses.newpad"), patch("curses.doupdate"):
             d._handle_key(9)
             d._cmd_input.do_tab_completion.assert_called_once()
+
+    def test_run_with_rc_error(self, kernel):
+        # Force an error when reading pureosrc
+        kernel.fs.write("/etc/pureosrc", "echo hello")
+        d = Desktop(kernel)
+        with patch.object(kernel.fs, "read", side_effect=Exception("fs error")):
+            with patch("curses.wrapper"):
+                d.run()
+        # Should not crash
+
+    def test_relayout_exception(self, kernel):
+        d = Desktop(kernel)
+        d._stdscr = MagicMock()
+        d._stdscr.getmaxyx.return_value = (24, 80)
+        # Force resize to fail
+        d._input_win = MagicMock()
+        d._input_win.resize.side_effect = Exception("resize failed")
+        d._status_win = MagicMock()
+        d._status_win.resize.side_effect = Exception("resize failed")
+        
+        with patch("curses.newpad"), patch("curses.newwin") as mock_newwin:
+            d._relayout()
+            assert mock_newwin.call_count >= 2

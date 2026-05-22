@@ -1,4 +1,4 @@
-import curses
+from .curses_compat import curses
 
 
 class StatusBar:

@@ -39,3 +39,15 @@ class TestStatusBar:
         win.erase.assert_called_once()
         win.addstr.assert_called_once()
         win.noutrefresh.assert_called_once()
+
+    def test_render_exception(self):
+        shell = MagicMock()
+        shell.kernel = None
+        shell._last_exit_code = 0
+        shell.cwd = "/"
+        sb = StatusBar(shell)
+
+        win = MagicMock()
+        win.addstr.side_effect = Exception("curses error")
+        sb.render(win, 80)
+        assert win.addstr.called

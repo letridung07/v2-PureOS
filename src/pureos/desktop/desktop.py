@@ -1,6 +1,6 @@
 """TUI desktop environment for v2-PureOS. Wraps the Shell in a curses interface."""
 
-import curses
+from .curses_compat import curses
 
 from .terminal import TerminalOutput
 from .inputbar import CommandInput

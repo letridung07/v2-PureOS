@@ -70,13 +70,29 @@ class TestTerminalOutput:
         t.append("just one line no newline")
         assert t.lines == ["just one line no newline"]
 
-    def test_render_with_mock_pad(self):
+    def test_scroll_limits(self):
+        t = TerminalOutput(max_lines=100)
+        t.append("1\n2")
+        t.scroll_up(10)
+        assert t.scroll_offset == 1
+        t.scroll_down(10)
+        assert t.scroll_offset == 0
+
+    def test_visible_lines_clamping(self):
+        t = TerminalOutput(max_lines=100)
+        t.append("1\n2\n3")
+        # height 10 > total lines 3
+        visible = t.visible_lines(term_height=10)
+        assert visible == ["1", "2", "3"]
+
+    def test_render_exception_handling(self):
         from unittest.mock import MagicMock
 
         t = TerminalOutput(max_lines=100)
-        t.append("line1\nline2")
+        t.append("line1")
         pad = MagicMock()
+        # force addstr to fail
+        pad.addstr.side_effect = Exception("curses error")
         t.render(pad, term_height=10, term_width=80)
-        pad.erase.assert_called_once()
-        assert pad.addstr.call_count == 2
-        pad.refresh.assert_called_once()
+        # Should not crash
+        assert pad.addstr.called

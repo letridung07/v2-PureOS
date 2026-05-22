@@ -1,5 +1,4 @@
-import curses
-import curses.ascii
+from .curses_compat import curses
 
 
 class CommandInput:
