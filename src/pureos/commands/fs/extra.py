@@ -130,3 +130,55 @@ class FormatCommand(FileCommand):
         except PermissionError as exc:
             print(str(exc))
             return False
+
+
+class TreeCommand(FileCommand):
+    name = "tree"
+    usage = "tree [path]"
+    description = "Display directory structure in a tree-like format."
+
+    def execute(
+        self, parts: List[str], input_data=None, capture_output=False, raw_line=None
+    ):
+        if len(parts) > 1:
+            path = self.resolve_path(parts[1], allow_dir=True)
+        else:
+            path = self.kernel.shell.cwd
+
+        if not self.kernel.fs.exists(path):
+            print(f"{parts[1] if len(parts) > 1 else path}: not found")
+            return False
+
+        if not self.kernel.fs.is_dir(path):
+            print(f"{parts[1] if len(parts) > 1 else path}: not a directory")
+            return False
+
+        # Ensure dir path ends with / for consistency
+        if path != "/" and not path.endswith("/"):
+            path += "/"
+
+        output = [path]
+        self._build_tree(path, "", output)
+        return self.emit("\n".join(output), capture_output)
+
+    def _build_tree(self, path: str, prefix: str, output: List[str]):
+        try:
+            entries = sorted(self.kernel.fs.list(path))
+        except PermissionError as exc:
+            output.append(f"{prefix}└── [Permission Denied: {exc}]")
+            return
+
+        for i, entry_path in enumerate(entries):
+            is_last = i == len(entries) - 1
+            connector = "└── " if is_last else "├── "
+
+            # entry_path is absolute, we want just the name
+            name = entry_path.rstrip("/").split("/")[-1]
+            if self.kernel.fs.is_dir(entry_path):
+                name += "/"
+
+            output.append(f"{prefix}{connector}{name}")
+
+            if self.kernel.fs.is_dir(entry_path):
+                new_prefix = prefix + ("    " if is_last else "│   ")
+                self._build_tree(entry_path, new_prefix, output)

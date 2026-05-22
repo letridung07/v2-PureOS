@@ -119,6 +119,7 @@ Below is a quick reference for the commands available within the v2-PureOS inter
 - `ln [-s] <target> <link>` — create a hard link or symbolic link (`-s`)
 - `readlink <path>` — print the target of a symbolic link
 - `du [-h] [path]` — show disk usage for a file or directory tree
+- `tree [path]` — display directory structure in a tree-like format
 
 ### User Management
 
