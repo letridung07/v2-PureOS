@@ -2,7 +2,7 @@ import io
 import os
 import tarfile
 import time
-from typing import List
+from typing import Dict, List, Optional, Union
 
 from .base import FileCommand
 
@@ -19,7 +19,7 @@ class TarCommand(FileCommand):
         capture_output=False,
         raw_line=None,
     ):
-        options: dict[str, bool | str | None] = {
+        options: Dict[str, Union[bool, str, None]] = {
             "create": False,
             "extract": False,
             "list": False,

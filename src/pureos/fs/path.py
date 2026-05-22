@@ -1,3 +1,5 @@
+from typing import List
+
 from .state import FSState
 
 
@@ -11,7 +13,7 @@ class PathResolver:
             is_dir = True
         if not path.startswith("/"):
             path = "/" + path
-        parts: list[str] = []
+        parts: List[str] = []
         for segment in path.split("/"):
             if segment in ("", "."):
                 continue
