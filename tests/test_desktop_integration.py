@@ -44,7 +44,7 @@ class TestDesktopLogic:
         d._term_pad = MagicMock()
         d._cmd_input = MagicMock()
         d._statusbar = MagicMock()
-        
+
         with patch("curses.doupdate"):
             d._execute_command("echo hello")
         assert d._terminal.append.called
@@ -87,7 +87,7 @@ class TestDesktopLogic:
         d._term_width = 80
         d._term_offset_y = 0
         d._term_offset_x = 0
-        
+
         with patch("curses.newpad"), patch("curses.doupdate"):
             d._handle_key(curses.KEY_RESIZE)
             assert d._stdscr.getmaxyx.called
@@ -105,11 +105,11 @@ class TestDesktopLogic:
         d._term_pad = MagicMock()
         d._input_win = MagicMock()
         d._status_win = MagicMock()
-        
+
         with patch("curses.doupdate"):
             d._handle_key(curses.KEY_PPAGE)
             d._terminal.scroll_up.assert_called_with(10)
-            
+
             d._handle_key(curses.KEY_NPAGE)
             d._terminal.scroll_down.assert_called_with(10)
 
@@ -126,7 +126,7 @@ class TestDesktopLogic:
         d._term_pad = MagicMock()
         d._input_win = MagicMock()
         d._status_win = MagicMock()
-        
+
         with patch("curses.doupdate"):
             d._handle_key(12)  # Ctrl+L
             d._terminal.clear.assert_called_once()
@@ -144,9 +144,9 @@ class TestDesktopLogic:
         d._term_pad = MagicMock()
         d._input_win = MagicMock()
         d._status_win = MagicMock()
-        
+
         d._cmd_input.handle_key.return_value = ("enter", "echo hi")
-        
+
         with patch("curses.doupdate"):
             d._handle_key(ord("\n"))
             d._cmd_input.clear.assert_called_once()
@@ -164,9 +164,9 @@ class TestDesktopLogic:
         d._term_pad = MagicMock()
         d._input_win = MagicMock()
         d._status_win = MagicMock()
-        
+
         d._cmd_input.handle_key.return_value = ("tab", None)
-        
+
         with patch("curses.doupdate"):
             d._handle_key(9)
             d._cmd_input.do_tab_completion.assert_called_once()

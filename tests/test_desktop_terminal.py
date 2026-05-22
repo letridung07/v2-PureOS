@@ -72,6 +72,7 @@ class TestTerminalOutput:
 
     def test_render_with_mock_pad(self):
         from unittest.mock import MagicMock
+
         t = TerminalOutput(max_lines=100)
         t.append("line1\nline2")
         pad = MagicMock()

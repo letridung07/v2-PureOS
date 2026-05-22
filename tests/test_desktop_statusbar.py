@@ -1,6 +1,6 @@
-import curses
 from unittest.mock import MagicMock
 from pureos.desktop.statusbar import StatusBar
+
 
 class TestStatusBar:
     def test_get_text_default(self):
@@ -33,7 +33,7 @@ class TestStatusBar:
         shell._last_exit_code = 0
         shell.cwd = "/"
         sb = StatusBar(shell)
-        
+
         win = MagicMock()
         sb.render(win, 80)
         win.erase.assert_called_once()

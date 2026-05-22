@@ -183,6 +183,7 @@ class TestCommandInputExtra:
 
     def test_render_with_mock_win(self):
         from unittest.mock import MagicMock
+
         sh = DummyShell()
         ci = CommandInput(sh)
         ci.set_text("some command")
