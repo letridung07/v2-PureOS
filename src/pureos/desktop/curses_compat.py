@@ -1,6 +1,4 @@
-"""Curses compatibility layer for systems without native curses support (e.g., Windows)."""
-
-import sys
+"""Curses compatibility layer for systems without native curses support."""
 
 try:
     import curses

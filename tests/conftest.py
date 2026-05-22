@@ -5,11 +5,26 @@ import sys
 
 import pytest
 
+# Ensure src is in path for imports
+src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
+
+# Mock curses for platforms that don't have it (like Windows)
+# This is needed so that unittest.mock.patch("curses...") can resolve the module.
+try:
+    import curses  # noqa: F401
+except (ImportError, ModuleNotFoundError):
+    from pureos.desktop.curses_compat import curses as mock_curses
+
+    sys.modules["curses"] = mock_curses
+    sys.modules["curses.ascii"] = mock_curses.ascii
+
+
 # Ensure pureos is importable
 try:
     from pureos.kernel import Kernel
 except Exception:
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
     from pureos.kernel import Kernel
 
 

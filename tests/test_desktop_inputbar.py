@@ -219,6 +219,7 @@ class TestCommandInputExtra:
         class NoCompleterShell:
             def __init__(self):
                 self.history = []
+
         sh = NoCompleterShell()
         ci = CommandInput(sh)
         assert ci.do_tab_completion() is False

@@ -189,7 +189,7 @@ class TestDesktopLogic:
         d._input_win.resize.side_effect = Exception("resize failed")
         d._status_win = MagicMock()
         d._status_win.resize.side_effect = Exception("resize failed")
-        
+
         with patch("curses.newpad"), patch("curses.newwin") as mock_newwin:
             d._relayout()
             assert mock_newwin.call_count >= 2
