@@ -24,7 +24,12 @@ This component implements the core filesystem manipulations (e.g., `mkdir`, `rea
 Responsible for normalizing paths. It resolves `..`, handles redundant slashes, and correctly formats directories (ensuring they end in a `/` when requested).
 
 ### `FSPermissions` (`permissions.py`)
-Checks UNIX-style permissions based on bitwise operations. It provides methods like `ensure_parent_writable` and `ensure_readable_file` to enforce security rules.
+Checks UNIX-style permissions based on bitwise operations. It provides methods to enforce security rules, including:
+- **rwxrwxrwx** checks for owner, group, and others.
+- **Sticky Bit (0o1000)** enforcement on directories to prevent unauthorized deletions (users can only delete/rename files they own in sticky directories).
+- **Execute Permission (0o100)** verification for shell scripts and dynamic commands.
+- **SUID/SGID (0o4000/0o2000)** support for privilege elevation during command and script execution.
+
 
 ### `FSPersistence` (`persistence.py`)
 Handles loading and saving the `FSState` to a JSON file. This allows v2-PureOS to resume from where it left off across reboots.

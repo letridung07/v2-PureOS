@@ -54,7 +54,9 @@ The `UserDB` provides POSIX-like user and group management, enabling permission-
 - **Persistence**: User and group information is stored in the VirtualFS at `/etc/passwd` and `/etc/group`.
 - **Authentication**: Supports password hashing (SHA-256) and account locking.
 - **Root & Privileges**: Includes a built-in `root` user (UID 0) and support for `sudo` via membership in the `sudo` group.
-- **Session Control**: Manages the `current_user` context, which is used by the filesystem to enforce permission checks.
+- **Session Control**: Manages the `current_user` context, as well as `effective_uid` and `effective_gid` for SUID/SGID support. These are used by the filesystem to enforce permission checks.
+- **SUID/SGID**: Supports Set-User-ID (0o4000) and Set-Group-ID (0o2000) bits for shell scripts and dynamic commands, allowing for privilege elevation during execution.
+
 
 ---
 *For details on the filesystem, see [Virtual Filesystem Architecture](filesystem.md).*

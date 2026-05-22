@@ -177,9 +177,99 @@ class CommandRegistry:
             handler = self.commands.get(cmd)
 
         if not handler:
+            # Try to see if 'cmd' is a file path that can be executed as a script
+            if "/" in cmd or cmd.startswith("."):
+                shell = getattr(self.kernel, "shell", None)
+                if shell:
+                    resolved_path = shell.resolve_path(cmd)
+                    if self.kernel.fs.exists(resolved_path) and self.kernel.fs.is_file(
+                        resolved_path
+                    ):
+                        try:
+                            # Check execute permission
+                            self.kernel.fs.permissions.ensure_executable_file(
+                                resolved_path
+                            )
+
+                            # Handle SUID/SGID for scripts
+                            stat = self.kernel.fs.stat(resolved_path)
+                            mode = stat.get("mode", 0)
+                            file_owner = self.kernel.fs.state.owners.get(
+                                resolved_path, 0
+                            )
+                            file_group = self.kernel.fs.state.groups.get(
+                                resolved_path, 0
+                            )
+
+                            old_euid = self.kernel.users._effective_uid
+                            old_egid = self.kernel.users._effective_gid
+
+                            new_euid = file_owner if (mode & 0o4000) else old_euid
+                            new_egid = file_group if (mode & 0o2000) else old_egid
+
+                            self.kernel.users.set_effective_ids(new_euid, new_egid)
+
+                            try:
+                                # Run as script (delegating to shell.execute)
+                                content = self.kernel.fs.read(resolved_path)
+                                if content:
+                                    for sline in content.splitlines():
+                                        sline = sline.strip()
+                                        if not sline or sline.startswith("#"):
+                                            continue
+                                        shell.execute(sline, add_to_history=False)
+                                    return True
+                                return True
+                            finally:
+                                self.kernel.users.set_effective_ids(old_euid, old_egid)
+                        except (PermissionError, FileNotFoundError) as exc:
+                            print(f"{cmd}: {str(exc)}")
+                            return False
+
             print("Unknown command:", " ".join(parts))
             return False
 
+        # Handle SUID/SGID for dynamic commands
+        owner_path = None
+        with self._lock:
+            stack = self.registry_stacks.get(cmd)
+            if stack:
+                owner_path, _ = stack[-1]
+
+        if owner_path:
+            stat = self.kernel.fs.stat(owner_path)
+            if stat:
+                mode = stat.get("mode", 0)
+                if mode & (0o4000 | 0o2000):
+                    file_owner = self.kernel.fs.state.owners.get(owner_path, 0)
+                    file_group = self.kernel.fs.state.groups.get(owner_path, 0)
+
+                    old_euid = self.kernel.users._effective_uid
+                    old_egid = self.kernel.users._effective_gid
+
+                    new_euid = file_owner if (mode & 0o4000) else old_euid
+                    new_egid = file_group if (mode & 0o2000) else old_egid
+
+                    self.kernel.users.set_effective_ids(new_euid, new_egid)
+                    try:
+                        return self._execute_handler(
+                            handler, parts, input_data, capture_output, raw_line
+                        )
+                    finally:
+                        self.kernel.users.set_effective_ids(old_euid, old_egid)
+
+        return self._execute_handler(
+            handler, parts, input_data, capture_output, raw_line
+        )
+
+    def _execute_handler(
+        self,
+        handler: Command,
+        parts: List[str],
+        input_data: Optional[str],
+        capture_output: bool,
+        raw_line: Optional[str],
+    ) -> CommandResult:
         if capture_output:
             import io
             import contextlib

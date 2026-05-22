@@ -409,7 +409,7 @@ class FSOperations:
         normalized = PathResolver.normalize_path(path, allow_dir=True)
         if normalized == "/":
             raise PermissionError("Cannot delete root directory")
-        self.permissions.ensure_parent_writable(normalized)
+        self.permissions.ensure_deletion_allowed(normalized)
         if normalized in self.state.files:
             del self.state.files[normalized]
             self.state.modes.pop(normalized, None)
@@ -449,10 +449,11 @@ class FSOperations:
     def rename(self, src: str, dst: str):
         src = PathResolver.normalize_path(src, allow_dir=True)
         if src in self.state.files:
-            self.permissions.ensure_readable_file(src)
+            self.permissions.ensure_deletion_allowed(src)
             self.permissions.ensure_parent_writable(dst)
             self._rename_file(src, dst)
         elif src in self.state.dirs or src + "/" in self.state.dirs:
+            self.permissions.ensure_deletion_allowed(src)
             self.permissions.ensure_parent_writable(dst)
             self._rename_dir(src, dst)
 

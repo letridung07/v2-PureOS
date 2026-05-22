@@ -37,12 +37,8 @@ class FSPermissions:
             return bool(mode & permission)
 
         # Get active user context
-        current_uid = 0
-        current_gids = [0]
-        user = self.kernel.users.current_user
-        if user:
-            current_uid = user.uid
-            current_gids = user.gids
+        current_uid = self.kernel.users.effective_uid
+        current_gids = self.kernel.users.effective_gids
 
         # Root bypasses all permission checks
         if current_uid == 0:
@@ -100,6 +96,42 @@ class FSPermissions:
             self._audit_failure(f"read/execute denied on directory {path}")
             raise PermissionError(f"Permission denied: {path}")
 
+    def ensure_deletion_allowed(self, path: str):
+        """Check if deleting/renaming is allowed, respecting the sticky bit (0o1000)."""
+        normalized = PathResolver.normalize_path(path, allow_dir=True)
+        parent = PathResolver.parent_dir(normalized)
+
+        # Ensure parent is writable (base POSIX requirement)
+        self.ensure_parent_writable(normalized)
+
+        # If no kernel/userDB, we can't check identities
+        if (
+            not self.kernel
+            or not hasattr(self.kernel, "users")
+            or not self.kernel.users
+        ):
+            return
+
+        current_uid = self.kernel.users.effective_uid
+        if current_uid == 0:
+            return  # Root bypasses sticky bit
+
+        # Check sticky bit on parent
+        parent_mode = self.state.modes.get(parent, 0o755)
+        if parent_mode & 0o1000:
+            # Sticky bit set: user must be file owner, directory owner, or root
+            file_owner = self.state.owners.get(normalized, 0)
+            parent_owner = self.state.owners.get(parent, 0)
+            if current_uid != file_owner and current_uid != parent_owner:
+                self._audit_failure(f"sticky bit restriction: {path}")
+                raise PermissionError(f"Permission denied: {path}")
+
+    def ensure_executable_file(self, path: str):
+        """Verify execute permissions (0o100) for a file."""
+        if not self.has_permission(path, 0o100):
+            self._audit_failure(f"execute denied on file {path}")
+            raise PermissionError(f"Permission denied: {path}")
+
     def format_mode(self, mode: int, is_dir: bool, is_link: bool = False) -> str:
         if is_link:
             type_char = "l"
@@ -135,9 +167,9 @@ class FSPermissions:
             or not self.kernel.users
         ):
             return
-        user = self.kernel.users.current_user
-        if not user or user.uid == 0:
+        current_uid = self.kernel.users.effective_uid
+        if current_uid == 0:
             return  # root always allowed
         owner_uid = self.state.owners.get(path, 0)
-        if user.uid != owner_uid:
+        if current_uid != owner_uid:
             raise PermissionError(f"Permission denied: {path}")

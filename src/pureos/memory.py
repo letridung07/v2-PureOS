@@ -271,23 +271,39 @@ class MemoryDriver(Driver):
     def _update_proc_files(self):
         """Refresh /proc/meminfo and every /proc/<pid>/status."""
         self._write_meminfo()
-        for pid in self._per_process:
+        for pid in list(self._per_process.keys()):
             self._write_proc_status(pid)
 
     def _write_meminfo(self):
-        self.kernel.fs.write("/proc/meminfo", self._format_meminfo())
+        self._run_as_root(
+            self.kernel.fs.write, "/proc/meminfo", self._format_meminfo()
+        )
 
     def _write_proc_status(self, pid: int):
         proc = self.kernel.scheduler.processes.get(pid)
         if proc is None:
             return
-        self.kernel.fs.write(f"/proc/{pid}/status", self._format_proc_status(pid))
+        self._run_as_root(
+            self.kernel.fs.write, f"/proc/{pid}/status", self._format_proc_status(pid)
+        )
 
     def _delete_proc_status(self, pid: int):
         fs = self.kernel.fs
         proc_dir = f"/proc/{pid}/"
-        if fs.is_dir(proc_dir):
-            fs.delete(proc_dir)
+        if self._run_as_root(fs.is_dir, proc_dir):
+            self._run_as_root(fs.delete, proc_dir)
+
+    def _run_as_root(self, func, *args, **kwargs):
+        users = getattr(self.kernel, "users", None)
+        if not users:
+            return func(*args, **kwargs)
+        old_uid = users._effective_uid
+        old_gid = users._effective_gid
+        users.set_effective_ids(uid=0, gid=0)
+        try:
+            return func(*args, **kwargs)
+        finally:
+            users.set_effective_ids(uid=old_uid, gid=old_gid)
 
     def _format_meminfo(self) -> str:
         s = self.get_stats()

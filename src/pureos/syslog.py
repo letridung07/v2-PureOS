@@ -97,12 +97,12 @@ class SyslogDriver(Driver):
 
             # Temporarily elevate current user context to root to allow file operations
             users = getattr(self.kernel, "users", None)
-            old_user = None
-            if users and hasattr(users, "current_user"):
-                old_user = users.current_user
-                root_user = users.users.get("root")
-                if root_user:
-                    users.current_user = root_user
+            old_euid = None
+            old_egid = None
+            if users:
+                old_euid = users._effective_uid
+                old_egid = users._effective_gid
+                users.set_effective_ids(uid=0, gid=0)
 
             try:
                 fs = self.kernel.fs
@@ -111,8 +111,8 @@ class SyslogDriver(Driver):
             except Exception:
                 pass
             finally:
-                if users and old_user is not None:
-                    users.current_user = old_user
+                if users:
+                    users.set_effective_ids(uid=old_euid, gid=old_egid)
                 self._local.writing = False
 
     def clear(self):
@@ -126,12 +126,12 @@ class SyslogDriver(Driver):
 
             # Temporarily elevate current user context to root to allow file operations
             users = getattr(self.kernel, "users", None)
-            old_user = None
-            if users and hasattr(users, "current_user"):
-                old_user = users.current_user
-                root_user = users.users.get("root")
-                if root_user:
-                    users.current_user = root_user
+            old_euid = None
+            old_egid = None
+            if users:
+                old_euid = users._effective_uid
+                old_egid = users._effective_gid
+                users.set_effective_ids(uid=0, gid=0)
 
             try:
                 fs = self.kernel.fs
@@ -140,6 +140,6 @@ class SyslogDriver(Driver):
             except Exception:
                 pass
             finally:
-                if users and old_user is not None:
-                    users.current_user = old_user
+                if users:
+                    users.set_effective_ids(uid=old_euid, gid=old_egid)
                 self._local.writing = False

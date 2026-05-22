@@ -96,17 +96,39 @@ class SourceCommand(FileCommand):
             print("Usage: source <path>")
             return False
         path = self.resolve_path(parts[1])
-        content = self.kernel.fs.read(path)
-        if content is None:
-            print(f"{parts[1]}: not found")
-            return False
+        try:
+            self.kernel.fs.permissions.ensure_executable_file(path)
 
-        for line in content.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            self.kernel.shell.execute(line)
-        return True
+            # Handle SUID/SGID
+            stat = self.kernel.fs.stat(path)
+            mode = stat.get("mode", 0)
+            file_owner = self.kernel.fs.state.owners.get(path, 0)
+            file_group = self.kernel.fs.state.groups.get(path, 0)
+
+            old_euid = self.kernel.users._effective_uid
+            old_egid = self.kernel.users._effective_gid
+
+            new_euid = file_owner if (mode & 0o4000) else old_euid
+            new_egid = file_group if (mode & 0o2000) else old_egid
+
+            self.kernel.users.set_effective_ids(new_euid, new_egid)
+            try:
+                content = self.kernel.fs.read(path)
+                if content is None:
+                    print(f"{parts[1]}: not found")
+                    return False
+
+                for line in content.splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    self.kernel.shell.execute(line, add_to_history=False)
+                return True
+            finally:
+                self.kernel.users.set_effective_ids(old_euid, old_egid)
+        except (PermissionError, FileNotFoundError) as exc:
+            print(str(exc))
+            return False
 
 
 class FormatCommand(FileCommand):

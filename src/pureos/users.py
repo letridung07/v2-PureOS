@@ -51,6 +51,34 @@ class UserDB:
         self.groups: Dict[str, int] = {}  # groupname -> gid
         self.group_members: Dict[str, List[str]] = {}  # groupname -> [usernames]
         self.current_user: Optional[User] = None
+        self._effective_uid: Optional[int] = None
+        self._effective_gid: Optional[int] = None
+
+    @property
+    def effective_uid(self) -> int:
+        if self._effective_uid is not None:
+            return self._effective_uid
+        return self.current_user.uid if self.current_user else 0
+
+    @property
+    def effective_gid(self) -> int:
+        if self._effective_gid is not None:
+            return self._effective_gid
+        return self.current_user.gid if self.current_user else 0
+
+    @property
+    def effective_gids(self) -> List[int]:
+        if self._effective_gid is not None:
+            # If SGID is active, the primary group is replaced in the set
+            gids = self.current_user.gids.copy() if self.current_user else [0]
+            if self._effective_gid not in gids:
+                gids.append(self._effective_gid)
+            return gids
+        return self.current_user.gids if self.current_user else [0]
+
+    def set_effective_ids(self, uid: Optional[int] = None, gid: Optional[int] = None):
+        self._effective_uid = uid
+        self._effective_gid = gid
 
     def initialize(self):
         """Initialize the user database, creating defaults if not persisted."""
