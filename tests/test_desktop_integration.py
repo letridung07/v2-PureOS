@@ -1,7 +1,5 @@
 """Integration tests for Desktop class (non-curses logic)."""
 
-from unittest.mock import patch, MagicMock
-
 from pureos.desktop.desktop import Desktop
 
 

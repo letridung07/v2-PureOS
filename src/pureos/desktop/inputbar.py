@@ -31,7 +31,7 @@ class CommandInput:
                 self._text = self._text[:self._cursor - 1] + self._text[self._cursor:]
                 self._cursor -= 1
             return ("edit", None)
-        elif ch == curses.KEY_DC:
+        elif ch in (curses.KEY_DC, 4):
             if self._cursor < len(self._text):
                 self._text = self._text[:self._cursor] + self._text[self._cursor + 1:]
             return ("edit", None)

@@ -352,11 +352,14 @@ class CutCommand(Command):
                 extracted = "".join(line[c - 1] for c in chars if 0 < c <= len(line))
             else:
                 col_parts = line.split(delim)
-                extracted = delim.join(
-                    col_parts[f - 1]
-                    for f in fields  # type: ignore[index]
-                    if 0 < f <= len(col_parts)
-                )
+                if fields is not None:
+                    extracted = delim.join(
+                        col_parts[f - 1]
+                        for f in fields
+                        if 0 < f <= len(col_parts)
+                    )
+                else:
+                    extracted = line
             result.append(extracted)
 
         out = "\n".join(result)
@@ -368,7 +371,7 @@ class CutCommand(Command):
 
         Raises ValueError on malformed specs so callers can report an error.
         """
-        indices = []
+        indices: List[int] = []
         for part in spec.split(","):
             part = part.strip()
             if not part:
@@ -494,7 +497,7 @@ class TrCommand(Command):
         A trailing '-' or leading '-' that cannot form a range is kept
         as a literal '-'.
         """
-        result = []
+        result: List[str] = []
         i = 0
         while i < len(spec):
             # Only attempt range expansion when a '-' sits between two chars

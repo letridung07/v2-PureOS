@@ -9,11 +9,11 @@ class TestTerminalOutput:
         t.append("hello\nworld")
         assert t.lines == ["hello", "world"]
 
-    def test_append_empty_does_nothing(self):
+    def test_append_empty_adds_blank_line(self):
         t = TerminalOutput(max_lines=100)
         t.append_line("keep")
         t.append("")
-        assert t.lines == ["keep"]
+        assert t.lines == ["keep", ""]
 
     def test_append_line_adds_single_line(self):
         t = TerminalOutput(max_lines=100)

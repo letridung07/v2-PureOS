@@ -19,7 +19,7 @@ class TarCommand(FileCommand):
         capture_output=False,
         raw_line=None,
     ):
-        options = {
+        options: dict[str, bool | str | None] = {
             "create": False,
             "extract": False,
             "list": False,
@@ -69,7 +69,7 @@ class TarCommand(FileCommand):
             i += 1
 
         # Validation
-        ops = [options["create"], options["extract"], options["list"]]
+        ops = [bool(options["create"]), bool(options["extract"]), bool(options["list"])]
         if sum(ops) != 1:
             print("tar: You must specify exactly one of -c, -x, or -t")
             return False
@@ -79,12 +79,12 @@ class TarCommand(FileCommand):
             return False
 
         # Resolve archive file path before changing CWD
-        options["file"] = self.resolve_path(options["file"])
+        options["file"] = self.resolve_path(str(options["file"]))
 
         old_cwd = self.kernel.shell.cwd
         try:
             if options["directory"]:
-                target_dir = self.resolve_path(options["directory"], allow_dir=True)
+                target_dir = self.resolve_path(str(options["directory"]), allow_dir=True)
                 if not self.kernel.fs.exists(target_dir) or not self.kernel.fs.is_dir(
                     target_dir
                 ):

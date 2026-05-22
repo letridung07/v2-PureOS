@@ -1,7 +1,6 @@
 """Tests for the CommandInput line editor (non-curses logic)."""
 
 import curses
-from unittest.mock import MagicMock
 
 from pureos.desktop.inputbar import CommandInput
 

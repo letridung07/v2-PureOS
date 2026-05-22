@@ -1,8 +1,5 @@
 """Tests for the --desktop CLI flag."""
 
-import sys
-from unittest.mock import patch
-
 from pureos.cli import parse_args
 
 

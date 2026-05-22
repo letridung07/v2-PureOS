@@ -11,7 +11,7 @@ class PathResolver:
             is_dir = True
         if not path.startswith("/"):
             path = "/" + path
-        parts = []
+        parts: list[str] = []
         for segment in path.split("/"):
             if segment in ("", "."):
                 continue

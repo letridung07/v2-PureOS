@@ -50,7 +50,7 @@ def _field_matches(
                 continue
 
         if range_part == "*":
-            vals = range(min_val, max_val + 1)
+            vals = list(range(min_val, max_val + 1))
         elif "-" in range_part:
             start_str, end_str = range_part.split("-", 1)
             try:
@@ -58,7 +58,7 @@ def _field_matches(
                 end = int(end_str)
             except ValueError:
                 continue
-            vals = range(start, end + 1)
+            vals = list(range(start, end + 1))
         else:
             try:
                 val = int(range_part)

@@ -117,6 +117,16 @@ class Desktop:
             self._redraw()
             return
 
+        if ch == curses.KEY_PPAGE:
+            self._terminal.scroll_up(10)
+            self._redraw()
+            return
+
+        if ch == curses.KEY_NPAGE:
+            self._terminal.scroll_down(10)
+            self._redraw()
+            return
+
         if ch == 12:
             self._terminal.clear()
             self._redraw()
@@ -172,4 +182,5 @@ class Desktop:
         except Exception as exc:
             self._terminal.append(f"Error: {exc}")
 
+        self._terminal.scroll_to_bottom()
         self._redraw()

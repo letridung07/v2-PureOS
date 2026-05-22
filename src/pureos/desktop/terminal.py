@@ -1,5 +1,3 @@
-import itertools
-import textwrap
 from collections import deque
 
 
@@ -10,7 +8,10 @@ class TerminalOutput:
         self._scroll_offset = 0
 
     def append(self, text):
-        if not text:
+        if text is None:
+            return
+        if text == "":
+            self._lines.append("")
             return
         self._lines.extend(text.splitlines())
 
