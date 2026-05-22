@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 class Process:
     pid: int
     name: str
+    uid: int = 0
     status: str = "ready"
     exit_code: Optional[int] = None
     exit_reason: Optional[str] = None
@@ -54,9 +55,12 @@ class Scheduler:
             else:
                 runtime = float(target_func)
 
+        uid = kwargs.get("uid", 0)
+
         proc = Process(
             pid=pid,
             name=name,
+            uid=uid,
             status="running",
             exit_code=None,
             exit_reason="started",

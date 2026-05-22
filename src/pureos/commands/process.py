@@ -57,7 +57,10 @@ class SpawnCommand(Command):
             except ValueError:
                 print("Usage: spawn <name> [runtime]")
                 return False
-        p = self.kernel.scheduler.spawn(name, runtime=runtime)
+        uid = 0
+        if self.kernel.users and self.kernel.users.current_user:
+            uid = self.kernel.users.current_user.uid
+        p = self.kernel.scheduler.spawn(name, runtime=runtime, uid=uid)
         print(f"Spawned process {p.pid} ({p.name})")
         return True
 

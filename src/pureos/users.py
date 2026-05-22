@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from typing import Dict, List, Optional
 
 
@@ -15,6 +16,8 @@ class User:
         gids: Optional[List[int]] = None,
         password_hash: str = "",
         locked: bool = False,
+        disk_quota: int = 0,  # 0 means unlimited
+        mem_quota: int = 0,   # 0 means unlimited
     ):
         self.username = username
         self.uid = uid
@@ -22,6 +25,8 @@ class User:
         self.gids = gids if gids is not None else [gid]
         self.password_hash = password_hash
         self.locked = locked  # account lock (passwd -l)
+        self.disk_quota = disk_quota
+        self.mem_quota = mem_quota
 
     def set_password(self, password: str):
         if not password:
@@ -96,6 +101,25 @@ class UserDB:
 
         passwd_content = self.kernel.fs.read("/etc/passwd") or ""
         group_content = self.kernel.fs.read("/etc/group") or ""
+        quota_content = ""
+        if self.kernel.fs.exists("/etc/quota"):
+            quota_content = self.kernel.fs.read("/etc/quota") or ""
+
+        # Parse quotas
+        quotas = {}
+        for line in quota_content.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(":")
+            if len(parts) >= 3:
+                username = parts[0]
+                try:
+                    disk_quota = int(parts[1])
+                    mem_quota = int(parts[2])
+                    quotas[username] = (disk_quota, mem_quota)
+                except ValueError:
+                    continue
 
         # Parse groups first to populate user gids
         self.groups.clear()
@@ -144,6 +168,8 @@ class UserDB:
                     gid=gid,
                     gids=gids,
                     password_hash=password_hash,
+                    disk_quota=quotas.get(username, (0, 0))[0],
+                    mem_quota=quotas.get(username, (0, 0))[1],
                 )
                 self.users[username] = user
 
@@ -157,6 +183,7 @@ class UserDB:
 
         try:
             passwd_lines = []
+            quota_lines = []
             for user in self.users.values():
                 # username:password_hash:uid:gid:gecos:home:shell
                 line = (
@@ -164,6 +191,8 @@ class UserDB:
                     f"{user.username}:/home/{user.username}:/bin/sh"
                 )
                 passwd_lines.append(line)
+                # username:disk_quota:mem_quota
+                quota_lines.append(f"{user.username}:{user.disk_quota}:{user.mem_quota}")
 
             group_lines = []
             for groupname, gid in self.groups.items():
@@ -174,6 +203,7 @@ class UserDB:
 
             self.kernel.fs.write("/etc/passwd", "\n".join(passwd_lines) + "\n")
             self.kernel.fs.write("/etc/group", "\n".join(group_lines) + "\n")
+            self.kernel.fs.write("/etc/quota", "\n".join(quota_lines) + "\n")
         finally:
             self.current_user = old_user
 
@@ -242,17 +272,26 @@ class UserDB:
 
     def authenticate(self, username: str, password: str) -> bool:
         if username not in self.users:
+            logging.getLogger("pureos.audit").warning(f"Failed login attempt for unknown user: {username}")
             return False
-        return self.users[username].check_password(password)
+        
+        success = self.users[username].check_password(password)
+        if not success:
+            logging.getLogger("pureos.audit").warning(f"Failed login attempt for user: {username}")
+        else:
+            logging.getLogger("pureos.audit").info(f"Successful authentication for user: {username}")
+        return success
 
     def su(self, username: str, password: Optional[str] = None) -> bool:
         if username not in self.users:
+            logging.getLogger("pureos.audit").warning(f"su attempt for unknown user: {username}")
             return False
 
         target_user = self.users[username]
 
         # Locked accounts cannot be switched to
         if target_user.locked:
+            logging.getLogger("pureos.audit").warning(f"su attempt to locked account: {username}")
             return False
 
         # Root user bypasses password checks; empty password hash also bypasses
@@ -261,10 +300,13 @@ class UserDB:
             or not target_user.password_hash
             or (password is not None and target_user.check_password(password))
         ):
+            old_username = self.current_user.username if self.current_user else "unknown"
+            logging.getLogger("pureos.audit").info(f"User {old_username} switched to {username}")
             self.current_user = target_user
             self.save_login_session(username)
             return True
 
+        logging.getLogger("pureos.audit").warning(f"Failed su attempt to {username} by {self.current_user.username if self.current_user else 'unknown'}")
         return False
 
     def passwd_lock(self, username: str):

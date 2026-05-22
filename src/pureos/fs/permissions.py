@@ -57,31 +57,44 @@ class FSPermissions:
         else:
             return bool(mode & (permission >> 6))
 
+    def _audit_failure(self, message: str):
+        if self.kernel:
+            import logging
+            user = self.kernel.users.current_user
+            username = user.username if user else "unknown"
+            logging.getLogger("pureos.audit").warning(f"Permission denied for user {username}: {message}")
+
     def ensure_parent_writable(self, path: str):
         parent = PathResolver.parent_dir(path)
         if parent.rstrip("/") in self.state.files:
+            self._audit_failure(f"parent is a file: {path}")
             raise PermissionError(f"Permission denied: {path}")
         while parent not in self.state.dirs and parent != "/":
             parent = PathResolver.parent_dir(parent)
             if parent.rstrip("/") in self.state.files:
+                self._audit_failure(f"parent is a file: {path}")
                 raise PermissionError(f"Permission denied: {path}")
         if not self.has_permission(
             parent, 0o200, allow_dir=True
         ) or not self.has_permission(parent, 0o100, allow_dir=True):
+            self._audit_failure(f"write/execute denied on parent {parent} for {path}")
             raise PermissionError(f"Permission denied: {path}")
 
     def ensure_writable_file(self, path: str):
         if path in self.state.files and not self.has_permission(path, 0o200):
+            self._audit_failure(f"write denied on file {path}")
             raise PermissionError(f"Permission denied: {path}")
 
     def ensure_readable_file(self, path: str):
         if path in self.state.files and not self.has_permission(path, 0o400):
+            self._audit_failure(f"read denied on file {path}")
             raise PermissionError(f"Permission denied: {path}")
 
     def ensure_readable_dir(self, path: str):
         if not self.has_permission(
             path, 0o400, allow_dir=True
         ) or not self.has_permission(path, 0o100, allow_dir=True):
+            self._audit_failure(f"read/execute denied on directory {path}")
             raise PermissionError(f"Permission denied: {path}")
 
     def format_mode(self, mode: int, is_dir: bool, is_link: bool = False) -> str:

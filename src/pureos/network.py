@@ -1,5 +1,6 @@
 """Minimal networking utilities for v2-PureOS."""
 
+import logging
 import random
 import socket
 import struct
@@ -122,6 +123,67 @@ def query_dns_a(nameserver: str, host: str, timeout: float = 2.0) -> str:
     raise ValueError("No A record found in DNS answer")
 
 
+def check_firewall(fs, direction: str, ip: str, port: int = None) -> bool:
+    """Check if traffic is allowed by iptables rules.
+
+    direction: 'INPUT', 'OUTPUT', or 'FORWARD'
+    Returns True if allowed, False if blocked.
+    """
+    rules_path = "/etc/iptables/rules"
+    if not fs.exists(rules_path):
+        return True
+
+    try:
+        content = fs.read(rules_path) or ""
+        # Very simple parser for enforcement
+        current_table = "filter"
+        for line in content.splitlines():
+            line = line.strip()
+            if line.startswith("*"):
+                current_table = line[1:]
+            if current_table != "filter":
+                continue
+            
+            if line.startswith(f"-A {direction}"):
+                parts = line.split()
+                # Simple rule matching: -s <ip> -d <ip> -p <proto> --dport <port> -j <target>
+                match = True
+                target = "ACCEPT"
+                idx = 2
+                while idx < len(parts):
+                    if parts[idx] == "-s" and idx + 1 < len(parts):
+                        if parts[idx+1] != ip and parts[idx+1] != "0.0.0.0/0":
+                            match = False
+                        idx += 2
+                    elif parts[idx] == "-d" and idx + 1 < len(parts):
+                        if parts[idx+1] != ip and parts[idx+1] != "0.0.0.0/0":
+                            match = False
+                        idx += 2
+                    elif parts[idx] == "--dport" and idx + 1 < len(parts):
+                        if port is not None and str(port) != parts[idx+1]:
+                            match = False
+                        idx += 2
+                    elif parts[idx] == "-j" and idx + 1 < len(parts):
+                        target = parts[idx+1]
+                        idx += 2
+                    else:
+                        idx += 1
+                
+                if match:
+                    if target in ("DROP", "REJECT"):
+                        import logging
+                        logging.getLogger("pureos.audit").warning(
+                            f"Firewall {target} for {direction} to/from {ip}" + (f":{port}" if port else "")
+                        )
+                        return False
+                    if target == "ACCEPT":
+                        return True
+    except Exception:
+        pass
+    
+    return True
+
+
 def resolve_host(fs, host: str) -> str:
     """Resolve a hostname.
 
@@ -130,31 +192,50 @@ def resolve_host(fs, host: str) -> str:
     2. /etc/resolv.conf nameserver hints
     3. Real system resolver via socket.gethostbyname()
     """
+    # Check firewall for DNS output (assuming port 53)
+    # We don't know the IP yet for host, but we can check the nameserver IPs
+    nameservers = get_nameservers(fs)
+    for ns in nameservers:
+        ns_ip = ns.split("#")[0]
+        if not check_firewall(fs, "OUTPUT", ns_ip, 53):
+            import logging
+            logging.getLogger("pureos.audit").warning(f"DNS resolution to {ns_ip} blocked by firewall")
+            raise ConnectionError(f"Firewall blocked DNS query to {ns_ip}")
+
     try:
         socket.inet_aton(host)
-        return host
+        resolved = host
     except OSError:
-        pass
+        resolved = None
 
-    if fs.exists("/etc/hosts"):
+    if resolved is None and fs.exists("/etc/hosts"):
         try:
             content = fs.read("/etc/hosts") or ""
             for line in content.splitlines():
                 line = line.split("#")[0].strip()
                 parts = line.split()
                 if len(parts) >= 2 and host in parts[1:]:
-                    return parts[0]
+                    resolved = parts[0]
+                    break
         except Exception:
             pass
 
-    nameservers = get_nameservers(fs)
-    for nameserver in nameservers:
-        try:
-            return query_dns_a(nameserver, host)
-        except Exception:
-            continue
+    if resolved is None:
+        for nameserver in nameservers:
+            try:
+                resolved = query_dns_a(nameserver, host)
+                if resolved: break
+            except Exception:
+                continue
 
-    return socket.gethostbyname(host)
+    if resolved is None:
+        resolved = socket.gethostbyname(host)
+
+    # Check firewall for the resolved IP (generic OUTPUT check)
+    if not check_firewall(fs, "OUTPUT", resolved):
+        raise ConnectionError(f"Firewall blocked connection to {resolved}")
+    
+    return resolved
 
 
 def get_nameservers(fs) -> List[str]:

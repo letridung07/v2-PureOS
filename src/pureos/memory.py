@@ -89,7 +89,7 @@ class MemoryDriver(Driver):
         """Allocate *size_kb* to process *pid*.
 
         Returns ``True`` on success, ``False`` if not enough memory is available
-        (physical + swap).
+        (physical + swap) or if user memory quota is exceeded.
 
         Updates the Process dataclass fields *vsize* and *rss* and refreshes
         /proc files.
@@ -98,6 +98,33 @@ class MemoryDriver(Driver):
             return False
 
         with self._lock:
+            # Check user memory quota
+            proc = self.kernel.scheduler.processes.get(pid)
+            if proc and proc.uid != 0:
+                uid = proc.uid
+                user = None
+                if self.kernel.users:
+                    for u in self.kernel.users.users.values():
+                        if u.uid == uid:
+                            user = u
+                            break
+                
+                if user and user.mem_quota > 0:
+                    # Calculate total memory used by this user
+                    user_used_kb = 0
+                    for p_pid, p_size in self._per_process.items():
+                        p = self.kernel.scheduler.processes.get(p_pid)
+                        if p and p.uid == uid:
+                            user_used_kb += p_size
+                    
+                    if user_used_kb + size_kb > user.mem_quota:
+                        import logging
+                        logging.getLogger("pureos.audit").warning(
+                            f"Memory quota exceeded for user {user.username}: "
+                            f"requested {user_used_kb + size_kb} KB, limit {user.mem_quota} KB"
+                        )
+                        return False
+
             if self.total_kb > 0:
                 total_free = (
                     self.total_kb

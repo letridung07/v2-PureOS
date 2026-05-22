@@ -99,6 +99,43 @@ class FSOperations:
         self._set_default_metadata(path, uid, gid, 0o755)
         self.persistence.save_if_needed()
 
+    def _get_user_usage(self, uid: int) -> int:
+        total = 0
+        for path, owner in self.state.owners.items():
+            if owner == uid and path in self.state.files:
+                total += len(self.state.files[path])
+        return total
+
+    def _check_disk_quota(self, uid: int, additional_bytes: int, current_file_path: Optional[str] = None):
+        if uid == 0:
+            return  # root has no quota
+
+        if (
+            not self.permissions.kernel
+            or not hasattr(self.permissions.kernel, "users")
+            or not self.permissions.kernel.users
+        ):
+            return
+
+        user = None
+        for u in self.permissions.kernel.users.users.values():
+            if u.uid == uid:
+                user = u
+                break
+        
+        if not user or user.disk_quota <= 0:
+            return
+
+        current_usage = self._get_user_usage(uid)
+        # If we are overwriting a file, subtract its current size from current_usage
+        if current_file_path and current_file_path in self.state.files and self.state.owners.get(current_file_path) == uid:
+            current_usage -= len(self.state.files[current_file_path])
+
+        if current_usage + additional_bytes > user.disk_quota:
+            import logging
+            logging.getLogger("pureos.audit").warning(f"Disk quota exceeded for user {user.username}: requested {current_usage + additional_bytes}, limit {user.disk_quota}")
+            raise OSError(f"Disk quota exceeded (limit: {user.disk_quota} bytes)")
+
     def write(self, path: str, content: str):
         normalized = PathResolver.normalize_path(path)
         if (
@@ -113,6 +150,7 @@ class FSOperations:
             self.permissions.ensure_parent_writable(normalized)
 
         uid, gid = self._get_active_context()
+        self._check_disk_quota(uid, len(content), current_file_path=normalized)
         PathResolver.ensure_dir_parents(self.state, normalized, uid, gid)
 
         inode = self.state.inodes.get(normalized)
@@ -142,6 +180,7 @@ class FSOperations:
             self.permissions.ensure_parent_writable(normalized)
 
         uid, gid = self._get_active_context()
+        self._check_disk_quota(uid, len(content))
         PathResolver.ensure_dir_parents(self.state, normalized, uid, gid)
 
         inode = self.state.inodes.get(normalized)
