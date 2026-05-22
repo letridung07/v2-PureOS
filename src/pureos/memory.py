@@ -275,9 +275,7 @@ class MemoryDriver(Driver):
             self._write_proc_status(pid)
 
     def _write_meminfo(self):
-        self._run_as_root(
-            self.kernel.fs.write, "/proc/meminfo", self._format_meminfo()
-        )
+        self._run_as_root(self.kernel.fs.write, "/proc/meminfo", self._format_meminfo())
 
     def _write_proc_status(self, pid: int):
         proc = self.kernel.scheduler.processes.get(pid)
