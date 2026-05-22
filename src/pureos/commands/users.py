@@ -374,9 +374,15 @@ class SudoCommand(Command):
         # If not root, check permissions
         if current_user.uid != 0:
             if not users.is_sudoer(current_user.username):
-                msg = f"sudo: {current_user.username} is not in the sudoers file. This incident will be reported."
+                msg = (
+                    f"sudo: {current_user.username} is not in the sudoers file. "
+                    "This incident will be reported."
+                )
                 print(msg)
-                logging.getLogger("pureos.audit").warning(f"Unauthorized sudo attempt by user: {current_user.username}. Command: {' '.join(parts[1:])}")
+                logging.getLogger("pureos.audit").warning(
+                    f"Unauthorized sudo attempt by user: {current_user.username}. "
+                    f"Command: {' '.join(parts[1:])}"
+                )
                 return False
 
             # Prompt for password if the user has a password set
@@ -394,12 +400,18 @@ class SudoCommand(Command):
                         )
                 except (EOFError, KeyboardInterrupt):
                     print("\nsudo: Authentication failure")
-                    logging.getLogger("pureos.audit").warning(f"sudo authentication interrupted for user: {current_user.username}")
+                    logging.getLogger("pureos.audit").warning(
+                        f"sudo authentication interrupted for user: "
+                        f"{current_user.username}"
+                    )
                     return False
 
                 if not current_user.check_password(password):
                     print("sudo: password incorrect")
-                    logging.getLogger("pureos.audit").warning(f"sudo authentication failure (incorrect password) for user: {current_user.username}")
+                    logging.getLogger("pureos.audit").warning(
+                        f"sudo authentication failure (incorrect password) "
+                        f"for user: {current_user.username}"
+                    )
                     return False
 
         # Elevate privileges to root (uid 0)
@@ -408,7 +420,9 @@ class SudoCommand(Command):
             print("sudo: root user not found")
             return False
 
-        logging.getLogger("pureos.audit").info(f"User {current_user.username} executed sudo: {' '.join(parts[1:])}")
+        logging.getLogger("pureos.audit").info(
+            f"User {current_user.username} executed sudo: " f"{' '.join(parts[1:])}"
+        )
         original_user = users.current_user
         users.current_user = root_user
 

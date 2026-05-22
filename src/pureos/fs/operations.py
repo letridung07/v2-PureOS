@@ -106,7 +106,9 @@ class FSOperations:
                 total += len(self.state.files[path])
         return total
 
-    def _check_disk_quota(self, uid: int, additional_bytes: int, current_file_path: Optional[str] = None):
+    def _check_disk_quota(
+        self, uid: int, additional_bytes: int, current_file_path: Optional[str] = None
+    ):
         if uid == 0:
             return  # root has no quota
 
@@ -122,18 +124,27 @@ class FSOperations:
             if u.uid == uid:
                 user = u
                 break
-        
+
         if not user or user.disk_quota <= 0:
             return
 
         current_usage = self._get_user_usage(uid)
         # If we are overwriting a file, subtract its current size from current_usage
-        if current_file_path and current_file_path in self.state.files and self.state.owners.get(current_file_path) == uid:
+        if (
+            current_file_path
+            and current_file_path in self.state.files
+            and self.state.owners.get(current_file_path) == uid
+        ):
             current_usage -= len(self.state.files[current_file_path])
 
         if current_usage + additional_bytes > user.disk_quota:
             import logging
-            logging.getLogger("pureos.audit").warning(f"Disk quota exceeded for user {user.username}: requested {current_usage + additional_bytes}, limit {user.disk_quota}")
+
+            logging.getLogger("pureos.audit").warning(
+                f"Disk quota exceeded for user {user.username}: "
+                f"requested {current_usage + additional_bytes}, "
+                f"limit {user.disk_quota}"
+            )
             raise OSError(f"Disk quota exceeded (limit: {user.disk_quota} bytes)")
 
     def write(self, path: str, content: str):

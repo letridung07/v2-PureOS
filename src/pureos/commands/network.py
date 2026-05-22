@@ -39,9 +39,13 @@ class NetcatCommand(Command):
 
         try:
             from ..network import check_firewall
+
             resolved_host = resolve_host(self.kernel.fs, host)
             if not check_firewall(self.kernel.fs, "OUTPUT", resolved_host, port):
-                print(f"Connection failed: Firewall blocked output to {resolved_host}:{port}")
+                print(
+                    f"Connection failed: Firewall blocked output to "
+                    f"{resolved_host}:{port}"
+                )
                 return False
 
             s = socket.create_connection((resolved_host, port), timeout=2)
@@ -81,11 +85,15 @@ class PingCommand(Command):
         if port is not None:
             try:
                 from ..network import check_firewall
+
                 resolved_host = resolve_host(self.kernel.fs, host)
                 if not check_firewall(self.kernel.fs, "OUTPUT", resolved_host, port):
-                    out = f"Ping failed: Firewall blocked output to {resolved_host}:{port}"
+                    out = (
+                        f"Ping failed: Firewall blocked output to "
+                        f"{resolved_host}:{port}"
+                    )
                     return self.emit(out, capture_output)
-                
+
                 s = socket.create_connection((resolved_host, port), timeout=2)
                 s.close()
                 out = f"Ping successful: host {host} port {port} is open"

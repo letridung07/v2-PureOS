@@ -1,6 +1,5 @@
 """Minimal networking utilities for v2-PureOS."""
 
-import logging
 import random
 import socket
 import struct
@@ -143,44 +142,47 @@ def check_firewall(fs, direction: str, ip: str, port: int = None) -> bool:
                 current_table = line[1:]
             if current_table != "filter":
                 continue
-            
+
             if line.startswith(f"-A {direction}"):
                 parts = line.split()
-                # Simple rule matching: -s <ip> -d <ip> -p <proto> --dport <port> -j <target>
+                # Simple rule matching:
+                # -s <ip> -d <ip> -p <proto> --dport <port> -j <target>
                 match = True
                 target = "ACCEPT"
                 idx = 2
                 while idx < len(parts):
                     if parts[idx] == "-s" and idx + 1 < len(parts):
-                        if parts[idx+1] != ip and parts[idx+1] != "0.0.0.0/0":
+                        if parts[idx + 1] != ip and parts[idx + 1] != "0.0.0.0/0":
                             match = False
                         idx += 2
                     elif parts[idx] == "-d" and idx + 1 < len(parts):
-                        if parts[idx+1] != ip and parts[idx+1] != "0.0.0.0/0":
+                        if parts[idx + 1] != ip and parts[idx + 1] != "0.0.0.0/0":
                             match = False
                         idx += 2
                     elif parts[idx] == "--dport" and idx + 1 < len(parts):
-                        if port is not None and str(port) != parts[idx+1]:
+                        if port is not None and str(port) != parts[idx + 1]:
                             match = False
                         idx += 2
                     elif parts[idx] == "-j" and idx + 1 < len(parts):
-                        target = parts[idx+1]
+                        target = parts[idx + 1]
                         idx += 2
                     else:
                         idx += 1
-                
+
                 if match:
                     if target in ("DROP", "REJECT"):
                         import logging
+
                         logging.getLogger("pureos.audit").warning(
-                            f"Firewall {target} for {direction} to/from {ip}" + (f":{port}" if port else "")
+                            f"Firewall {target} for {direction} to/from {ip}"
+                            + (f":{port}" if port else "")
                         )
                         return False
                     if target == "ACCEPT":
                         return True
     except Exception:
         pass
-    
+
     return True
 
 
@@ -199,7 +201,10 @@ def resolve_host(fs, host: str) -> str:
         ns_ip = ns.split("#")[0]
         if not check_firewall(fs, "OUTPUT", ns_ip, 53):
             import logging
-            logging.getLogger("pureos.audit").warning(f"DNS resolution to {ns_ip} blocked by firewall")
+
+            logging.getLogger("pureos.audit").warning(
+                f"DNS resolution to {ns_ip} blocked by firewall"
+            )
             raise ConnectionError(f"Firewall blocked DNS query to {ns_ip}")
 
     try:
@@ -224,7 +229,8 @@ def resolve_host(fs, host: str) -> str:
         for nameserver in nameservers:
             try:
                 resolved = query_dns_a(nameserver, host)
-                if resolved: break
+                if resolved:
+                    break
             except Exception:
                 continue
 
@@ -234,7 +240,7 @@ def resolve_host(fs, host: str) -> str:
     # Check firewall for the resolved IP (generic OUTPUT check)
     if not check_firewall(fs, "OUTPUT", resolved):
         raise ConnectionError(f"Firewall blocked connection to {resolved}")
-    
+
     return resolved
 
 

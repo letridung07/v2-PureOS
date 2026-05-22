@@ -61,7 +61,9 @@ class AuditDriver(Driver):
 
         # Use a dedicated audit logger
         audit_logger = logging.getLogger("pureos.audit")
-        audit_logger.propagate = False  # Don't send audit logs to main syslog by default
+        audit_logger.propagate = (
+            False  # Don't send audit logs to main syslog by default
+        )
         audit_logger.setLevel(logging.INFO)
         audit_logger.addHandler(self._handler)
 

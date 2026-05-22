@@ -108,7 +108,7 @@ class MemoryDriver(Driver):
                         if u.uid == uid:
                             user = u
                             break
-                
+
                 if user and user.mem_quota > 0:
                     # Calculate total memory used by this user
                     user_used_kb = 0
@@ -116,12 +116,14 @@ class MemoryDriver(Driver):
                         p = self.kernel.scheduler.processes.get(p_pid)
                         if p and p.uid == uid:
                             user_used_kb += p_size
-                    
+
                     if user_used_kb + size_kb > user.mem_quota:
                         import logging
+
                         logging.getLogger("pureos.audit").warning(
                             f"Memory quota exceeded for user {user.username}: "
-                            f"requested {user_used_kb + size_kb} KB, limit {user.mem_quota} KB"
+                            f"requested {user_used_kb + size_kb} KB, "
+                            f"limit {user.mem_quota} KB"
                         )
                         return False
 

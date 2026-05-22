@@ -60,9 +60,12 @@ class FSPermissions:
     def _audit_failure(self, message: str):
         if self.kernel:
             import logging
+
             user = self.kernel.users.current_user
             username = user.username if user else "unknown"
-            logging.getLogger("pureos.audit").warning(f"Permission denied for user {username}: {message}")
+            logging.getLogger("pureos.audit").warning(
+                f"Permission denied for user {username}: {message}"
+            )
 
     def ensure_parent_writable(self, path: str):
         parent = PathResolver.parent_dir(path)
