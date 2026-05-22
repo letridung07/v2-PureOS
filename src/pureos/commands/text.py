@@ -354,9 +354,7 @@ class CutCommand(Command):
                 col_parts = line.split(delim)
                 if fields is not None:
                     extracted = delim.join(
-                        col_parts[f - 1]
-                        for f in fields
-                        if 0 < f <= len(col_parts)
+                        col_parts[f - 1] for f in fields if 0 < f <= len(col_parts)
                     )
                 else:
                     extracted = line

@@ -9,11 +9,12 @@ __version__ = "0.1.0"
 
 
 def run(shell: bool = False, desktop: bool = False, config: dict | None = None):
-    """Initialize kernel components and optionally run the interactive shell or TUI desktop."""
+    """Initialize kernel components and run the interactive shell or TUI desktop."""
     k = Kernel(config=config)
     k.initialize()
     if desktop:
         from .desktop import Desktop
+
         Desktop(k).run()
     elif shell:
         k.shell.run()

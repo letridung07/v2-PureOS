@@ -1,5 +1,7 @@
 """Integration tests for Desktop class (non-curses logic)."""
 
+import curses
+from unittest.mock import MagicMock, patch
 from pureos.desktop.desktop import Desktop
 
 
@@ -26,3 +28,145 @@ class TestDesktopInit:
         assert "testalias" not in t.shell.aliases
         t.shell.aliases["testalias"] = "echo"
         assert t.shell.aliases["testalias"] == "echo"
+
+
+class TestDesktopLogic:
+    def test_execute_command(self, kernel):
+        d = Desktop(kernel)
+        d._terminal = MagicMock()
+        d._stdscr = MagicMock()
+        d._input_win = MagicMock()
+        d._status_win = MagicMock()
+        d._term_height = 20
+        d._term_width = 80
+        d._term_offset_y = 0
+        d._term_offset_x = 0
+        d._term_pad = MagicMock()
+        d._cmd_input = MagicMock()
+        d._statusbar = MagicMock()
+        
+        with patch("curses.doupdate"):
+            d._execute_command("echo hello")
+        assert d._terminal.append.called
+
+    def test_execute_exit(self, kernel):
+        d = Desktop(kernel)
+        d._running = True
+        d._execute_command("exit")
+        assert d._running is False
+
+    def test_relayout(self, kernel):
+        d = Desktop(kernel)
+        d._stdscr = MagicMock()
+        d._stdscr.getmaxyx.return_value = (24, 80)
+        d._input_win = MagicMock()
+        d._status_win = MagicMock()
+        with patch("curses.newpad"):
+            d._relayout()
+        assert d._term_height == 22
+        assert d._term_width == 80
+
+    def test_handle_exit_check(self, kernel):
+        d = Desktop(kernel)
+        d._running = True
+        d._cmd_input = MagicMock()
+        d._cmd_input.text = ""
+        d._handle_exit_check(4, None)  # Ctrl+D
+        assert d._running is False
+
+    def test_handle_key_resize(self, kernel):
+        d = Desktop(kernel)
+        d._stdscr = MagicMock()
+        d._stdscr.getmaxyx.return_value = (24, 80)
+        d._input_win = MagicMock()
+        d._status_win = MagicMock()
+        d._terminal = MagicMock()
+        d._cmd_input = MagicMock()
+        d._statusbar = MagicMock()
+        d._term_height = 22
+        d._term_width = 80
+        d._term_offset_y = 0
+        d._term_offset_x = 0
+        
+        with patch("curses.newpad"), patch("curses.doupdate"):
+            d._handle_key(curses.KEY_RESIZE)
+            assert d._stdscr.getmaxyx.called
+
+    def test_handle_key_scrolling(self, kernel):
+        d = Desktop(kernel)
+        d._stdscr = MagicMock()
+        d._terminal = MagicMock()
+        d._cmd_input = MagicMock()
+        d._statusbar = MagicMock()
+        d._term_height = 22
+        d._term_width = 80
+        d._term_offset_y = 0
+        d._term_offset_x = 0
+        d._term_pad = MagicMock()
+        d._input_win = MagicMock()
+        d._status_win = MagicMock()
+        
+        with patch("curses.doupdate"):
+            d._handle_key(curses.KEY_PPAGE)
+            d._terminal.scroll_up.assert_called_with(10)
+            
+            d._handle_key(curses.KEY_NPAGE)
+            d._terminal.scroll_down.assert_called_with(10)
+
+    def test_handle_key_clear(self, kernel):
+        d = Desktop(kernel)
+        d._stdscr = MagicMock()
+        d._terminal = MagicMock()
+        d._cmd_input = MagicMock()
+        d._statusbar = MagicMock()
+        d._term_height = 22
+        d._term_width = 80
+        d._term_offset_y = 0
+        d._term_offset_x = 0
+        d._term_pad = MagicMock()
+        d._input_win = MagicMock()
+        d._status_win = MagicMock()
+        
+        with patch("curses.doupdate"):
+            d._handle_key(12)  # Ctrl+L
+            d._terminal.clear.assert_called_once()
+
+    def test_handle_key_enter(self, kernel):
+        d = Desktop(kernel)
+        d._stdscr = MagicMock()
+        d._terminal = MagicMock()
+        d._cmd_input = MagicMock()
+        d._statusbar = MagicMock()
+        d._term_height = 22
+        d._term_width = 80
+        d._term_offset_y = 0
+        d._term_offset_x = 0
+        d._term_pad = MagicMock()
+        d._input_win = MagicMock()
+        d._status_win = MagicMock()
+        
+        d._cmd_input.handle_key.return_value = ("enter", "echo hi")
+        
+        with patch("curses.doupdate"):
+            d._handle_key(ord("\n"))
+            d._cmd_input.clear.assert_called_once()
+
+    def test_handle_key_tab(self, kernel):
+        d = Desktop(kernel)
+        d._stdscr = MagicMock()
+        d._terminal = MagicMock()
+        d._cmd_input = MagicMock()
+        d._statusbar = MagicMock()
+        d._term_height = 22
+        d._term_width = 80
+        d._term_offset_y = 0
+        d._term_offset_x = 0
+        d._term_pad = MagicMock()
+        d._input_win = MagicMock()
+        d._status_win = MagicMock()
+        
+        d._cmd_input.handle_key.return_value = ("tab", None)
+        
+        with patch("curses.doupdate"):
+            d._handle_key(9)
+            d._cmd_input.do_tab_completion.assert_called_once()

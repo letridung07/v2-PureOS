@@ -69,3 +69,13 @@ class TestTerminalOutput:
         t = TerminalOutput(max_lines=100)
         t.append("just one line no newline")
         assert t.lines == ["just one line no newline"]
+
+    def test_render_with_mock_pad(self):
+        from unittest.mock import MagicMock
+        t = TerminalOutput(max_lines=100)
+        t.append("line1\nline2")
+        pad = MagicMock()
+        t.render(pad, term_height=10, term_width=80)
+        pad.erase.assert_called_once()
+        assert pad.addstr.call_count == 2
+        pad.refresh.assert_called_once()

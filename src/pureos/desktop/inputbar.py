@@ -28,12 +28,12 @@ class CommandInput:
             return ("enter", result)
         elif ch == curses.KEY_BACKSPACE or ch in (127, 8):
             if self._cursor > 0:
-                self._text = self._text[:self._cursor - 1] + self._text[self._cursor:]
+                self._text = self._text[: self._cursor - 1] + self._text[self._cursor :]
                 self._cursor -= 1
             return ("edit", None)
         elif ch in (curses.KEY_DC, 4):
             if self._cursor < len(self._text):
-                self._text = self._text[:self._cursor] + self._text[self._cursor + 1:]
+                self._text = self._text[: self._cursor] + self._text[self._cursor + 1 :]
             return ("edit", None)
         elif ch == curses.KEY_LEFT:
             if self._cursor > 0:
@@ -66,7 +66,9 @@ class CommandInput:
         elif ch == curses.KEY_RESIZE:
             return ("resize", None)
         elif curses.ascii.isprint(ch):
-            self._text = self._text[:self._cursor] + chr(ch) + self._text[self._cursor:]
+            self._text = (
+                self._text[: self._cursor] + chr(ch) + self._text[self._cursor :]
+            )
             self._cursor += 1
             return ("edit", None)
         return (None, None)
@@ -134,17 +136,17 @@ class CommandInput:
             pos -= 1
         while pos > 0 and not self._text[pos - 1].isspace():
             pos -= 1
-        killed = self._text[pos:self._cursor]
-        self._text = self._text[:pos] + self._text[self._cursor:]
+        killed = self._text[pos : self._cursor]
+        self._text = self._text[:pos] + self._text[self._cursor :]
         self._cursor = pos
         return killed
 
     def render(self, win, term_width):
-        draw = self._text[:term_width - 2]
+        draw = self._text[: term_width - 2]
         cursor_x = min(self._cursor, term_width - 2)
         win.erase()
         try:
-            win.addstr(0, 0, draw[:term_width - 2])
+            win.addstr(0, 0, draw[: term_width - 2])
         except Exception:
             pass
         try:

@@ -84,7 +84,9 @@ class TarCommand(FileCommand):
         old_cwd = self.kernel.shell.cwd
         try:
             if options["directory"]:
-                target_dir = self.resolve_path(str(options["directory"]), allow_dir=True)
+                target_dir = self.resolve_path(
+                    str(options["directory"]), allow_dir=True
+                )
                 if not self.kernel.fs.exists(target_dir) or not self.kernel.fs.is_dir(
                     target_dir
                 ):

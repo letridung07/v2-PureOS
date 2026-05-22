@@ -8,7 +8,11 @@ class StatusBar:
     def get_text(self):
         username = "root"
         try:
-            if self._shell.kernel and self._shell.kernel.users and self._shell.kernel.users.current_user:
+            if (
+                self._shell.kernel
+                and self._shell.kernel.users
+                and self._shell.kernel.users.current_user
+            ):
                 username = self._shell.kernel.users.current_user.username
         except Exception:
             pass
@@ -18,10 +22,12 @@ class StatusBar:
         return f" {username}@pureos:{cwd} {code_str}"
 
     def render(self, win, term_width):
-        text = self.get_text()[:term_width - 1]
+        text = self.get_text()[: term_width - 1]
         win.erase()
         try:
-            win.addstr(0, 0, text.ljust(term_width - 1)[:term_width - 1], curses.A_REVERSE)
+            win.addstr(
+                0, 0, text.ljust(term_width - 1)[: term_width - 1], curses.A_REVERSE
+            )
         except Exception:
             pass
         win.noutrefresh()

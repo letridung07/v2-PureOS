@@ -64,6 +64,13 @@ class TerminalOutput:
                 except Exception:
                     pass
         try:
-            pad.refresh(0, 0, offset_y, offset_x, offset_y + term_height - 1, offset_x + term_width - 1)
+            pad.refresh(
+                0,
+                0,
+                offset_y,
+                offset_x,
+                offset_y + term_height - 1,
+                offset_x + term_width - 1,
+            )
         except Exception:
             pass

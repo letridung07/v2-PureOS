@@ -164,3 +164,30 @@ class TestCommandInputTabCompletion:
         result = ci.do_tab_completion()
         assert result is True
         assert ci.text == "a"
+
+
+class TestCommandInputExtra:
+    def test_kill_word_backward(self):
+        sh = DummyShell()
+        ci = CommandInput(sh)
+        ci.set_text("hello world")
+        ci.do_kill_word_backward()
+        assert ci.text == "hello "
+
+    def test_kill_word_with_spaces(self):
+        sh = DummyShell()
+        ci = CommandInput(sh)
+        ci.set_text("ls -la  ")
+        ci.do_kill_word_backward()
+        assert ci.text == "ls "
+
+    def test_render_with_mock_win(self):
+        from unittest.mock import MagicMock
+        sh = DummyShell()
+        ci = CommandInput(sh)
+        ci.set_text("some command")
+        win = MagicMock()
+        ci.render(win, 80)
+        win.erase.assert_called_once()
+        win.addstr.assert_called_once()
+        win.noutrefresh.assert_called_once()

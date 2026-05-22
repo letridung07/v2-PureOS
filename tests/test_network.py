@@ -155,7 +155,11 @@ def test_resolv_conf_nameserver(tmp_path):
 
             question = data[12:offset]
             header = transaction_id + b"\x81\x80" + struct.pack("!HHHH", 1, 1, 0, 0)
-            answer = b"\xc0\x0c" + struct.pack("!HHIH", qtype, qclass, 60, 4) + socket.inet_aton(ip)
+            answer = (
+                b"\xc0\x0c"
+                + struct.pack("!HHIH", qtype, qclass, 60, 4)
+                + socket.inet_aton(ip)
+            )
             sock.sendto(header + question + answer, self.client_address)
 
     server = socketserver.ThreadingUDPServer(("127.0.0.1", 0), DNSUDPHandler)
@@ -178,7 +182,9 @@ def test_resolv_conf_nameserver(tmp_path):
         host_out = sh.registry.execute(["host", "customdns.local"], capture_output=True)
         assert "customdns.local has address 127.0.0.2" in host_out
 
-        ns_out = sh.registry.execute(["nslookup", "customdns.local"], capture_output=True)
+        ns_out = sh.registry.execute(
+            ["nslookup", "customdns.local"], capture_output=True
+        )
         assert f"Server:\t\t127.0.0.1#{port}" in ns_out
         assert "Address: 127.0.0.2" in ns_out
     finally:

@@ -104,8 +104,11 @@ class Desktop:
     def _redraw(self):
         self._stdscr.erase()
         self._terminal.render(
-            self._term_pad, self._term_height, self._term_width,
-            self._term_offset_y, self._term_offset_x
+            self._term_pad,
+            self._term_height,
+            self._term_width,
+            self._term_offset_y,
+            self._term_offset_x,
         )
         self._cmd_input.render(self._input_win, self._term_width)
         self._statusbar.render(self._status_win, self._term_width)
@@ -165,7 +168,9 @@ class Desktop:
             self._running = False
 
         if ch == curses.KEY_F1:
-            self._terminal.append("Help: Ctrl+D (empty) or type 'exit' to quit | Ctrl+L to clear | F1 for help")
+            self._terminal.append(
+                "Help: Ctrl+D or type 'exit' to quit | Ctrl+L to clear | F1 for help"
+            )
             self._redraw()
 
     def _execute_command(self, cmd):

@@ -79,10 +79,13 @@ def query_dns_a(nameserver: str, host: str, timeout: float = 2.0) -> str:
 
     transaction_id = random.randrange(0, 0x10000)
     header = struct.pack("!HHHHHH", transaction_id, 0x0100, 1, 0, 0, 0)
-    qname = b"".join(
-        len(label).to_bytes(1, "big") + label.encode("ascii")
-        for label in question_labels
-    ) + b"\x00"
+    qname = (
+        b"".join(
+            len(label).to_bytes(1, "big") + label.encode("ascii")
+            for label in question_labels
+        )
+        + b"\x00"
+    )
     question = qname + struct.pack("!HH", 1, 1)
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
