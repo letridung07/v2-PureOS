@@ -1,8 +1,8 @@
+__version__ = "0.1.0"
+
 from typing import Optional
 from .kernel import Kernel
 from .config import Config
-
-__version__ = "0.1.0"
 
 
 def run(shell: bool = False, desktop: bool = False, config: Optional[dict] = None):
