@@ -9,7 +9,7 @@ import socket
 import sys
 import time
 
-from .. import __version__
+from ..core import __version__
 from .. import run as run_pureos
 
 
