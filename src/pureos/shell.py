@@ -119,7 +119,7 @@ class Shell:
 
             buffer = io.StringIO()
             with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
-                success = self._execute_internal(line)
+                self._execute_internal(line)
             return buffer.getvalue().strip()
         else:
             return self._execute_internal(line)

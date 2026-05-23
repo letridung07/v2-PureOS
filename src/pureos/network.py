@@ -5,7 +5,7 @@ import random
 import socket
 import struct
 import threading
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from .drivers import Driver
 

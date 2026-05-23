@@ -46,9 +46,7 @@ def _http_server_service(kernel, stop_event=None):
                     self.send_header("Content-type", "text/html")
                     self.end_headers()
                     self.wfile.write(
-                        content.encode("utf-8")
-                        if isinstance(content, str)
-                        else content
+                        content.encode("utf-8") if isinstance(content, str) else content
                     )
                 else:
                     self.send_error(404, "File Not Found")

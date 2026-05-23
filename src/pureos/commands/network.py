@@ -132,7 +132,8 @@ class IfconfigCommand(Command):
             # Fallback to legacy mock if driver is not loaded
             out = (
                 "eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500\n"
-                "        inet 192.168.1.105  netmask 255.255.255.0  broadcast 192.168.1.255\n"
+                "        inet 192.168.1.105  netmask 255.255.255.0  "
+                "broadcast 192.168.1.255\n"
                 "        ether 00:11:22:33:44:55  txqueuelen 1000  (Ethernet)\n"
                 "        RX packets 1234  bytes 123456 (123.4 KB)\n"
                 "        TX packets 567   bytes 56789 (56.7 KB)\n"
@@ -157,7 +158,8 @@ class IfconfigCommand(Command):
                 f"{name}: flags=4163<{status},BROADCAST,RUNNING,MULTICAST>  mtu 1500"
             )
             out_lines.append(
-                f"        inet {info['ip']}  netmask {info['mask']}  broadcast 192.168.1.255"
+                f"        inet {info['ip']}  netmask {info['mask']}  "
+                "broadcast 192.168.1.255"
             )
             out_lines.append(
                 f"        ether {info['mac']}  txqueuelen 1000  (Ethernet)"
@@ -569,11 +571,13 @@ class SsCommand(Command):
         if not net_driver:
             # Simulated — show a static table if driver is not available
             out_lines = [
-                "Netid  State      Recv-Q  Send-Q  Local Address:Port  Peer Address:Port",
-                "tcp    LISTEN     0       128     0.0.0.0:22           0.0.0.0:*",
-                "tcp    LISTEN     0       128     127.0.0.1:6379       0.0.0.0:*",
-                "tcp    ESTAB      0       0       192.168.1.105:22     192.168.1.10:54321",
-                "udp    UNCONN     0       0       0.0.0.0:68           0.0.0.0:*",
+                "Netid  State      Recv-Q  Send-Q  Local Address:Port  "
+                "Peer Address:Port",
+                "tcp    LISTEN     0       128     0.0.0.0:22           " "0.0.0.0:*",
+                "tcp    LISTEN     0       128     127.0.0.1:6379       " "0.0.0.0:*",
+                "tcp    ESTAB      0       0       192.168.1.105:22     "
+                "192.168.1.10:54321",
+                "udp    UNCONN     0       0       0.0.0.0:68           " "0.0.0.0:*",
             ]
             return self.emit("\n".join(out_lines), capture_output)
 
@@ -583,7 +587,8 @@ class SsCommand(Command):
         with net_driver._lock:
             for s in net_driver.sockets:
                 out_lines.append(
-                    f"{s['proto']:<6} {s['state']:<10} 0       0       {s['local']:<19} {s['remote']:<19}"
+                    f"{s['proto']:<6} {s['state']:<10} 0       0       "
+                    f"{s['local']:<19} {s['remote']:<19}"
                 )
 
         if len(out_lines) == 1:
@@ -661,7 +666,8 @@ class ArpCommand(Command):
 
         if len(parts) == 1 or parts[1] == "-a":
             out_lines = [
-                "Address                  HWtype  HWaddress           Flags Mask            Iface"
+                "Address                  HWtype  HWaddress           "
+                "Flags Mask            Iface"
             ]
             with net_driver._lock:
                 for ip, mac in net_driver.arp_table.items():
@@ -714,8 +720,9 @@ class DigCommand(Command):
             f"; <<>> DiG 9.16.1-Ubuntu <<>> {host}",
             ";; global options: +cmd",
             ";; Got answer:",
-            f";; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: {random.randint(1000, 9999)}",
-            ";; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1",
+            f";; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: "
+            f"{random.randint(1000, 9999)}",
+            ";; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, " "ADDITIONAL: 1",
             "",
             ";; QUESTION SECTION:",
             f";{host}.            IN  A",
@@ -732,7 +739,7 @@ class DigCommand(Command):
                     f";; Query time: {random.randint(10, 50)} msec",
                     f";; SERVER: {ns}#53({ns})",
                     f";; WHEN: {time.ctime()}",
-                    f";; MSG SIZE  rcvd: 56",
+                    ";; MSG SIZE  rcvd: 56",
                 ]
             )
         except Exception as exc:
@@ -774,12 +781,16 @@ class NmcliCommand(Command):
             if parts[2] == "show":
                 out_lines = []
                 for name, info in net_driver.interfaces.items():
+                    state_desc = (
+                        "100 (connected)" if info["up"] else "30 (disconnected)"
+                    )
                     out_lines.extend(
                         [
                             f"GENERAL.DEVICE:                         {name}",
-                            f"GENERAL.TYPE:                           ethernet",
-                            f"GENERAL.STATE:                          {'100 (connected)' if info['up'] else '30 (disconnected)'}",
-                            f"IP4.ADDRESS[1]:                         {info['ip']}/{info['mask']}",
+                            "GENERAL.TYPE:                           ethernet",
+                            f"GENERAL.STATE:                          {state_desc}",
+                            f"IP4.ADDRESS[1]:                         "
+                            f"{info['ip']}/{info['mask']}",
                             "",
                         ]
                     )
