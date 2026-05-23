@@ -277,4 +277,3 @@ def register_builtin_services(kernel):
         description="HTTP server service on port 80",
         auto_start=False,
     )
-
