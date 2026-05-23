@@ -9,8 +9,8 @@ import socket
 import sys
 import time
 
-from . import __version__
-from . import run as run_pureos
+from .. import __version__
+from .. import run as run_pureos
 
 
 def banner() -> None:

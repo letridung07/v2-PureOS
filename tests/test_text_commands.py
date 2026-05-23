@@ -1,7 +1,7 @@
 """Tests for text pipeline commands: wc, grep, sort, uniq, cut, tr, xargs."""
 
 import pytest
-from pureos.kernel import Kernel
+from pureos.core.kernel import Kernel
 
 
 @pytest.fixture

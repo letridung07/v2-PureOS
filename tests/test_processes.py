@@ -4,10 +4,10 @@ import sys
 import time
 
 try:
-    processes = importlib.import_module("pureos.processes")
+    processes = importlib.import_module("pureos.subsystems.processes")
 except Exception:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    processes = importlib.import_module("pureos.processes")
+    processes = importlib.import_module("pureos.subsystems.processes")
 
 Scheduler = processes.Scheduler
 

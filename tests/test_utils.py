@@ -3,10 +3,10 @@ import os
 import sys
 
 try:
-    utils_mod = importlib.import_module("pureos.utils")
+    utils_mod = importlib.import_module("pureos.core.utils")
 except Exception:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    utils_mod = importlib.import_module("pureos.utils")
+    utils_mod = importlib.import_module("pureos.core.utils")
 
 human_list = utils_mod.human_list
 

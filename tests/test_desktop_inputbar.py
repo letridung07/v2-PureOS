@@ -1,7 +1,7 @@
 """Tests for the CommandInput line editor (non-curses logic)."""
 
-from pureos.desktop.curses_compat import curses
-from pureos.desktop.inputbar import CommandInput
+from pureos.shell.desktop.curses_compat import curses
+from pureos.shell.desktop.inputbar import CommandInput
 
 
 class DummyShell:

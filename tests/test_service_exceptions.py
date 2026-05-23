@@ -1,4 +1,4 @@
-from pureos.services import ServiceManager
+from pureos.subsystems.services import ServiceManager
 
 
 def test_service_start_records_failure():

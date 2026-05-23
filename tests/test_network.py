@@ -8,16 +8,16 @@ import sys
 import time
 
 try:
-    net_mod = importlib.import_module("pureos.network")
+    net_mod = importlib.import_module("pureos.drivers.network")
 except Exception:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    net_mod = importlib.import_module("pureos.network")
+    net_mod = importlib.import_module("pureos.drivers.network")
 
 try:
-    kernel_mod = importlib.import_module("pureos.kernel")
+    kernel_mod = importlib.import_module("pureos.core.kernel")
 except Exception:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    kernel_mod = importlib.import_module("pureos.kernel")
+    kernel_mod = importlib.import_module("pureos.core.kernel")
 
 start_echo_server = net_mod.start_echo_server
 Kernel = kernel_mod.Kernel

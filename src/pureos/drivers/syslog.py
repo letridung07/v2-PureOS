@@ -4,7 +4,7 @@ import logging
 import threading
 from typing import List, Dict, Any
 
-from .drivers import Driver
+from .base import Driver
 
 
 class SyslogHandler(logging.Handler):

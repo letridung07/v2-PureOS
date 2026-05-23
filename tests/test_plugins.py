@@ -1,7 +1,7 @@
 import sys
 import pytest
-from pureos.kernel import Kernel
-from pureos.drivers import Driver
+from pureos.core.kernel import Kernel
+from pureos.drivers.base import Driver
 
 
 @pytest.fixture
@@ -191,7 +191,7 @@ def test_driver_manager_start_driver_already_running():
 def test_driver_runtime_control_commands(kernel, shell):
     """Test runtime driver start/stop/status behavior."""
     driver_content = """
-from pureos.drivers import Driver
+from pureos.drivers.base import Driver
 
 class CmdDriver(Driver):
     name = "cmd_drv"
@@ -241,7 +241,7 @@ def test_driver_command(kernel, shell):
     """Test the 'driver' shell command."""
     # Write a driver to VFS
     driver_content = """
-from pureos.drivers import Driver
+from pureos.drivers.base import Driver
 class CmdDriver(Driver):
     name = "cmd_drv"
     description = "Test Driver"

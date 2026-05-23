@@ -1,5 +1,5 @@
 import pytest
-from pureos.kernel import Kernel
+from pureos.core.kernel import Kernel
 
 
 @pytest.fixture

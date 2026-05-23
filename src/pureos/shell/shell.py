@@ -3,7 +3,7 @@
 import re
 from typing import List, Optional
 
-from .commands import CommandRegistry
+from ..commands import CommandRegistry
 from .parser import split_command_sequence, split_pipeline, tokenize, split_redirection
 
 

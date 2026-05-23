@@ -1,5 +1,5 @@
 import pytest
-from pureos.kernel import Kernel
+from pureos.core.kernel import Kernel
 from unittest.mock import patch, MagicMock
 
 
@@ -109,7 +109,7 @@ class GreetCommand(Command):
     kernel.config.format_on_boot = False
 
     # Re-run boot sequence
-    from pureos.boot import run_boot_sequence
+    from pureos.core.boot import run_boot_sequence
 
     run_boot_sequence(kernel)
 

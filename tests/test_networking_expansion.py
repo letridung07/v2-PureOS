@@ -58,7 +58,7 @@ def test_dig_command(kernel, shell):
     # We'll mock query_dns_a to ensure it works predictably
     from unittest.mock import patch
 
-    with patch("pureos.network.query_dns_a", return_value="1.2.3.4"):
+    with patch("pureos.drivers.network.query_dns_a", return_value="1.2.3.4"):
         out = shell.execute("dig google.com", capture_output=True)
         assert "ANSWER SECTION" in out
         assert "1.2.3.4" in out
@@ -102,7 +102,7 @@ def test_http_server_and_curl(kernel, shell):
 def test_arp_persistence_across_reboot(tmp_path):
     # First boot
     backing = tmp_path / "store.json"
-    from pureos.kernel import Kernel
+    from pureos.core.kernel import Kernel
 
     k1 = Kernel(config={"fs_backing": str(backing)})
     k1.initialize()

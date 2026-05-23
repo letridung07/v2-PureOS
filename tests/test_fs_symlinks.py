@@ -1,7 +1,7 @@
 """Tests for Pillar 1: Filesystem Enhancements (symlinks, inodes, du, ln, readlink)."""
 
 import pytest
-from pureos.kernel import Kernel
+from pureos.core.kernel import Kernel
 
 
 @pytest.fixture
@@ -159,7 +159,7 @@ def test_chmod_sets_sticky_bit(kernel, shell):
 
 def test_hard_link_persistence(tmp_path):
     # Test persistence of hard link inode sharing across reboots
-    from pureos.kernel import Kernel
+    from pureos.core.kernel import Kernel
 
     store = str(tmp_path / "store.json")
     k = Kernel(config={"fs_backing": store})

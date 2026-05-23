@@ -1,7 +1,7 @@
 import time
 import pytest
-from pureos.kernel import Kernel
-from pureos.shell import Shell
+from pureos.core.kernel import Kernel
+from pureos.shell.shell import Shell
 
 
 @pytest.fixture

@@ -7,7 +7,7 @@ import struct
 import threading
 from typing import Dict, List, Tuple
 
-from .drivers import Driver
+from .base import Driver
 
 
 class NetworkDriver(Driver):

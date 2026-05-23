@@ -2,8 +2,8 @@
 
 import pytest
 from unittest.mock import patch
-from pureos.kernel import Kernel
-from pureos.users import User
+from pureos.core.kernel import Kernel
+from pureos.subsystems.users import User
 
 
 @pytest.fixture

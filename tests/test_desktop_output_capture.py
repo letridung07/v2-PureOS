@@ -1,7 +1,7 @@
 """Tests for the OutputCapture context manager."""
 
-from pureos.desktop.terminal import TerminalOutput
-from pureos.desktop.output_capture import OutputCapture
+from pureos.shell.desktop.terminal import TerminalOutput
+from pureos.shell.desktop.output_capture import OutputCapture
 
 
 class TestOutputCapture:

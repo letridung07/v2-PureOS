@@ -124,7 +124,7 @@ def test_virtualfs_permissions_and_listing(tmp_path):
 
 
 def test_grep_advanced_flags(tmp_path):
-    from pureos.kernel import Kernel
+    from pureos.core.kernel import Kernel
 
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
     k.initialize()
@@ -179,7 +179,7 @@ def test_grep_advanced_flags(tmp_path):
 
 
 def test_which_command(tmp_path):
-    from pureos.kernel import Kernel
+    from pureos.core.kernel import Kernel
 
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})
     k.initialize()
@@ -203,7 +203,7 @@ def test_which_command(tmp_path):
 
 
 def test_sleep_command(tmp_path):
-    from pureos.kernel import Kernel
+    from pureos.core.kernel import Kernel
     import time
 
     k = Kernel(config={"fs_backing": str(tmp_path / "store.json")})

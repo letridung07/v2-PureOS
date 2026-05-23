@@ -5,7 +5,7 @@ import urllib.parse
 import urllib.request
 from typing import List
 
-from ..network import resolve_host
+from ..drivers.network import resolve_host
 from .base import Command, PureOSArgumentParser
 
 
@@ -40,7 +40,7 @@ class NetcatCommand(Command):
             msg = ""
 
         try:
-            from ..network import check_firewall
+            from ..drivers.network import check_firewall
 
             resolved_host = resolve_host(self.kernel.fs, host)
             if not check_firewall(self.kernel.fs, "OUTPUT", resolved_host, port):
@@ -86,7 +86,7 @@ class PingCommand(Command):
 
         if port is not None:
             try:
-                from ..network import check_firewall
+                from ..drivers.network import check_firewall
 
                 resolved_host = resolve_host(self.kernel.fs, host)
                 if not check_firewall(self.kernel.fs, "OUTPUT", resolved_host, port):
@@ -467,7 +467,7 @@ class NslookupCommand(Command):
         if len(parts) < 2:
             print("Usage: nslookup <domain>")
             return False
-        from ..network import get_nameservers
+        from ..drivers.network import get_nameservers
 
         domain = parts[1]
         nameservers = get_nameservers(self.kernel.fs)
@@ -711,7 +711,7 @@ class DigCommand(Command):
             return False
         host = parts[1]
 
-        from ..network import get_nameservers, query_dns_a
+        from ..drivers.network import get_nameservers, query_dns_a
 
         nameservers = get_nameservers(self.kernel.fs)
         ns = nameservers[0] if nameservers else "8.8.8.8"

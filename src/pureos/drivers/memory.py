@@ -4,7 +4,7 @@ import threading
 import time
 from typing import Dict, Tuple
 
-from .drivers import Driver
+from .base import Driver
 
 
 class MemoryDriver(Driver):

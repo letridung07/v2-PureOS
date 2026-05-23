@@ -1,7 +1,7 @@
 """Tests for POSIX File Permissions: Sticky bit, Execute bits, and SUID/SGID."""
 
 import pytest
-from pureos.kernel import Kernel
+from pureos.core.kernel import Kernel
 
 
 @pytest.fixture

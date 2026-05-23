@@ -4,12 +4,12 @@ import sys
 from unittest.mock import MagicMock, patch
 
 try:
-    builtin_services = importlib.import_module("pureos.builtin_services")
-    kernel_mod = importlib.import_module("pureos.kernel")
+    builtin_services = importlib.import_module("pureos.subsystems.builtin_services")
+    kernel_mod = importlib.import_module("pureos.core.kernel")
 except Exception:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    builtin_services = importlib.import_module("pureos.builtin_services")
-    kernel_mod = importlib.import_module("pureos.kernel")
+    builtin_services = importlib.import_module("pureos.subsystems.builtin_services")
+    kernel_mod = importlib.import_module("pureos.core.kernel")
 
 _field_matches = builtin_services._field_matches
 _cron_service = builtin_services._cron_service
@@ -59,7 +59,7 @@ def test_cron_service_executes_job():
     kernel.fs.write("/etc/crontab", "* * * * * echo 'hello' >> /tmp/out.log")
 
     # Mock datetime.datetime using MagicMock
-    with patch("pureos.builtin_services.datetime") as mock_datetime:
+    with patch("pureos.subsystems.builtin_services.datetime") as mock_datetime:
         mock_dt = MagicMock()
         mock_dt.year = 2026
         mock_dt.minute = 15

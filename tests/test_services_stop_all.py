@@ -1,6 +1,6 @@
 import time
 
-from pureos.services import ServiceManager
+from pureos.subsystems.services import ServiceManager
 
 
 def test_stop_all_no_threads():

@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from pureos.desktop.statusbar import StatusBar
+from pureos.shell.desktop.statusbar import StatusBar
 
 
 class TestStatusBar:

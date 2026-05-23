@@ -4,10 +4,10 @@ import sys
 import time
 
 try:
-    services_mod = importlib.import_module("pureos.services")
+    services_mod = importlib.import_module("pureos.subsystems.services")
 except Exception:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    services_mod = importlib.import_module("pureos.services")
+    services_mod = importlib.import_module("pureos.subsystems.services")
 
 ServiceManager = services_mod.ServiceManager
 

@@ -4,11 +4,11 @@ import os
 import sys
 
 try:
-    cli_mod = importlib.import_module("pureos.cli")
+    cli_mod = importlib.import_module("pureos.shell.cli")
     pureos_mod = importlib.import_module("pureos")
 except Exception:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    cli_mod = importlib.import_module("pureos.cli")
+    cli_mod = importlib.import_module("pureos.shell.cli")
     pureos_mod = importlib.import_module("pureos")
 
 

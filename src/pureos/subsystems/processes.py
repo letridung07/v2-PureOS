@@ -9,7 +9,7 @@ import time
 from typing import Optional, Callable, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .memory import MemoryDriver
+    from ..drivers.memory import MemoryDriver
 
 
 @dataclass

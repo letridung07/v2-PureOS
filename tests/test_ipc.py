@@ -2,8 +2,8 @@ import time
 import pytest
 import threading
 
-from pureos.kernel import Kernel
-from pureos.ipc import IPC_CREAT, IPC_EXCL, IPC_PRIVATE
+from pureos.core.kernel import Kernel
+from pureos.subsystems.ipc import IPC_CREAT, IPC_EXCL, IPC_PRIVATE
 
 
 @pytest.fixture

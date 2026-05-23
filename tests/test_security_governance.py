@@ -1,6 +1,6 @@
 import pytest
 import time
-from pureos.kernel import Kernel
+from pureos.core.kernel import Kernel
 
 
 @pytest.fixture
@@ -83,7 +83,7 @@ def test_firewall_enforcement(kernel):
     # Try to resolve a host which would trigger check_firewall in resolve_host
     kernel.fs.write("/etc/resolv.conf", "nameserver 8.8.8.8\n")
 
-    from pureos.network import resolve_host
+    from pureos.drivers.network import resolve_host
 
     with pytest.raises(ConnectionError) as exc:
         resolve_host(kernel.fs, "google.com")

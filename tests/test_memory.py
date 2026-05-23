@@ -4,14 +4,14 @@ import sys
 import pytest
 
 try:
-    kernel_mod = importlib.import_module("pureos.kernel")
-    memory_mod = importlib.import_module("pureos.memory")
-    processes_mod = importlib.import_module("pureos.processes")
+    kernel_mod = importlib.import_module("pureos.core.kernel")
+    memory_mod = importlib.import_module("pureos.drivers.memory")
+    processes_mod = importlib.import_module("pureos.subsystems.processes")
 except Exception:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    kernel_mod = importlib.import_module("pureos.kernel")
-    memory_mod = importlib.import_module("pureos.memory")
-    processes_mod = importlib.import_module("pureos.processes")
+    kernel_mod = importlib.import_module("pureos.core.kernel")
+    memory_mod = importlib.import_module("pureos.drivers.memory")
+    processes_mod = importlib.import_module("pureos.subsystems.processes")
 
 Kernel = kernel_mod.Kernel
 MemoryDriver = memory_mod.MemoryDriver

@@ -1,6 +1,6 @@
 """Tests for the --desktop CLI flag."""
 
-from pureos.cli import parse_args
+from pureos.shell.cli import parse_args
 
 
 class TestDesktopCliFlag:

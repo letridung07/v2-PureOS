@@ -1,6 +1,6 @@
 """Tests for the TerminalOutput scrollable buffer."""
 
-from pureos.desktop.terminal import TerminalOutput
+from pureos.shell.desktop.terminal import TerminalOutput
 
 
 class TestTerminalOutput:

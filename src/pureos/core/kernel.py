@@ -5,15 +5,15 @@ import time
 from typing import Callable, List, Optional
 
 from .config import Config
-from .fs import VirtualFS
-from .fs.importer import VFSImporter
-from .processes import Scheduler
-from .services import ServiceManager
-from .drivers import DriverManager
-from .pkg import PackageManager
-from .shell import Shell
+from ..fs import VirtualFS
+from ..fs.importer import VFSImporter
+from ..subsystems.processes import Scheduler
+from ..subsystems.services import ServiceManager
+from ..drivers.base import DriverManager
+from ..subsystems.pkg import PackageManager
+from ..shell.shell import Shell
 from .boot import run_boot_sequence
-from .builtin_services import register_builtin_services
+from ..subsystems.builtin_services import register_builtin_services
 
 
 class Kernel:
@@ -26,16 +26,16 @@ class Kernel:
         # Register VFS Importer early
         self.importer = VFSImporter.register(self.fs)
 
-        from .users import UserDB
+        from ..subsystems.users import UserDB
 
         self.users = UserDB(self)
         self.scheduler = Scheduler()
         self.services = ServiceManager()
         self.drivers = DriverManager(self)
-        from .ipc import IPCManager
+        from ..subsystems.ipc import IPCManager
 
         self.ipc = IPCManager(self)
-        from .commands import CommandRegistry
+        from ..commands import CommandRegistry
 
         self.registry = CommandRegistry(self)
         self.package_manager = PackageManager(self)
@@ -73,10 +73,10 @@ class Kernel:
         if self.users:
             self.users.initialize()
 
-        from .memory import MemoryDriver
-        from .syslog import SyslogDriver
-        from .audit import AuditDriver
-        from .network import NetworkDriver
+        from ..drivers.memory import MemoryDriver
+        from ..drivers.syslog import SyslogDriver
+        from ..drivers.audit import AuditDriver
+        from ..drivers.network import NetworkDriver
 
         mem_driver = self.drivers.load_driver(MemoryDriver)
         if mem_driver:

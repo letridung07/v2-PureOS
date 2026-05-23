@@ -5,7 +5,7 @@ Small collection of OS-like components.
 
 from typing import Optional
 
-from .kernel import Kernel
+from .core.kernel import Kernel
 
 __version__ = "0.1.0"
 
@@ -15,7 +15,7 @@ def run(shell: bool = False, desktop: bool = False, config: Optional[dict] = Non
     k = Kernel(config=config)
     k.initialize()
     if desktop:
-        from .desktop import Desktop
+        from .shell.desktop.desktop import Desktop
 
         Desktop(k).run()
     elif shell:

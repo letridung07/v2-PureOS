@@ -6,7 +6,7 @@ import sys
 import traceback
 from typing import Dict, List, Optional, Sequence, Union, Set
 
-from ..parser import tokenize
+from ..shell.parser import tokenize
 from .base import Command, CommandResult
 
 
@@ -308,9 +308,9 @@ class CommandRegistry:
             self._push_to_stack(alias, owner, command)
 
     def _register_default_commands(self):
-        import pureos.commands
+        import pureos.commands as commands_pkg
 
-        package = pureos.commands
+        package = commands_pkg
         for _, module_name, is_pkg in pkgutil.walk_packages(
             package.__path__, package.__name__ + "."
         ):

@@ -15,7 +15,7 @@ if src_path not in sys.path:
 try:
     import curses  # noqa: F401
 except (ImportError, ModuleNotFoundError):
-    from pureos.desktop.curses_compat import curses as mock_curses
+    from pureos.shell.desktop.curses_compat import curses as mock_curses
 
     sys.modules["curses"] = mock_curses
     sys.modules["curses.ascii"] = mock_curses.ascii
@@ -23,9 +23,9 @@ except (ImportError, ModuleNotFoundError):
 
 # Ensure pureos is importable
 try:
-    from pureos.kernel import Kernel
+    from pureos.core.kernel import Kernel
 except Exception:
-    from pureos.kernel import Kernel
+    from pureos.core.kernel import Kernel
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 """Tests for Pillar 2: Shell UX & Scripting features."""
 
 import pytest
-from pureos.kernel import Kernel
+from pureos.core.kernel import Kernel
 
 
 @pytest.fixture

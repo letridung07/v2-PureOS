@@ -5,12 +5,12 @@ import os
 import sys
 
 try:
-    kernel_mod = importlib.import_module("pureos.kernel")
-    boot_mod = importlib.import_module("pureos.boot")
+    kernel_mod = importlib.import_module("pureos.core.kernel")
+    boot_mod = importlib.import_module("pureos.core.boot")
 except Exception:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
-    kernel_mod = importlib.import_module("pureos.kernel")
-    boot_mod = importlib.import_module("pureos.boot")
+    kernel_mod = importlib.import_module("pureos.core.kernel")
+    boot_mod = importlib.import_module("pureos.core.boot")
 
 Kernel = kernel_mod.Kernel
 
