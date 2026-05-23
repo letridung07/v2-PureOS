@@ -1,8 +1,6 @@
 __version__ = "0.1.0"
 
 from typing import Optional
-from .kernel import Kernel
-from .config import Config
 
 
 def run(shell: bool = False, desktop: bool = False, config: Optional[dict] = None):
@@ -17,5 +15,8 @@ def run(shell: bool = False, desktop: bool = False, config: Optional[dict] = Non
         k.shell.run()
     return k
 
+
+from .kernel import Kernel
+from .config import Config
 
 __all__ = ["Kernel", "Config", "__version__", "run"]
