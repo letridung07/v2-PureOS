@@ -1,4 +1,6 @@
+import random
 import socket
+import time
 import urllib.parse
 import urllib.request
 from typing import List
@@ -115,7 +117,7 @@ class PingCommand(Command):
 
 class IfconfigCommand(Command):
     name = "ifconfig"
-    usage = "ifconfig"
+    usage = "ifconfig [interface]"
     description = "Display network interface configuration."
 
     def execute(
@@ -125,13 +127,44 @@ class IfconfigCommand(Command):
         capture_output=False,
         raw_line=None,
     ):
-        out = (
-            "lo0: flags=8049<UP,LOOPBACK,RUNNING,MULTICAST> mtu 16384\n"
-            "     inet 127.0.0.1 netmask 0xff000000\n"
-            "eth0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500\n"
-            "     inet 192.168.1.105 netmask 0xffffff00 broadcast 192.168.1.255\n"
-            "     ether 00:1a:2b:3c:4d:5e"
-        )
+        net_driver = self.kernel.drivers.drivers.get("network")
+        if not net_driver:
+            # Fallback to legacy mock if driver is not loaded
+            out = (
+                "eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500\n"
+                "        inet 192.168.1.105  netmask 255.255.255.0  broadcast 192.168.1.255\n"
+                "        ether 00:11:22:33:44:55  txqueuelen 1000  (Ethernet)\n"
+                "        RX packets 1234  bytes 123456 (123.4 KB)\n"
+                "        TX packets 567   bytes 56789 (56.7 KB)\n"
+                "\n"
+                "lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536\n"
+                "        inet 127.0.0.1  netmask 255.0.0.0\n"
+                "        loop  txqueuelen 1000  (Local Loopback)\n"
+                "        RX packets 10    bytes 1000 (1.0 KB)\n"
+                "        TX packets 10    bytes 1000 (1.0 KB)"
+            )
+            return self.emit(out, capture_output)
+
+        out_lines = []
+        target_iface = parts[1] if len(parts) > 1 else None
+
+        for name, info in net_driver.interfaces.items():
+            if target_iface and name != target_iface:
+                continue
+
+            status = "UP" if info["up"] else "DOWN"
+            out_lines.append(
+                f"{name}: flags=4163<{status},BROADCAST,RUNNING,MULTICAST>  mtu 1500"
+            )
+            out_lines.append(
+                f"        inet {info['ip']}  netmask {info['mask']}  broadcast 192.168.1.255"
+            )
+            out_lines.append(
+                f"        ether {info['mac']}  txqueuelen 1000  (Ethernet)"
+            )
+            out_lines.append("")
+
+        out = "\n".join(out_lines).strip()
         return self.emit(out, capture_output)
 
 
@@ -523,7 +556,7 @@ class IpCommand(Command):
 class SsCommand(Command):
     name = "ss"
     usage = "ss [-t] [-u] [-l]"
-    description = "Show mock socket statistics."
+    description = "Show live socket statistics from the network driver."
 
     def execute(
         self,
@@ -532,16 +565,31 @@ class SsCommand(Command):
         capture_output=False,
         raw_line=None,
     ):
-        # Simulated — show a static table of connections
+        net_driver = self.kernel.drivers.drivers.get("network")
+        if not net_driver:
+            # Simulated — show a static table if driver is not available
+            out_lines = [
+                "Netid  State      Recv-Q  Send-Q  Local Address:Port  Peer Address:Port",
+                "tcp    LISTEN     0       128     0.0.0.0:22           0.0.0.0:*",
+                "tcp    LISTEN     0       128     127.0.0.1:6379       0.0.0.0:*",
+                "tcp    ESTAB      0       0       192.168.1.105:22     192.168.1.10:54321",
+                "udp    UNCONN     0       0       0.0.0.0:68           0.0.0.0:*",
+            ]
+            return self.emit("\n".join(out_lines), capture_output)
+
         out_lines = [
-            "Netid  State      Recv-Q  Send-Q  Local Address:Port  Peer Address:Port",
-            "tcp    LISTEN     0       128     0.0.0.0:22           0.0.0.0:*",
-            "tcp    LISTEN     0       128     127.0.0.1:6379       0.0.0.0:*",
-            "tcp    ESTAB      0       0       192.168.1.105:22     192.168.1.10:54321",
-            "udp    UNCONN     0       0       0.0.0.0:68           0.0.0.0:*",
+            "Netid  State      Recv-Q  Send-Q  Local Address:Port  Peer Address:Port"
         ]
-        out = "\n".join(out_lines)
-        return self.emit(out, capture_output)
+        with net_driver._lock:
+            for s in net_driver.sockets:
+                out_lines.append(
+                    f"{s['proto']:<6} {s['state']:<10} 0       0       {s['local']:<19} {s['remote']:<19}"
+                )
+
+        if len(out_lines) == 1:
+            out_lines.append("(no active sockets found)")
+
+        return self.emit("\n".join(out_lines), capture_output)
 
 
 # ---------------------------------------------------------------------------
@@ -592,3 +640,160 @@ class TracerouteCommand(Command):
             )
         out = "\n".join(out_lines)
         return self.emit(out, capture_output)
+
+
+class ArpCommand(Command):
+    name = "arp"
+    usage = "arp [-a] [-d <ip>] [-s <ip> <mac>]"
+    description = "List and manage the simulated ARP cache."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        net_driver = self.kernel.drivers.drivers.get("network")
+        if not net_driver:
+            print("arp: network driver not loaded")
+            return False
+
+        if len(parts) == 1 or parts[1] == "-a":
+            out_lines = [
+                "Address                  HWtype  HWaddress           Flags Mask            Iface"
+            ]
+            with net_driver._lock:
+                for ip, mac in net_driver.arp_table.items():
+                    out_lines.append(
+                        f"{ip:<24} ether   {mac:<19} C                     eth0"
+                    )
+            return self.emit("\n".join(out_lines), capture_output)
+
+        if len(parts) > 2 and parts[1] == "-d":
+            ip = parts[2]
+            with net_driver._lock:
+                if ip in net_driver.arp_table:
+                    del net_driver.arp_table[ip]
+                    net_driver.save_arp_cache()
+            return True
+
+        if len(parts) > 3 and parts[1] == "-s":
+            ip = parts[2]
+            mac = parts[3]
+            net_driver.add_arp_entry(ip, mac)
+            return True
+
+        print(f"Usage: {self.usage}")
+        return False
+
+
+class DigCommand(Command):
+    name = "dig"
+    usage = "dig <host>"
+    description = "Detailed DNS query tool."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        if len(parts) < 2:
+            print(f"Usage: {self.usage}")
+            return False
+        host = parts[1]
+
+        from ..network import get_nameservers, query_dns_a
+
+        nameservers = get_nameservers(self.kernel.fs)
+        ns = nameservers[0] if nameservers else "8.8.8.8"
+
+        out_lines = [
+            f"; <<>> DiG 9.16.1-Ubuntu <<>> {host}",
+            ";; global options: +cmd",
+            ";; Got answer:",
+            f";; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: {random.randint(1000, 9999)}",
+            ";; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1",
+            "",
+            ";; QUESTION SECTION:",
+            f";{host}.            IN  A",
+            "",
+        ]
+
+        try:
+            ip = query_dns_a(ns, host)
+            out_lines.extend(
+                [
+                    ";; ANSWER SECTION:",
+                    f"{host}.         60  IN  A   {ip}",
+                    "",
+                    f";; Query time: {random.randint(10, 50)} msec",
+                    f";; SERVER: {ns}#53({ns})",
+                    f";; WHEN: {time.ctime()}",
+                    f";; MSG SIZE  rcvd: 56",
+                ]
+            )
+        except Exception as exc:
+            out_lines.append(f";; ERROR: {exc}")
+
+        return self.emit("\n".join(out_lines), capture_output)
+
+
+class NmcliCommand(Command):
+    name = "nmcli"
+    usage = "nmcli device [status|show|set <iface> <up|down>]"
+    description = "Basic network interface management."
+
+    def execute(
+        self,
+        parts: List[str],
+        input_data=None,
+        capture_output=False,
+        raw_line=None,
+    ):
+        net_driver = self.kernel.drivers.drivers.get("network")
+        if not net_driver:
+            print("nmcli: network driver not loaded")
+            return False
+
+        if len(parts) < 2:
+            print(f"Usage: {self.usage}")
+            return False
+
+        sub = parts[1]
+        if sub == "device" or sub == "dev":
+            if len(parts) == 2 or parts[2] == "status":
+                out_lines = ["DEVICE  TYPE      STATE      CONNECTION"]
+                for name, info in net_driver.interfaces.items():
+                    state = "connected" if info["up"] else "disconnected"
+                    out_lines.append(f"{name:<7} ethernet  {state:<10} {name}")
+                return self.emit("\n".join(out_lines), capture_output)
+
+            if parts[2] == "show":
+                out_lines = []
+                for name, info in net_driver.interfaces.items():
+                    out_lines.extend(
+                        [
+                            f"GENERAL.DEVICE:                         {name}",
+                            f"GENERAL.TYPE:                           ethernet",
+                            f"GENERAL.STATE:                          {'100 (connected)' if info['up'] else '30 (disconnected)'}",
+                            f"IP4.ADDRESS[1]:                         {info['ip']}/{info['mask']}",
+                            "",
+                        ]
+                    )
+                return self.emit("\n".join(out_lines), capture_output)
+
+            if len(parts) > 4 and parts[2] == "set":
+                iface = parts[3]
+                action = parts[4]
+                if iface in net_driver.interfaces:
+                    net_driver.interfaces[iface]["up"] = action == "up"
+                    return True
+                else:
+                    print(f"Error: Device '{iface}' not found.")
+                    return False
+
+        print(f"Usage: {self.usage}")
+        return False

@@ -26,6 +26,73 @@ def _echo_server_service(stop_event=None):
     thread.join()
 
 
+def _http_server_service(kernel, stop_event=None):
+    import http.server
+    import socketserver
+
+    class VFSHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            path = self.path
+            if path == "/":
+                path = "/index.html"
+
+            # Simple path resolution for /var/www/html
+            vfs_path = f"/var/www/html{path}"
+
+            try:
+                if kernel.fs.exists(vfs_path):
+                    content = kernel.fs.read(vfs_path)
+                    self.send_response(200)
+                    self.send_header("Content-type", "text/html")
+                    self.end_headers()
+                    self.wfile.write(
+                        content.encode("utf-8")
+                        if isinstance(content, str)
+                        else content
+                    )
+                else:
+                    self.send_error(404, "File Not Found")
+            except Exception as e:
+                self.send_error(500, str(e))
+
+        def log_message(self, format, *args):
+            # Log to kernel logger instead of stderr
+            kernel.logger.info("HTTP: " + (format % args))
+
+    port = 80
+    handler = VFSHandler
+
+    # We'll try port 80, if fails try 8080 (common for dev), then try any ephemeral port
+    httpd = None
+    try:
+        httpd = socketserver.TCPServer(("127.0.0.1", port), handler)
+    except Exception:
+        try:
+            port = 8080
+            httpd = socketserver.TCPServer(("127.0.0.1", port), handler)
+        except Exception:
+            try:
+                port = 0
+                httpd = socketserver.TCPServer(("127.0.0.1", port), handler)
+                port = httpd.server_address[1]
+            except Exception as exc:
+                kernel.logger.error("Failed to start HTTP server: %s", exc)
+                return
+
+    # Register socket in driver
+    net_driver = kernel.drivers.drivers.get("network")
+    if net_driver:
+        net_driver.add_socket("tcp", "LISTEN", f"127.0.0.1:{port}", "0.0.0.0:*")
+
+    httpd.timeout = 0.5
+    while not (stop_event and stop_event.is_set()):
+        httpd.handle_request()
+
+    httpd.server_close()
+    if net_driver:
+        net_driver.remove_socket(f"127.0.0.1:{port}", "0.0.0.0:*")
+
+
 def _field_matches(
     field_str: str, current_val: int, min_val: int, max_val: int
 ) -> bool:
@@ -202,4 +269,13 @@ def register_builtin_services(kernel):
         stoppable=True,
         description="Cron daemon background service",
         auto_start=True,
+    )
+
+    kernel.register_service(
+        "http_server",
+        lambda stop_event=None: _http_server_service(kernel, stop_event),
+        daemon=True,
+        stoppable=True,
+        description="HTTP server service on port 80",
+        auto_start=False,
     )

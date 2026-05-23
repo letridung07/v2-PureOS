@@ -71,7 +71,12 @@ class Shell:
             f"{base}{path}", is_dir=is_dir, allow_dir=allow_dir
         )
 
-    def execute(self, line: str, add_to_history: bool = True):
+    def execute(
+        self,
+        line: str,
+        add_to_history: bool = True,
+        capture_output: bool = False,
+    ):
         line = line.strip()
         if not line:
             return None
@@ -101,10 +106,25 @@ class Shell:
                     self.env["?"] = "1"
                     return False
             print(recalled)
-            return self.execute(recalled, add_to_history=add_to_history)
+            return self.execute(
+                recalled, add_to_history=add_to_history, capture_output=capture_output
+            )
 
         if add_to_history:
             self.history.append(line)
+
+        if capture_output:
+            import contextlib
+            import io
+
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer), contextlib.redirect_stderr(buffer):
+                success = self._execute_internal(line)
+            return buffer.getvalue().strip()
+        else:
+            return self._execute_internal(line)
+
+    def _execute_internal(self, line: str):
         commands = split_command_sequence(line)
         success = True
         next_conditional = None

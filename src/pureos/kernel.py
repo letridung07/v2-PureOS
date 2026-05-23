@@ -76,6 +76,7 @@ class Kernel:
         from .memory import MemoryDriver
         from .syslog import SyslogDriver
         from .audit import AuditDriver
+        from .network import NetworkDriver
 
         mem_driver = self.drivers.load_driver(MemoryDriver)
         if mem_driver:
@@ -84,8 +85,11 @@ class Kernel:
         try:
             self.drivers.load_driver(SyslogDriver)
             self.drivers.load_driver(AuditDriver)
+            self.drivers.load_driver(NetworkDriver)
         except Exception as exc:
-            self.logger.error("Failed to load SyslogDriver or AuditDriver: %s", exc)
+            self.logger.error(
+                "Failed to load SyslogDriver, AuditDriver or NetworkDriver: %s", exc
+            )
 
         print("Kernel: starting drivers...")
         try:

@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project specific
+.antigravitycli/
+.commandcode/
+.openclaude/
+.gemini/
+test_results.txt
+*.json
+!pyproject.toml

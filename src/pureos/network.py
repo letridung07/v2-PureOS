@@ -1,10 +1,89 @@
 """Minimal networking utilities for v2-PureOS."""
 
+import json
 import random
 import socket
 import struct
 import threading
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
+
+from .drivers import Driver
+
+
+class NetworkDriver(Driver):
+    """Manages simulated network hardware and states."""
+
+    name = "network"
+    description = "Network state management driver"
+
+    def __init__(self, kernel):
+        super().__init__(kernel)
+        self.interfaces = {
+            "eth0": {
+                "up": True,
+                "ip": "192.168.1.105",
+                "mac": "00:11:22:33:44:55",
+                "mask": "255.255.255.0",
+            },
+            "lo0": {
+                "up": True,
+                "ip": "127.0.0.1",
+                "mac": "00:00:00:00:00:00",
+                "mask": "255.0.0.0",
+            },
+        }
+        self.arp_table: Dict[str, str] = {}
+        self.routing_table: List[dict] = [
+            {"dest": "0.0.0.0/0", "gw": "192.168.1.1", "iface": "eth0"},
+            {"dest": "127.0.0.0/8", "gw": "0.0.0.0", "iface": "lo0"},
+        ]
+        self.sockets: List[dict] = []  # List of {proto, state, local, remote, pid}
+        self._lock = threading.Lock()
+
+    def on_load(self):
+        self.load_arp_cache()
+
+    def load_arp_cache(self):
+        cache_path = "/etc/arp.cache"
+        if self.kernel.fs.exists(cache_path):
+            try:
+                content = self.kernel.fs.read(cache_path)
+                if content:
+                    self.arp_table = json.loads(content)
+            except Exception:
+                self.logger.warning("Failed to load ARP cache")
+
+    def save_arp_cache(self):
+        cache_path = "/etc/arp.cache"
+        try:
+            self.kernel.fs.write(cache_path, json.dumps(self.arp_table))
+        except Exception:
+            self.logger.warning("Failed to save ARP cache")
+
+    def add_arp_entry(self, ip: str, mac: str):
+        with self._lock:
+            self.arp_table[ip] = mac
+        self.save_arp_cache()
+
+    def add_socket(self, proto, state, local, remote, pid=None):
+        with self._lock:
+            self.sockets.append(
+                {
+                    "proto": proto,
+                    "state": state,
+                    "local": local,
+                    "remote": remote,
+                    "pid": pid,
+                }
+            )
+
+    def remove_socket(self, local, remote):
+        with self._lock:
+            self.sockets = [
+                s
+                for s in self.sockets
+                if not (s["local"] == local and s["remote"] == remote)
+            ]
 
 
 def start_echo_server(
