@@ -16,7 +16,7 @@ def run(shell: bool = False, desktop: bool = False, config: Optional[dict] = Non
     return k
 
 
-from .kernel import Kernel
-from .config import Config
+from .kernel import Kernel  # noqa: E402
+from .config import Config  # noqa: E402
 
 __all__ = ["Kernel", "Config", "__version__", "run"]
